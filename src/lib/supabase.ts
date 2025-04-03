@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { ApplicationForm, Dealer, ApplicationDownload } from './types';
 

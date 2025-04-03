@@ -30,6 +30,9 @@ export type ApplicationForm = {
   // Metadata
   submissionDate?: string;
   applicationId?: string;
+  isLocked?: boolean;
+  lockExpiresAt?: string;
+  lockedBy?: string;
 }
 
 export type Dealer = {
@@ -38,7 +41,9 @@ export type Dealer = {
   name: string;
   company: string;
   isAdmin: boolean;
+  isActive: boolean;
   passwordHash: string;
+  stripeCustomerId?: string;
 }
 
 export type ApplicationDownload = {
@@ -49,4 +54,11 @@ export type ApplicationDownload = {
   paymentAmount: number;
   paymentStatus: 'pending' | 'completed' | 'failed';
   paymentId?: string;
+  isDiscounted: boolean;
+}
+
+export type SystemSettings = {
+  standardPrice: number;
+  discountedPrice: number;
+  lockoutPeriodHours: number;
 }

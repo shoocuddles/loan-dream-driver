@@ -42,17 +42,27 @@ const Dealers = () => {
         return;
       }
       
-      await signInDealer(loginEmail, loginPassword);
+      const result = await signInDealer(loginEmail, loginPassword);
+      
       toast({
         title: "Login Successful",
         description: "Welcome back to Ontario Loans dealer portal.",
       });
-      navigate('/dealer-dashboard');
+      
+      // Smart routing based on user role
+      const isAdmin = localStorage.getItem('isAdmin') === 'true';
+      if (isAdmin) {
+        navigate('/admin-dashboard');
+      } else {
+        navigate('/dealer-dashboard');
+      }
     } catch (error) {
       console.error("Login error:", error);
       toast({
         title: "Login Failed",
-        description: "Invalid email or password. Please try again.",
+        description: typeof error === 'object' && error !== null && 'message' in error 
+          ? (error as Error).message 
+          : "Invalid email or password. Please try again.",
         variant: "destructive",
       });
     } finally {

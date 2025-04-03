@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { getApplicationsList, getApplicationDetails, recordDownload, signOutDealer, supabase } from "@/lib/supabase";
@@ -11,8 +12,11 @@ import "jspdf-autotable";
 
 const DealerDashboard = () => {
   const [applications, setApplications] = useState<any[]>([]);
+  const [displayedApplications, setDisplayedApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [hideDownloaded, setHideDownloaded] = useState(false);
+  const [downloadedApps, setDownloadedApps] = useState<string[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -27,6 +31,7 @@ const DealerDashboard = () => {
         }
         
         loadApplications();
+        loadDownloadHistory();
       } catch (error) {
         console.error("Auth check error:", error);
         navigate('/dealers');
@@ -36,11 +41,34 @@ const DealerDashboard = () => {
     checkAuth();
   }, [navigate]);
 
+  useEffect(() => {
+    // Filter applications based on toggle state
+    if (hideDownloaded) {
+      setDisplayedApplications(applications.filter(app => !downloadedApps.includes(app.applicationId)));
+    } else {
+      setDisplayedApplications(applications);
+    }
+  }, [applications, downloadedApps, hideDownloaded]);
+
+  const loadDownloadHistory = async () => {
+    try {
+      // In a real implementation, we would fetch this from Supabase
+      // For now, let's use localStorage as a mock implementation
+      const downloadHistory = localStorage.getItem('downloadedApplications');
+      if (downloadHistory) {
+        setDownloadedApps(JSON.parse(downloadHistory));
+      }
+    } catch (error) {
+      console.error("Error loading download history:", error);
+    }
+  };
+
   const loadApplications = async () => {
     try {
       setLoading(true);
       const appList = await getApplicationsList();
       setApplications(appList);
+      setDisplayedApplications(appList);
     } catch (error) {
       console.error("Error loading applications:", error);
       toast({
@@ -69,7 +97,12 @@ const DealerDashboard = () => {
       
       await recordDownload(applicationId, data.user.id, paymentAmount);
       
-      // 4. Generate PDF
+      // 4. Add to local download history
+      const updatedDownloads = [...downloadedApps, applicationId];
+      setDownloadedApps(updatedDownloads);
+      localStorage.setItem('downloadedApplications', JSON.stringify(updatedDownloads));
+      
+      // 5. Generate PDF
       const pdf = new jsPDF();
       
       // Add header
@@ -237,12 +270,27 @@ const DealerDashboard = () => {
           </div>
           
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-6">Available Loan Applications</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold">Available Loan Applications</h2>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="hide-downloaded"
+                  checked={hideDownloaded}
+                  onCheckedChange={setHideDownloaded}
+                />
+                <Label htmlFor="hide-downloaded">Hide Downloaded</Label>
+              </div>
+            </div>
             
             {loading ? (
               <p className="text-center py-8 text-gray-500">Loading applications...</p>
-            ) : applications.length === 0 ? (
-              <p className="text-center py-8 text-gray-500">No applications are currently available.</p>
+            ) : displayedApplications.length === 0 ? (
+              <p className="text-center py-8 text-gray-500">
+                {hideDownloaded 
+                  ? "You've downloaded all available applications. Switch toggle to show all." 
+                  : "No applications are currently available."
+                }
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
@@ -250,26 +298,41 @@ const DealerDashboard = () => {
                     <tr className="bg-ontario-blue text-white">
                       <th className="px-4 py-3 text-left">Submission Date</th>
                       <th className="px-4 py-3 text-left">Client</th>
+                      <th className="px-4 py-3 text-left">City</th>
                       <th className="px-4 py-3 text-left">Application ID</th>
                       <th className="px-4 py-3 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {applications.map((app) => (
+                    {displayedApplications.map((app) => (
                       <tr key={app.applicationId} className="border-b hover:bg-gray-50">
                         <td className="px-4 py-3">
                           {new Date(app.submissionDate).toLocaleDateString()}
                         </td>
-                        <td className="px-4 py-3">{app.fullName}</td>
+                        <td className="px-4 py-3">
+                          {app.fullName}
+                          {downloadedApps.includes(app.applicationId) && (
+                            <span className="ml-2 px-2 py-1 text-xs bg-gray-200 rounded-full">Downloaded</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">{app.city || "N/A"}</td>
                         <td className="px-4 py-3">{app.applicationId}</td>
                         <td className="px-4 py-3 text-center">
                           <Button
                             onClick={() => handleDownload(app.applicationId)}
                             disabled={processingId === app.applicationId}
-                            className="bg-ontario-blue hover:bg-ontario-blue/90"
+                            className={`${
+                              downloadedApps.includes(app.applicationId) 
+                                ? "bg-green-600 hover:bg-green-700" 
+                                : "bg-ontario-blue hover:bg-ontario-blue/90"
+                            }`}
                             size="sm"
                           >
-                            {processingId === app.applicationId ? "Processing..." : "Download PDF ($10.99)"}
+                            {processingId === app.applicationId 
+                              ? "Processing..." 
+                              : downloadedApps.includes(app.applicationId)
+                                ? "Download Again (Free)"
+                                : "Download PDF ($10.99)"}
                           </Button>
                         </td>
                       </tr>
@@ -281,7 +344,7 @@ const DealerDashboard = () => {
             
             <div className="mt-6">
               <p className="text-sm text-gray-500">
-                Note: You will be charged $10.99 for each application download. This provides you with full client details and contact information.
+                Note: You will be charged $10.99 for each new application download. Previously downloaded applications can be accessed for free.
               </p>
             </div>
           </div>

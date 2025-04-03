@@ -110,19 +110,21 @@ export const getApplicationsList = async () => {
       { 
         applicationId: 'MOCK-APP-1', 
         fullName: 'John D.', 
-        submissionDate: new Date().toISOString() 
+        submissionDate: new Date().toISOString(),
+        city: 'Toronto'
       },
       { 
         applicationId: 'MOCK-APP-2', 
         fullName: 'Jane S.', 
-        submissionDate: new Date(Date.now() - 86400000).toISOString() 
+        submissionDate: new Date(Date.now() - 86400000).toISOString(),
+        city: 'Ottawa'
       }
     ];
   }
 
   const { data, error } = await supabase
     .from('applications')
-    .select('applicationId, fullName, submissionDate')
+    .select('applicationId, fullName, submissionDate, city')
     .order('submissionDate', { ascending: false });
     
   if (error) throw error;

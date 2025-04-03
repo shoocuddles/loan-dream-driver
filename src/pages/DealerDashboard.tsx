@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -19,8 +20,8 @@ const DealerDashboard = () => {
     // Check if user is logged in
     const checkAuth = async () => {
       try {
-        const session = await supabase.auth.getSession();
-        if (!session.data.session) {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) {
           navigate('/dealers');
           return;
         }
@@ -63,10 +64,10 @@ const DealerDashboard = () => {
       const details = await getApplicationDetails(applicationId);
       
       // 3. Record the download
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) throw new Error("User not found");
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) throw new Error("User not found");
       
-      await recordDownload(applicationId, user.data.user.id, paymentAmount);
+      await recordDownload(applicationId, data.user.id, paymentAmount);
       
       // 4. Generate PDF
       const pdf = new jsPDF();

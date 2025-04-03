@@ -13,14 +13,19 @@ export const supabase = supabaseUrl && supabaseAnonKey
       // Mock implementation for development without Supabase credentials
       from: () => ({
         insert: async () => ({ data: null, error: null }),
-        select: async () => ({ data: [], error: null }),
-        eq: () => ({ single: async () => ({ data: null, error: null }) }),
-        order: () => ({ data: [], error: null }),
+        select: () => ({
+          data: [],
+          error: null,
+          eq: () => ({ single: async () => ({ data: null, error: null }) }),
+          order: () => ({ data: [], error: null }),
+        }),
       }),
       auth: {
         signUp: async () => ({ data: null, error: null }),
         signInWithPassword: async () => ({ data: null, error: null }),
         signOut: async () => ({ error: null }),
+        getSession: async () => ({ data: { session: null }, error: null }),
+        getUser: async () => ({ data: { user: null }, error: null }),
       },
     };
 

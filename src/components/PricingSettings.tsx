@@ -1,15 +1,17 @@
 
+// Fix TypeScript error by ensuring lockoutPeriodHours is a string in the input
 import { useState, useEffect } from "react";
-import { useToast } from "@/components/ui/use-toast";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { getSystemSettings, updateSystemSettings, DEFAULT_SETTINGS } from "@/lib/supabase";
-import { SystemSettings } from "@/lib/types";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { getSystemSettings, updateSystemSettings } from "@/lib/supabase";
+import { useToast } from "@/components/ui/use-toast";
 
 const PricingSettings = () => {
-  const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
+  const [standardPrice, setStandardPrice] = useState("");
+  const [discountedPrice, setDiscountedPrice] = useState("");
+  const [lockoutPeriod, setLockoutPeriod] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
@@ -18,13 +20,16 @@ const PricingSettings = () => {
     const loadSettings = async () => {
       try {
         setIsLoading(true);
-        const systemSettings = await getSystemSettings();
-        setSettings(systemSettings);
+        const settings = await getSystemSettings();
+        
+        setStandardPrice(settings.standardPrice.toString());
+        setDiscountedPrice(settings.discountedPrice.toString());
+        setLockoutPeriod(settings.lockoutPeriodHours.toString());
       } catch (error) {
         console.error("Error loading settings:", error);
         toast({
           title: "Error",
-          description: "Unable to load system settings.",
+          description: "Failed to load pricing settings. Please try again.",
           variant: "destructive",
         });
       } finally {
@@ -35,50 +40,67 @@ const PricingSettings = () => {
     loadSettings();
   }, [toast]);
   
-  const handleSaveSettings = async () => {
+  const handleSave = async () => {
     try {
       setIsSaving(true);
       
       // Validate inputs
-      if (settings.standardPrice <= 0) {
+      const standard = parseFloat(standardPrice);
+      const discounted = parseFloat(discountedPrice);
+      const lockHours = parseInt(lockoutPeriod);
+      
+      if (isNaN(standard) || standard <= 0) {
         toast({
-          title: "Invalid Standard Price",
-          description: "Standard price must be greater than zero.",
+          title: "Invalid Price",
+          description: "Standard price must be a positive number.",
           variant: "destructive",
         });
         return;
       }
       
-      if (settings.discountedPrice <= 0 || settings.discountedPrice >= settings.standardPrice) {
+      if (isNaN(discounted) || discounted <= 0) {
         toast({
-          title: "Invalid Discounted Price",
-          description: "Discounted price must be greater than zero and less than the standard price.",
+          title: "Invalid Price",
+          description: "Discounted price must be a positive number.",
           variant: "destructive",
         });
         return;
       }
       
-      if (settings.lockoutPeriodHours <= 0) {
+      if (discounted >= standard) {
+        toast({
+          title: "Invalid Pricing",
+          description: "Discounted price must be lower than the standard price.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (isNaN(lockHours) || lockHours <= 0) {
         toast({
           title: "Invalid Lockout Period",
-          description: "Lockout period must be greater than zero.",
+          description: "Lockout period must be a positive number of hours.",
           variant: "destructive",
         });
         return;
       }
       
-      // Update settings in database
-      await updateSystemSettings(settings);
+      // Save settings
+      await updateSystemSettings({
+        standardPrice: standard,
+        discountedPrice: discounted,
+        lockoutPeriodHours: lockHours
+      });
       
       toast({
         title: "Settings Saved",
-        description: "System settings have been updated successfully.",
+        description: "Pricing settings have been updated successfully.",
       });
     } catch (error) {
       console.error("Error saving settings:", error);
       toast({
         title: "Error",
-        description: "Unable to save system settings.",
+        description: "Failed to save pricing settings. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -86,81 +108,63 @@ const PricingSettings = () => {
     }
   };
   
-  const handlePriceChange = (field: keyof SystemSettings, value: string) => {
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue)) {
-      setSettings(prev => ({
-        ...prev,
-        [field]: numValue
-      }));
-    }
-  };
-  
   return (
     <Card>
       <CardHeader>
         <CardTitle>Pricing Settings</CardTitle>
-        <CardDescription>Configure download pricing and lockout period</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoading ? (
-          <p className="text-center py-2 text-gray-500">Loading settings...</p>
-        ) : (
-          <>
-            <div>
-              <Label htmlFor="standardPrice">Standard Price ($)</Label>
-              <Input
-                id="standardPrice"
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={settings.standardPrice}
-                onChange={(e) => handlePriceChange('standardPrice', e.target.value)}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Price charged for new application downloads
-              </p>
-            </div>
-            
-            <div>
-              <Label htmlFor="discountedPrice">Discounted Price ($)</Label>
-              <Input
-                id="discountedPrice"
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={settings.discountedPrice}
-                onChange={(e) => handlePriceChange('discountedPrice', e.target.value)}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Price charged after lockout period expires
-              </p>
-            </div>
-            
-            <div>
-              <Label htmlFor="lockoutPeriod">Lockout Period (hours)</Label>
-              <Input
-                id="lockoutPeriod"
-                type="number"
-                min="1"
-                step="1"
-                value={settings.lockoutPeriodHours}
-                onChange={(e) => handlePriceChange('lockoutPeriodHours', e.target.value)}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Hours an application is locked after being downloaded
-              </p>
-            </div>
-            
-            <Button 
-              onClick={handleSaveSettings}
-              disabled={isSaving}
-              className="w-full bg-ontario-blue hover:bg-ontario-blue/90 mt-4"
-            >
-              {isSaving ? "Saving..." : "Save Settings"}
-            </Button>
-          </>
-        )}
+        <div className="space-y-2">
+          <Label htmlFor="standardPrice">Standard Download Price</Label>
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+            <Input 
+              id="standardPrice"
+              value={standardPrice}
+              onChange={e => setStandardPrice(e.target.value)}
+              placeholder="e.g. 10.99"
+              className="pl-7"
+              disabled={isLoading}
+            />
+          </div>
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="discountedPrice">Discounted Download Price</Label>
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+            <Input 
+              id="discountedPrice"
+              value={discountedPrice}
+              onChange={e => setDiscountedPrice(e.target.value)}
+              placeholder="e.g. 5.99"
+              className="pl-7"
+              disabled={isLoading}
+            />
+          </div>
+          <p className="text-xs text-gray-500">Price after initial lockout period expires</p>
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="lockoutPeriod">Lockout Period (hours)</Label>
+          <Input 
+            id="lockoutPeriod"
+            value={lockoutPeriod}
+            onChange={e => setLockoutPeriod(e.target.value)}
+            placeholder="e.g. 2"
+            disabled={isLoading}
+            type="number"
+          />
+          <p className="text-xs text-gray-500">How long applications are locked for other dealers after download</p>
+        </div>
+        
+        <Button 
+          className="w-full mt-4 bg-ontario-blue hover:bg-ontario-blue/90" 
+          onClick={handleSave}
+          disabled={isLoading || isSaving}
+        >
+          {isSaving ? "Saving..." : "Save Settings"}
+        </Button>
       </CardContent>
     </Card>
   );

@@ -425,23 +425,28 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
     return DEFAULT_SETTINGS;
   }
 
-  const { data, error } = await supabase
-    .from('settings')
-    .select('*')
-    .single();
-    
-  if (error || !data) {
-    // If there are no settings yet, create default ones
-    const { data: newData, error: newError } = await supabase
+  try {
+    const { data, error } = await supabase
       .from('settings')
-      .insert([DEFAULT_SETTINGS])
-      .select();
+      .select('*')
+      .single();
       
-    if (newError) throw newError;
-    return newData[0] || DEFAULT_SETTINGS;
+    if (error || !data) {
+      // If there are no settings yet, create default ones
+      const { data: newData, error: newError } = await supabase
+        .from('settings')
+        .insert([DEFAULT_SETTINGS])
+        .select();
+        
+      if (newError) throw newError;
+      return newData?.[0] || DEFAULT_SETTINGS;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error("Error fetching system settings:", error);
+    return DEFAULT_SETTINGS;
   }
-  
-  return data;
 };
 
 export const updateSystemSettings = async (settings: Partial<SystemSettings>) => {
@@ -450,14 +455,19 @@ export const updateSystemSettings = async (settings: Partial<SystemSettings>) =>
     return DEFAULT_SETTINGS;
   }
 
-  const { data, error } = await supabase
-    .from('settings')
-    .update(settings)
-    .eq('id', 1) // Assuming there's only one settings record
-    .select();
-    
-  if (error) throw error;
-  return data[0];
+  try {
+    const { data, error } = await supabase
+      .from('settings')
+      .update(settings)
+      .eq('id', 1) // Assuming there's only one settings record
+      .select();
+      
+    if (error) throw error;
+    return data?.[0] || DEFAULT_SETTINGS;
+  } catch (error) {
+    console.error("Error updating system settings:", error);
+    throw error;
+  }
 };
 
 // Dealer management functions

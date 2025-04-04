@@ -145,7 +145,7 @@ const PricingSettings = () => {
                 min="1"
                 step="1"
                 value={settings.lockoutPeriodHours}
-                onChange={(e) => handlePriceChange('lockoutPeriodHours', parseInt(e.target.value))}
+                onChange={(e) => handlePriceChange('lockoutPeriodHours', e.target.value)}
               />
               <p className="text-xs text-gray-500 mt-1">
                 Hours an application is locked after being downloaded

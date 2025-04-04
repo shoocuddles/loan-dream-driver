@@ -1,5 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 // Initialize the Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -256,28 +258,106 @@ export const recordDownload = async (applicationId: string, dealerId: string) =>
   return true;
 };
 
-// PDF and CSV generation functions
-export const generateApplicationPDF = async (applicationId: string) => {
-  // Placeholder - this would typically use a library like jsPDF
-  // or call a server function to generate the PDF
-  console.log(`Generating PDF for application ${applicationId}`);
+// PDF and CSV generation functions - returning jsPDF instance directly instead of Promise
+export const generateApplicationPDF = (application: any, isAdmin = false) => {
+  // Create a new jsPDF instance
+  const pdf = new jsPDF();
   
-  // For now, just pretend we generated a PDF
-  return {
-    url: `https://example.com/application_${applicationId}.pdf`,
-    filename: `application_${applicationId}.pdf`
-  };
+  // Add title
+  pdf.setFontSize(20);
+  pdf.text('Ontario Loans Application Details', 105, 15, { align: 'center' });
+  
+  // Add application ID
+  pdf.setFontSize(12);
+  pdf.text(`Application ID: ${application.id || application.applicationId}`, 14, 30);
+  
+  // Add submission date
+  const submissionDate = application.created_at || application.submissionDate;
+  pdf.text(`Submission Date: ${new Date(submissionDate).toLocaleDateString()}`, 14, 40);
+  
+  // Add applicant details
+  pdf.setFontSize(16);
+  pdf.text('Applicant Information', 14, 55);
+  
+  pdf.setFontSize(12);
+  pdf.text(`Name: ${application.fullName || 'N/A'}`, 14, 65);
+  pdf.text(`Email: ${application.email || 'N/A'}`, 14, 75);
+  pdf.text(`Phone: ${application.phone || 'N/A'}`, 14, 85);
+  pdf.text(`Address: ${application.address || 'N/A'}`, 14, 95);
+  pdf.text(`City: ${application.city || 'N/A'}`, 14, 105);
+  pdf.text(`Province: ${application.province || 'Ontario'}`, 14, 115);
+  pdf.text(`Postal Code: ${application.postalCode || 'N/A'}`, 14, 125);
+  
+  // Add vehicle details
+  pdf.setFontSize(16);
+  pdf.text('Vehicle Information', 14, 140);
+  
+  pdf.setFontSize(12);
+  pdf.text(`Vehicle Type: ${application.vehicleType || 'N/A'}`, 14, 150);
+  pdf.text(`Vehicle Year: ${application.vehicleYear || 'N/A'}`, 14, 160);
+  pdf.text(`Vehicle Make: ${application.vehicleMake || 'N/A'}`, 14, 170);
+  pdf.text(`Vehicle Model: ${application.vehicleModel || 'N/A'}`, 14, 180);
+  
+  // Add financial details
+  pdf.setFontSize(16);
+  pdf.text('Financial Information', 14, 195);
+  
+  pdf.setFontSize(12);
+  pdf.text(`Income: $${application.income ? application.income.toLocaleString() : 'N/A'}`, 14, 205);
+  pdf.text(`Employment Status: ${application.employmentStatus || 'N/A'}`, 14, 215);
+  pdf.text(`Credit Score Range: ${application.creditScore || 'N/A'}`, 14, 225);
+  
+  // Add footer with powered by text
+  pdf.setFontSize(10);
+  const footerText = isAdmin ? 'ADMIN COPY - Ontario Loans Application System' : 'Powered by Ontario Loans Application System';
+  pdf.text(footerText, 105, 285, { align: 'center' });
+  
+  return pdf;
 };
 
-export const generateApplicationsCSV = async (applicationIds: string[]) => {
-  // Placeholder - this would typically generate a CSV from application data
-  console.log(`Generating CSV for applications: ${applicationIds.join(', ')}`);
+export const generateApplicationsCSV = (applications: any[]) => {
+  // Create headers
+  const headers = [
+    'Application ID',
+    'Submission Date',
+    'Full Name',
+    'Email',
+    'Phone',
+    'Address',
+    'City',
+    'Province',
+    'Postal Code',
+    'Vehicle Type',
+    'Vehicle Year',
+    'Vehicle Make',
+    'Vehicle Model',
+    'Income',
+    'Employment Status',
+    'Credit Score'
+  ].join(',');
   
-  // For now, just pretend we generated a CSV
-  return {
-    url: `https://example.com/applications_export.csv`,
-    filename: `applications_export.csv`
-  };
+  // Create rows
+  const rows = applications.map(app => [
+    app.id || app.applicationId || '',
+    app.created_at || app.submissionDate ? new Date(app.created_at || app.submissionDate).toLocaleDateString() : '',
+    app.fullName || '',
+    app.email || '',
+    app.phone || '',
+    app.address || '',
+    app.city || '',
+    app.province || 'Ontario',
+    app.postalCode || '',
+    app.vehicleType || '',
+    app.vehicleYear || '',
+    app.vehicleMake || '',
+    app.vehicleModel || '',
+    app.income ? app.income.toLocaleString() : '',
+    app.employmentStatus || '',
+    app.creditScore || ''
+  ].map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','));
+  
+  // Combine headers and rows
+  return `${headers}\n${rows.join('\n')}`;
 };
 
 // Dealers

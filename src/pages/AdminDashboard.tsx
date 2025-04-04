@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -18,8 +17,6 @@ import {
   unlockApplication,
   generateApplicationPDF
 } from "@/lib/supabase";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 
 const AdminDashboard = () => {
   const [applications, setApplications] = useState<any[]>([]);
@@ -65,7 +62,7 @@ const AdminDashboard = () => {
       // Get application details
       const details = await getApplicationDetails(applicationId);
       
-      // Generate and save PDF
+      // Generate and save PDF with admin flag set to true
       const pdf = generateApplicationPDF(details, true);
       pdf.save(`ontario-loans-admin-${applicationId}.pdf`);
       

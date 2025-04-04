@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ApplicationFormStep1 from "@/components/ApplicationFormStep1";
@@ -45,6 +46,7 @@ const Apply = () => {
   const [formData, setFormData] = useState<ApplicationForm>(initialFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -64,6 +66,9 @@ const Apply = () => {
 
   const saveProgress = async (data: ApplicationForm, isComplete = false) => {
     try {
+      // Reset any previous errors
+      setError(null);
+      
       // Save to localStorage as a backup
       localStorage.setItem('applicationDraft', JSON.stringify(data));
       
@@ -86,6 +91,13 @@ const Apply = () => {
       return true;
     } catch (error) {
       console.error("Error saving application progress:", error);
+      
+      // Set detailed error message
+      if (error instanceof Error) {
+        setError(`Error details: ${error.message}`);
+      } else {
+        setError(`Unknown error: ${JSON.stringify(error)}`);
+      }
       
       // If Supabase fails, we still have localStorage backup
       toast({
@@ -118,6 +130,7 @@ const Apply = () => {
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
+      setError(null);
       
       // Final submission (mark as complete)
       const success = await saveProgress(formData, true);
@@ -141,9 +154,17 @@ const Apply = () => {
       }
     } catch (error) {
       console.error("Error submitting application:", error);
+      
+      // Set detailed error message
+      if (error instanceof Error) {
+        setError(`Error details: ${error.message}`);
+      } else {
+        setError(`Unknown error: ${JSON.stringify(error)}`);
+      }
+      
       toast({
         title: "Submission Error",
-        description: "There was a problem submitting your application. Please try again.",
+        description: "There was a problem submitting your application. See details below.",
         variant: "destructive",
       });
     } finally {
@@ -204,6 +225,15 @@ const Apply = () => {
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-center text-ontario-blue">Apply for Auto Financing</h1>
               <p className="text-center text-gray-600 mt-2">Complete the form below to get started</p>
+              
+              {error && (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertTitle>Submission Error</AlertTitle>
+                  <AlertDescription className="whitespace-pre-wrap break-words">
+                    {error}
+                  </AlertDescription>
+                </Alert>
+              )}
               
               {draftId && (
                 <div className="mt-4 px-4 py-2 bg-green-50 border border-green-200 rounded-md">

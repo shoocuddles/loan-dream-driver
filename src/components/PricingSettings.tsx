@@ -1,12 +1,10 @@
-
-// Fix TypeScript error by ensuring lockoutPeriodHours is a string in the input
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getSystemSettings, updateSystemSettings } from "@/lib/supabase";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 const PricingSettings = () => {
   const [standardPrice, setStandardPrice] = useState("");

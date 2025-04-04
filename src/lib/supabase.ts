@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -143,18 +142,51 @@ export const signOutDealer = async () => {
 };
 
 // Applications
-export const submitApplication = async (application: any) => {
-  const { data, error } = await supabase
-    .from('applications')
-    .insert([application])
-    .select();
+export const submitApplication = async (application: any, isDraft = false) => {
+  try {
+    let data;
+    let error;
     
-  if (error) {
-    console.error('Error submitting application:', error);
+    // If application has an ID, it's an update to an existing draft
+    if (application.id) {
+      const { data: updateData, error: updateError } = await supabase
+        .from('applications')
+        .update({
+          ...application,
+          updated_at: new Date().toISOString(),
+          status: isDraft ? 'draft' : 'submitted'
+        })
+        .eq('id', application.id)
+        .select();
+        
+      data = updateData;
+      error = updateError;
+    } else {
+      // New application
+      const { data: insertData, error: insertError } = await supabase
+        .from('applications')
+        .insert([{
+          ...application,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          status: isDraft ? 'draft' : 'submitted'
+        }])
+        .select();
+        
+      data = insertData;
+      error = insertError;
+    }
+    
+    if (error) {
+      console.error('Error submitting application:', error);
+      throw error;
+    }
+    
+    return data && data[0] ? data[0] : null;
+  } catch (error) {
+    console.error('Exception in submitApplication:', error);
     throw error;
   }
-  
-  return data[0];
 };
 
 export const getApplications = async () => {

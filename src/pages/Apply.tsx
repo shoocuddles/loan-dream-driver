@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import Header from "@/components/Header";
@@ -44,10 +44,64 @@ const Apply = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<ApplicationForm>(initialFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [draftId, setDraftId] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const nextStep = () => {
+  // Load draft from localStorage if exists
+  useEffect(() => {
+    const savedDraft = localStorage.getItem('applicationDraft');
+    const savedDraftId = localStorage.getItem('applicationDraftId');
+    
+    if (savedDraft) {
+      setFormData(JSON.parse(savedDraft));
+    }
+    
+    if (savedDraftId) {
+      setDraftId(savedDraftId);
+    }
+  }, []);
+
+  const saveProgress = async (data: ApplicationForm, isComplete = false) => {
+    try {
+      // Save to localStorage as a backup
+      localStorage.setItem('applicationDraft', JSON.stringify(data));
+      
+      // Save to Supabase with draft status
+      const applicationData = {
+        ...data,
+        isComplete
+      };
+      
+      const result = draftId 
+        ? await submitApplication({ ...applicationData, id: draftId }, true) 
+        : await submitApplication(applicationData, true);
+      
+      // Save the draft ID if we get one back
+      if (result && result.id && !draftId) {
+        setDraftId(result.id);
+        localStorage.setItem('applicationDraftId', result.id);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Error saving application progress:", error);
+      
+      // If Supabase fails, we still have localStorage backup
+      toast({
+        title: "Warning",
+        description: "We've saved your progress locally, but couldn't connect to our servers. Your data will be submitted when you complete the application.",
+        variant: "default",
+      });
+      
+      return false;
+    }
+  };
+
+  const nextStep = async () => {
+    // Save progress when moving to next step
+    await saveProgress(formData);
+    
     setCurrentStep(currentStep + 1);
     window.scrollTo(0, 0);
   };
@@ -64,18 +118,27 @@ const Apply = () => {
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
-      // Submit to Supabase
-      const result = await submitApplication(formData);
-      console.log("Application submitted successfully:", result);
       
-      toast({
-        title: "Application Submitted!",
-        description: "Thank you for applying with Ontario Loans. We'll be in touch soon.",
-        variant: "default",
-      });
+      // Final submission (mark as complete)
+      const success = await saveProgress(formData, true);
       
-      // Redirect to homepage
-      navigate("/");
+      if (success) {
+        // Clear draft data
+        localStorage.removeItem('applicationDraft');
+        localStorage.removeItem('applicationDraftId');
+        setDraftId(null);
+        
+        toast({
+          title: "Application Submitted!",
+          description: "Thank you for applying with Ontario Loans. We'll be in touch soon.",
+          variant: "default",
+        });
+        
+        // Redirect to homepage
+        navigate("/");
+      } else {
+        throw new Error("Failed to submit application");
+      }
     } catch (error) {
       console.error("Error submitting application:", error);
       toast({
@@ -141,6 +204,14 @@ const Apply = () => {
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-center text-ontario-blue">Apply for Auto Financing</h1>
               <p className="text-center text-gray-600 mt-2">Complete the form below to get started</p>
+              
+              {draftId && (
+                <div className="mt-4 px-4 py-2 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-sm text-green-700">
+                    Your progress is being saved automatically. You can return to complete your application later.
+                  </p>
+                </div>
+              )}
               
               <div className="mt-8 flex justify-between items-center">
                 {[1, 2, 3, 4].map((step) => (

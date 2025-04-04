@@ -65,7 +65,8 @@ const Apply = () => {
     try {
       setIsSubmitting(true);
       // Submit to Supabase
-      await submitApplication(formData);
+      const result = await submitApplication(formData);
+      console.log("Application submitted successfully:", result);
       
       toast({
         title: "Application Submitted!",

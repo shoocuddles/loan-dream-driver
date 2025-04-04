@@ -14,36 +14,157 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   lockoutPeriodHours: 2
 };
 
+// Create a mock database for development without Supabase credentials
+const mockDB = {
+  applications: [],
+  downloads: [],
+  dealers: [],
+  settings: DEFAULT_SETTINGS
+};
+
 // Create a mock client if environment variables are missing
 export const supabase = supabaseUrl && supabaseAnonKey 
   ? createClient(supabaseUrl, supabaseAnonKey)
   : {
       // Mock implementation for development without Supabase credentials
-      from: () => ({
-        insert: async () => ({ data: null, error: null }),
-        select: () => ({
-          data: [],
+      from: (table: string) => ({
+        insert: async (data: any) => {
+          if (table === 'applications') {
+            mockDB.applications.push(data[0]);
+          } else if (table === 'downloads') {
+            mockDB.downloads.push(data[0]);
+          } else if (table === 'dealers') {
+            mockDB.dealers.push(data[0]);
+          }
+          return { data: data[0], error: null };
+        },
+        select: (columns: string = '*') => ({
+          data: table === 'applications' ? mockDB.applications : 
+                table === 'downloads' ? mockDB.downloads : 
+                table === 'dealers' ? mockDB.dealers : 
+                table === 'settings' ? [mockDB.settings] : [],
           error: null,
-          eq: () => ({ single: async () => ({ data: null, error: null }) }),
-          order: () => ({ data: [], error: null }),
-          in: () => ({ data: [], error: null }),
-          update: () => ({ data: null, error: null }),
-          delete: () => ({ data: null, error: null }),
+          eq: (column: string, value: any) => {
+            const filteredData = table === 'applications' 
+              ? mockDB.applications.filter((item: any) => item[column] === value)
+              : table === 'downloads' 
+                ? mockDB.downloads.filter((item: any) => item[column] === value) 
+                : table === 'dealers'
+                  ? mockDB.dealers.filter((item: any) => item[column] === value)
+                  : [];
+            
+            return { 
+              data: filteredData, 
+              error: null,
+              single: () => {
+                return { 
+                  data: filteredData.length > 0 ? filteredData[0] : null, 
+                  error: null 
+                };
+              }
+            };
+          },
+          order: (column: string, { ascending }: { ascending: boolean }) => {
+            const data = [...(table === 'applications' ? mockDB.applications : 
+                             table === 'downloads' ? mockDB.downloads : 
+                             table === 'dealers' ? mockDB.dealers : [])];
+            
+            data.sort((a: any, b: any) => {
+              if (ascending) {
+                return a[column] > b[column] ? 1 : -1;
+              } else {
+                return a[column] < b[column] ? 1 : -1;
+              }
+            });
+            
+            return { data, error: null };
+          },
+          in: (column: string, values: any[]) => {
+            const filteredData = table === 'applications' 
+              ? mockDB.applications.filter((item: any) => values.includes(item[column]))
+              : table === 'downloads' 
+                ? mockDB.downloads.filter((item: any) => values.includes(item[column])) 
+                : [];
+            
+            return { data: filteredData, error: null };
+          },
+          single: () => {
+            if (table === 'settings') {
+              return { data: mockDB.settings, error: null };
+            }
+            const data = table === 'applications' ? mockDB.applications[0] : 
+                        table === 'downloads' ? mockDB.downloads[0] : 
+                        table === 'dealers' ? mockDB.dealers[0] : null;
+            return { data, error: null };
+          }
         }),
-        update: () => ({
-          eq: () => ({ data: null, error: null }),
+        update: (data: any) => ({
+          eq: (column: string, value: any) => {
+            if (table === 'applications') {
+              const index = mockDB.applications.findIndex((item: any) => item[column] === value);
+              if (index !== -1) {
+                mockDB.applications[index] = { ...mockDB.applications[index], ...data };
+              }
+            } else if (table === 'settings') {
+              mockDB.settings = { ...mockDB.settings, ...data };
+            }
+            return { data, error: null, select: () => ({ data: [data], error: null }) };
+          },
+          match: (criteria: any) => {
+            // Implementation for complex match criteria
+            return { data, error: null };
+          },
         }),
         delete: () => ({
-          eq: () => ({ data: null, error: null }),
+          eq: (column: string, value: any) => {
+            if (table === 'applications') {
+              mockDB.applications = mockDB.applications.filter((item: any) => item[column] !== value);
+            } else if (table === 'downloads') {
+              mockDB.downloads = mockDB.downloads.filter((item: any) => item[column] !== value);
+            } else if (table === 'dealers') {
+              mockDB.dealers = mockDB.dealers.filter((item: any) => item[column] !== value);
+            }
+            return { data: null, error: null };
+          },
         }),
       }),
       auth: {
-        signUp: async () => ({ data: null, error: null }),
-        signInWithPassword: async () => ({ data: null, error: null }),
-        signOut: async () => ({ error: null }),
-        getSession: async () => ({ data: { session: null }, error: null }),
-        getUser: async () => ({ data: { user: null }, error: null }),
-        updateUser: async () => ({ data: null, error: null }),
+        signUp: async (data: any) => {
+          const newDealer = {
+            id: `mock-dealer-${Date.now()}`,
+            email: data.email,
+            ...data.options?.data
+          };
+          mockDB.dealers.push(newDealer);
+          return { data: { user: newDealer }, error: null };
+        },
+        signInWithPassword: async (data: any) => {
+          if (data.email === "6352910@gmail.com" && data.password === "Ian123") {
+            localStorage.setItem('isAdmin', 'true');
+            return { data: { user: { id: 'mock-admin-id', user_metadata: { isAdmin: true, isActive: true } } }, error: null };
+          }
+          
+          const dealer = mockDB.dealers.find((d: any) => d.email === data.email);
+          if (dealer) {
+            return { data: { user: { id: dealer.id, user_metadata: { isAdmin: dealer.isAdmin, isActive: dealer.isActive } } }, error: null };
+          }
+          
+          // If no hardcoded or mock dealer matches, create a default dealer for testing
+          return { data: { user: { id: 'mock-dealer-id', user_metadata: { isAdmin: false, isActive: true } } }, error: null };
+        },
+        signOut: async () => {
+          localStorage.removeItem('isAdmin');
+          return { error: null };
+        },
+        getSession: async () => {
+          return { data: { session: null }, error: null };
+        },
+        getUser: async () => {
+          return { data: { user: null }, error: null };
+        },
+        updateUser: async (data: any) => {
+          return { data: null, error: null };
+        },
       },
     };
 
@@ -53,6 +174,19 @@ export const submitApplication = async (formData: ApplicationForm) => {
     console.warn('Supabase credentials not configured. Running in mock mode.');
     const applicationId = `MOCK-APP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const submissionDate = new Date().toISOString();
+    
+    // Add to mock database
+    mockDB.applications.push({
+      ...formData,
+      applicationId,
+      submissionDate,
+      isLocked: false,
+      wasLocked: false
+    });
+    
+    console.log("Submitted application to mock DB:", applicationId);
+    console.log("Total applications in mock DB:", mockDB.applications.length);
+    
     return { applicationId, submissionDate };
   }
 
@@ -147,29 +281,48 @@ export const signOutDealer = async () => {
 export const getApplicationsList = async () => {
   if (!supabaseUrl || !supabaseAnonKey) {
     console.warn('Supabase credentials not configured. Running in mock mode.');
-    return [
-      { 
+    
+    // Return the mock applications we've stored
+    if (mockDB.applications.length === 0) {
+      // Add some initial mock data if none exists
+      mockDB.applications.push({ 
         applicationId: 'MOCK-APP-1', 
-        fullName: 'John D.', 
+        fullName: 'John Doe', 
         submissionDate: new Date().toISOString(),
         city: 'Toronto',
-        isLocked: false
+        isLocked: false,
+        wasLocked: false
       },
       { 
         applicationId: 'MOCK-APP-2', 
-        fullName: 'Jane S.', 
+        fullName: 'Jane Smith', 
         submissionDate: new Date(Date.now() - 86400000).toISOString(),
         city: 'Ottawa',
         isLocked: true,
         lockExpiresAt: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
-        lockedBy: 'mock-dealer-id'
-      }
-    ];
+        lockedBy: 'mock-dealer-id',
+        wasLocked: false
+      });
+    }
+    
+    console.log("Fetching applications from mock DB:", mockDB.applications.length);
+    
+    // Format names to show only first name and last initial for each application
+    return mockDB.applications.map((app: any) => {
+      const nameParts = app.fullName.split(' ');
+      const firstName = nameParts[0];
+      const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1].charAt(0) + '.' : '';
+      
+      return {
+        ...app,
+        fullName: `${firstName} ${lastInitial}`
+      };
+    });
   }
 
   const { data, error } = await supabase
     .from('applications')
-    .select('applicationId, fullName, submissionDate, city, isLocked, lockExpiresAt, lockedBy')
+    .select('applicationId, fullName, submissionDate, city, isLocked, lockExpiresAt, lockedBy, wasLocked')
     .order('submissionDate', { ascending: false });
     
   if (error) throw error;
@@ -181,13 +334,19 @@ export const getApplicationsList = async () => {
       // Update the lock status in the database
       await supabase
         .from('applications')
-        .update({ isLocked: false, lockExpiresAt: null, lockedBy: null })
+        .update({ 
+          isLocked: false, 
+          lockExpiresAt: null, 
+          lockedBy: null,
+          wasLocked: true 
+        })
         .eq('applicationId', app.applicationId);
       
       // Update the local data
       app.isLocked = false;
       app.lockExpiresAt = null;
       app.lockedBy = null;
+      app.wasLocked = true;
     }
     
     // Format names to show only first name and last initial
@@ -271,6 +430,21 @@ export const recordDownload = async (applicationId: string, dealerId: string, pa
 export const lockApplication = async (applicationId: string, dealerId: string, lockHours: number = 2) => {
   if (!supabaseUrl || !supabaseAnonKey) {
     console.warn('Supabase credentials not configured. Running in mock mode.');
+    
+    // Find the application in our mock DB
+    const appIndex = mockDB.applications.findIndex((app: any) => app.applicationId === applicationId);
+    if (appIndex !== -1) {
+      const lockExpiresAt = new Date();
+      lockExpiresAt.setHours(lockExpiresAt.getHours() + lockHours);
+      
+      mockDB.applications[appIndex] = {
+        ...mockDB.applications[appIndex],
+        isLocked: true,
+        lockExpiresAt: lockExpiresAt.toISOString(),
+        lockedBy: dealerId
+      };
+    }
+    
     return true;
   }
 
@@ -312,57 +486,112 @@ export const unlockApplication = async (applicationId: string) => {
 export const checkApplicationLock = async (applicationId: string, dealerId: string) => {
   if (!supabaseUrl || !supabaseAnonKey) {
     console.warn('Supabase credentials not configured. Running in mock mode.');
-    return { 
-      isLocked: false,
-      canDownload: true,
-      isDiscounted: false,
-      price: DEFAULT_SETTINGS.standardPrice
+    
+    // Find the application in our mock DB
+    const app = mockDB.applications.find((app: any) => app.applicationId === applicationId);
+    if (!app) {
+      return { 
+        isLocked: false,
+        canDownload: true,
+        isDiscounted: false,
+        price: DEFAULT_SETTINGS.standardPrice
+      };
+    }
+    
+    // Check if the application has been downloaded by this dealer
+    const hasDownloaded = mockDB.downloads.some(
+      (dl: any) => dl.applicationId === applicationId && dl.dealerId === dealerId
+    );
+    
+    // Get the lock expiration time
+    const now = new Date();
+    const lockExpiresAt = app.lockExpiresAt ? new Date(app.lockExpiresAt) : null;
+    
+    // Check if the lock is expired
+    if (app.isLocked && lockExpiresAt && lockExpiresAt < now) {
+      // Lock is expired, update in mock DB
+      const appIndex = mockDB.applications.findIndex((a: any) => a.applicationId === applicationId);
+      if (appIndex !== -1) {
+        mockDB.applications[appIndex] = {
+          ...mockDB.applications[appIndex],
+          isLocked: false,
+          lockExpiresAt: null,
+          lockedBy: null,
+          wasLocked: true
+        };
+      }
+      app.isLocked = false;
+      app.wasLocked = true;
+    }
+    
+    // Determine if this is a discounted download (previously locked but now unlocked)
+    const wasLockedBefore = app.lockedBy && app.lockedBy !== dealerId;
+    const isDiscounted = app.wasLocked && !app.isLocked;
+    
+    return {
+      isLocked: app.isLocked,
+      canDownload: !app.isLocked || app.lockedBy === dealerId || hasDownloaded,
+      isDiscounted,
+      price: hasDownloaded ? 0 : (isDiscounted ? mockDB.settings.discountedPrice : mockDB.settings.standardPrice)
     };
   }
 
-  const { data, error } = await supabase
-    .from('applications')
-    .select('isLocked, lockExpiresAt, lockedBy')
-    .eq('applicationId', applicationId)
-    .single();
+  try {
+    // Get application lock status
+    const { data, error } = await supabase
+      .from('applications')
+      .select('isLocked, lockExpiresAt, lockedBy, wasLocked')
+      .eq('applicationId', applicationId)
+      .single();
+      
+    if (error) throw error;
     
-  if (error) throw error;
-  
-  // Get system settings
-  const settings = await getSystemSettings();
-  
-  // Check if the application has been downloaded by this dealer
-  const { data: downloadData, error: downloadError } = await supabase
-    .from('downloads')
-    .select('*')
-    .eq('applicationId', applicationId)
-    .eq('dealerId', dealerId);
+    // Get system settings
+    const settings = await getSystemSettings();
     
-  if (downloadError) throw downloadError;
-  
-  const hasDownloaded = downloadData && downloadData.length > 0;
-  
-  // Get the lock expiration time
-  const now = new Date();
-  const lockExpiresAt = data.lockExpiresAt ? new Date(data.lockExpiresAt) : null;
-  
-  // Check if the lock is expired
-  if (data.isLocked && lockExpiresAt && lockExpiresAt < now) {
-    // Lock is expired, update in DB
-    await unlockApplication(applicationId);
-    data.isLocked = false;
+    // Check if the application has been downloaded by this dealer
+    const { data: downloadData, error: downloadError } = await supabase
+      .from('downloads')
+      .select('*')
+      .eq('applicationId', applicationId)
+      .eq('dealerId', dealerId);
+      
+    if (downloadError) throw downloadError;
+    
+    const hasDownloaded = downloadData && downloadData.length > 0;
+    
+    // Get the lock expiration time
+    const now = new Date();
+    const lockExpiresAt = data.lockExpiresAt ? new Date(data.lockExpiresAt) : null;
+    
+    // Check if the lock is expired
+    if (data.isLocked && lockExpiresAt && lockExpiresAt < now) {
+      // Lock is expired, update in DB
+      await unlockApplication(applicationId);
+      data.isLocked = false;
+      data.wasLocked = true;
+    }
+    
+    // Determine if this is a discounted download (previously locked but now unlocked)
+    const isDiscounted = data.wasLocked && !data.isLocked;
+    
+    return {
+      isLocked: data.isLocked,
+      canDownload: !data.isLocked || data.lockedBy === dealerId || hasDownloaded,
+      isDiscounted,
+      price: hasDownloaded ? 0 : (isDiscounted ? settings.discountedPrice : settings.standardPrice)
+    };
+  } catch (error) {
+    console.error("Error checking application lock:", error);
+    // Default to allowing download at standard price
+    const settings = await getSystemSettings();
+    return {
+      isLocked: false,
+      canDownload: true,
+      isDiscounted: false,
+      price: settings.standardPrice
+    };
   }
-  
-  // Determine if this is a discounted download (previously locked but now unlocked)
-  const wasLockedBefore = data.lockedBy && data.lockedBy !== dealerId;
-  const isDiscounted = wasLockedBefore && !data.isLocked;
-  
-  return {
-    isLocked: data.isLocked,
-    canDownload: !data.isLocked || data.lockedBy === dealerId || hasDownloaded,
-    isDiscounted,
-    price: hasDownloaded ? 0 : (isDiscounted ? settings.discountedPrice : settings.standardPrice)
-  };
 };
 
 // Admin functions
@@ -422,7 +651,7 @@ export const getAllApplications = async () => {
 export const getSystemSettings = async (): Promise<SystemSettings> => {
   if (!supabaseUrl || !supabaseAnonKey) {
     console.warn('Supabase credentials not configured. Running in mock mode.');
-    return DEFAULT_SETTINGS;
+    return mockDB.settings;
   }
 
   try {
@@ -435,11 +664,16 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
       // If there are no settings yet, create default ones
       const { data: newData, error: newError } = await supabase
         .from('settings')
-        .insert([DEFAULT_SETTINGS])
-        .select();
-        
+        .insert([DEFAULT_SETTINGS]);
+      
       if (newError) throw newError;
-      return newData?.[0] || DEFAULT_SETTINGS;
+      
+      const { data: insertedData } = await supabase
+        .from('settings')
+        .select('*')
+        .single();
+        
+      return insertedData || DEFAULT_SETTINGS;
     }
     
     return data;
@@ -452,18 +686,24 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
 export const updateSystemSettings = async (settings: Partial<SystemSettings>) => {
   if (!supabaseUrl || !supabaseAnonKey) {
     console.warn('Supabase credentials not configured. Running in mock mode.');
-    return DEFAULT_SETTINGS;
+    mockDB.settings = { ...mockDB.settings, ...settings };
+    return mockDB.settings;
   }
 
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('settings')
       .update(settings)
-      .eq('id', 1) // Assuming there's only one settings record
-      .select();
+      .eq('id', 1); // Assuming there's only one settings record
       
     if (error) throw error;
-    return data?.[0] || DEFAULT_SETTINGS;
+    
+    const { data } = await supabase
+      .from('settings')
+      .select('*')
+      .single();
+      
+    return data || DEFAULT_SETTINGS;
   } catch (error) {
     console.error("Error updating system settings:", error);
     throw error;

@@ -68,10 +68,11 @@ const Dealers = () => {
     try {
       setIsProcessing(true);
       
+      // Pass the company name to be stored
       await signUp(signupEmail, signupPassword, {
         fullName: dealerName,
         role: 'dealer',
-        companyId: '11111111-1111-1111-1111-111111111111' // Default test company
+        companyName: company // Add company name to userData
       });
       
       // Clear form fields

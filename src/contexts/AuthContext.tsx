@@ -150,19 +150,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, userData: any) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      // Add debug log to check userData structure
+      console.log("Signing up user with data:", { email, userData });
+      
+      // Prepare metadata with proper company_id format
+      const userMetadata = {
+        full_name: userData.fullName,
+        role: userData.role || 'dealer',
+        company_id: userData.companyId || '11111111-1111-1111-1111-111111111111'
+      };
+      
+      console.log("User metadata being sent:", userMetadata);
+      
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            full_name: userData.fullName,
-            role: userData.role || 'dealer',
-            company_id: userData.companyId || '11111111-1111-1111-1111-111111111111'
-          }
+          data: userMetadata
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Signup error:", error);
+        throw error;
+      }
+
+      console.log("Signup successful:", data);
 
       toast({
         title: "Registration Successful",
@@ -172,6 +185,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Navigate to login page
       navigate('/dealers');
     } catch (error: any) {
+      console.error("Registration error details:", error);
+      
       toast({
         title: "Registration Failed",
         description: error.message || "An error occurred while signing up",

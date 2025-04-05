@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -68,11 +67,21 @@ const Dealers = () => {
     try {
       setIsProcessing(true);
       
-      // Pass the company name to be stored
+      // Adding more detailed error logging
+      console.log("Attempting to sign up with:", {
+        email: signupEmail,
+        fullName: dealerName,
+        company: company
+      });
+      
+      // Pass user data with correct metadata structure
       await signUp(signupEmail, signupPassword, {
         fullName: dealerName,
         role: 'dealer',
-        companyName: company // Add company name to userData
+        // Use the default UUID for company_id that matches the one in the database trigger
+        company_id: '11111111-1111-1111-1111-111111111111',
+        // Also include company name as separate field
+        companyName: company
       });
       
       // Clear form fields
@@ -80,9 +89,13 @@ const Dealers = () => {
       setSignupPassword("");
       setDealerName("");
       setCompany("");
-    } catch (error) {
-      console.error("Signup error:", error);
-      // Error is already handled in the signUp function
+    } catch (error: any) {
+      console.error("Detailed signup error:", error);
+      toast({
+        title: "Registration Error",
+        description: error.message || "Database error saving new user",
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }

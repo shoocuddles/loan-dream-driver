@@ -150,14 +150,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, userData: any) => {
     try {
-      // Add debug log to check userData structure
+      // Enhanced debugging to see exactly what we're sending
       console.log("Signing up user with data:", { email, userData });
       
-      // Prepare metadata with proper company_id format
+      // Create metadata object with all necessary fields
       const userMetadata = {
         full_name: userData.fullName,
         role: userData.role || 'dealer',
-        company_id: userData.companyId || '11111111-1111-1111-1111-111111111111'
+        company_id: userData.company_id || '11111111-1111-1111-1111-111111111111',
+        company_name: userData.companyName || '' // Store company name as well
       };
       
       console.log("User metadata being sent:", userMetadata);

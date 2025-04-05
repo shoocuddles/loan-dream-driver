@@ -45,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             session,
             profile,
             isLoading: false,
-            isAdmin: profile?.role === 'admin',
+            isAdmin: profile?.role === 'admin' || false,
           });
         } else {
           setAuthState({
@@ -86,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               session,
               profile,
               isLoading: false,
-              isAdmin: profile?.role === 'admin',
+              isAdmin: profile?.role === 'admin' || false,
             });
           } catch (error) {
             console.error("Error getting user profile:", error);
@@ -241,10 +241,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Update local state with new profile data
       setAuthState(prev => ({
         ...prev,
-        profile: {
-          ...prev.profile!,
+        profile: prev.profile ? {
+          ...prev.profile,
           ...data
-        }
+        } : null
       }));
 
       toast({

@@ -144,61 +144,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signUp = async (email: string, password: string, userData: any) => {
-    try {
-      console.log("🔍 [SIGNUP] Starting sign-up process...");
-      console.table({ email, passwordLength: password.length, userData });
+const signUp = async (email: string, password: string, userData: any) => {
+  try {
+    console.log("Starting signUp with:", { email, password: '****', userData });
 
-      const metadata = {
-        full_name: userData.fullName || "",
-        role: userData.role || "dealer",
-        company_id: userData.company_id || "11111111-1111-1111-1111-111111111111",
-        company_name: userData.companyName || "Unspecified"
-      };
+    const userMetadata = {
+      full_name: userData.fullName,
+      role: userData.role || 'dealer',
+      company_id: userData.company_id || '11111111-1111-1111-1111-111111111111',
+      company_name: userData.companyName || '',
+    };
 
-      console.log("📦 [SIGNUP] Metadata to be sent:", metadata);
+    console.log("Sending metadata to Supabase:", userMetadata);
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: metadata
-        }
-      });
-
-      if (error) {
-        console.error("❌ [SIGNUP] Supabase returned an error:");
-        console.error("🔎 Error name:", error.name);
-        console.error("📜 Error message:", error.message);
-        console.error("🧬 Full error object:", error);
-        throw error;
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: userMetadata
       }
+    });
 
-      if (!data.user) {
-        console.warn("⚠️ [SIGNUP] Supabase signup succeeded but no user was returned.");
-      } else {
-        console.log("✅ [SIGNUP] User created:", data.user);
-      }
+    // ✅ Log full response
+    console.log("Supabase signUp response:", { data, error });
 
-      toast({
-        title: "Registration Successful",
-        description: "Your account has been created. You can now log in.",
+    // ⛔️ If there's an error, log detailed context
+    if (error) {
+      console.error("Supabase signUp error details:", {
+        message: error.message,
+        code: error.code,
+        status: error.status,
+        context: error,
       });
-
-      navigate('/dealers');
-    } catch (error: any) {
-      console.error("🔥 [SIGNUP] Caught error during signup:", error);
-      console.dir(error, { depth: null });
 
       toast({
         title: "Registration Failed",
-        description: error.message || "Unknown signup error occurred.",
+        description: error.message || "Signup failed with an unknown error.",
         variant: "destructive",
       });
 
       throw error;
     }
-  };
+
+    toast({
+      title: "Registration Successful",
+      description: "Your account has been created. You can now log in.",
+    });
+
+    navigate('/dealers');
+  } catch (err: any) {
+    console.error("Unhandled signup error:", err);
+
+    toast({
+      title: "Signup Error",
+      description: err.message || "An unknown error occurred.",
+      variant: "destructive",
+    });
+
+    throw err;
+  }
+};
+
 
   const signOut = async () => {
     try {

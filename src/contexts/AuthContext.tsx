@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +29,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // Get the current session
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
@@ -68,7 +66,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log("Auth state changed:", event);
@@ -126,7 +123,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .eq('id', data.user.id)
           .single();
         
-        // Redirect based on role
         if (profile?.role === 'admin') {
           navigate('/admin-dashboard');
         } else {
@@ -150,49 +146,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, userData: any) => {
     try {
-      // Enhanced debugging to see exactly what we're sending
-      console.log("Signing up user with data:", { email, userData });
-      
-      // Create metadata object with all necessary fields
-      const userMetadata = {
-        full_name: userData.fullName,
-        role: userData.role || 'dealer',
-        company_id: userData.company_id || '11111111-1111-1111-1111-111111111111',
-        company_name: userData.companyName || '' // Store company name as well
+      console.log("🔍 [SIGNUP] Starting sign-up process...");
+      console.table({ email, passwordLength: password.length, userData });
+
+      const metadata = {
+        full_name: userData.fullName || "",
+        role: userData.role || "dealer",
+        company_id: userData.company_id || "11111111-1111-1111-1111-111111111111",
+        company_name: userData.companyName || "Unspecified"
       };
-      
-      console.log("User metadata being sent:", userMetadata);
-      
+
+      console.log("📦 [SIGNUP] Metadata to be sent:", metadata);
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: userMetadata
+          data: metadata
         }
       });
 
       if (error) {
-        console.error("Signup error:", error);
+        console.error("❌ [SIGNUP] Supabase returned an error:");
+        console.error("🔎 Error name:", error.name);
+        console.error("📜 Error message:", error.message);
+        console.error("🧬 Full error object:", error);
         throw error;
       }
 
-      console.log("Signup successful:", data);
+      if (!data.user) {
+        console.warn("⚠️ [SIGNUP] Supabase signup succeeded but no user was returned.");
+      } else {
+        console.log("✅ [SIGNUP] User created:", data.user);
+      }
 
       toast({
         title: "Registration Successful",
         description: "Your account has been created. You can now log in.",
       });
 
-      // Navigate to login page
       navigate('/dealers');
     } catch (error: any) {
-      console.error("Registration error details:", error);
-      
+      console.error("🔥 [SIGNUP] Caught error during signup:", error);
+      console.dir(error, { depth: null });
+
       toast({
         title: "Registration Failed",
-        description: error.message || "An error occurred while signing up",
+        description: error.message || "Unknown signup error occurred.",
         variant: "destructive",
       });
+
       throw error;
     }
   };
@@ -254,7 +257,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
 
-      // Update local state with new profile data
       setAuthState(prev => ({
         ...prev,
         profile: prev.profile ? {

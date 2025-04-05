@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -67,20 +68,18 @@ const Dealers = () => {
     try {
       setIsProcessing(true);
       
-      // Adding more detailed error logging
-      console.log("Attempting to sign up with:", {
-        email: signupEmail,
+      console.log("📨 Sending metadata to signUp:", {
         fullName: dealerName,
-        company: company
+        role: "dealer",
+        company_id: "11111111-1111-1111-1111-111111111111",
+        companyName: company
       });
       
       // Pass user data with correct metadata structure
       await signUp(signupEmail, signupPassword, {
         fullName: dealerName,
         role: 'dealer',
-        // Use the default UUID for company_id that matches the one in the database trigger
         company_id: '11111111-1111-1111-1111-111111111111',
-        // Also include company name as separate field
         companyName: company
       });
       
@@ -91,15 +90,23 @@ const Dealers = () => {
       setCompany("");
     } catch (error: any) {
       console.error("Detailed signup error:", error);
-      toast({
-        title: "Registration Error",
-        description: error.message || "Database error saving new user",
-        variant: "destructive",
+      
+      // Error toast is now handled in the AuthContext signUp function
+      // We can add additional dealer-specific error logging here if needed
+      console.error("🔍 [DEALERS] Additional signup error context:", {
+        formState: {
+          email: signupEmail,
+          dealerName,
+          company
+        }
       });
     } finally {
       setIsProcessing(false);
     }
   };
+
+  // Add debug panel for development mode
+  const showDebugInfo = process.env.NODE_ENV === 'development' && localStorage.getItem('showDebug') === 'true';
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -108,6 +115,13 @@ const Dealers = () => {
       <main className="flex-grow py-16 bg-ontario-gray">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-bold text-center mb-10 text-ontario-blue">Ontario Loans Dealer Portal</h1>
+          
+          {showDebugInfo && (
+            <div className="max-w-md mx-auto mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-md">
+              <h3 className="text-sm font-bold">🐞 Debug Mode Active</h3>
+              <p className="text-xs">Check console for detailed signup logs.</p>
+            </div>
+          )}
           
           <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
             <Tabs defaultValue="login">
@@ -205,6 +219,13 @@ const Dealers = () => {
               </TabsContent>
             </Tabs>
           </div>
+          
+          {showDebugInfo && (
+            <div className="max-w-md mx-auto mt-4 p-3 bg-slate-100 rounded-md">
+              <p className="text-xs mb-1">Enable debug info in console:</p>
+              <pre className="text-xs bg-slate-200 p-1 rounded">localStorage.setItem('showDebug', 'true')</pre>
+            </div>
+          )}
         </div>
       </main>
       

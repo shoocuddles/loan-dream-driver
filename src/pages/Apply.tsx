@@ -72,22 +72,42 @@ const Apply = () => {
       // Save to localStorage as a backup
       localStorage.setItem('applicationDraft', JSON.stringify(data));
       
-      // Save to Supabase with draft status
-      const applicationData = {
-        ...data,
-        isComplete
-      };
-      
-      const result = draftId 
-        ? await submitApplication({ ...applicationData, id: draftId }, true) 
-        : await submitApplication(applicationData, true);
-      
-      // Save the draft ID if we get one back
-      if (result && result.id && !draftId) {
-        setDraftId(result.id);
-        localStorage.setItem('applicationDraftId', result.id);
+      // Try to save to Supabase with draft status, but don't block progress if it fails
+      try {
+        // Save to Supabase with draft status
+        const applicationData = {
+          ...data,
+          isComplete
+        };
+        
+        const result = draftId 
+          ? await submitApplication({ ...applicationData, id: draftId }, true) 
+          : await submitApplication(applicationData, true);
+        
+        // Save the draft ID if we get one back
+        if (result && result.id && !draftId) {
+          setDraftId(result.id);
+          localStorage.setItem('applicationDraftId', result.id);
+        }
+      } catch (supabaseError) {
+        console.error("Supabase error during save progress:", supabaseError);
+        
+        // Set detailed error message for debugging
+        if (supabaseError instanceof Error) {
+          setError(`Supabase error details: ${supabaseError.message}`);
+        } else {
+          setError(`Unknown Supabase error: ${JSON.stringify(supabaseError)}`);
+        }
+        
+        // Since we already saved to localStorage, we can continue without blocking
+        toast({
+          title: "Local Save Only",
+          description: "Your progress has been saved locally. We'll try to sync with our servers later.",
+          variant: "default",
+        });
       }
       
+      // Always return true since localStorage saved successfully
       return true;
     } catch (error) {
       console.error("Error saving application progress:", error);
@@ -99,21 +119,23 @@ const Apply = () => {
         setError(`Unknown error: ${JSON.stringify(error)}`);
       }
       
-      // If Supabase fails, we still have localStorage backup
+      // If everything fails, show a toast but still allow progress
       toast({
         title: "Warning",
-        description: "We've saved your progress locally, but couldn't connect to our servers. Your data will be submitted when you complete the application.",
-        variant: "default",
+        description: "We've encountered an issue saving your progress. You can continue, but please don't close your browser.",
+        variant: "destructive",
       });
       
-      return false;
+      // Return true to allow user to continue anyway
+      return true;
     }
   };
 
   const nextStep = async () => {
     // Save progress when moving to next step
-    await saveProgress(formData);
+    const saved = await saveProgress(formData);
     
+    // Even if saving fails, we'll still allow the user to proceed
     setCurrentStep(currentStep + 1);
     window.scrollTo(0, 0);
   };

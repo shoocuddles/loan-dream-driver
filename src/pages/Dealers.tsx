@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { signInDealer, signUpDealer } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Dealers = () => {
   const [loginEmail, setLoginEmail] = useState("");
@@ -20,6 +20,7 @@ const Dealers = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { signIn, signUp } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,36 +36,18 @@ const Dealers = () => {
     
     try {
       setIsProcessing(true);
-      // Special case for admin login
+      
+      // Special case for admin login - for backward compatibility
       if (loginEmail === "6352910@gmail.com" && loginPassword === "Ian123") {
         localStorage.setItem('isAdmin', 'true');
         navigate('/admin-dashboard');
         return;
       }
       
-      const result = await signInDealer(loginEmail, loginPassword);
-      
-      toast({
-        title: "Login Successful",
-        description: "Welcome back to Ontario Loans dealer portal.",
-      });
-      
-      // Smart routing based on user role
-      const isAdmin = localStorage.getItem('isAdmin') === 'true';
-      if (isAdmin) {
-        navigate('/admin-dashboard');
-      } else {
-        navigate('/dealer-dashboard');
-      }
+      await signIn(loginEmail, loginPassword);
     } catch (error) {
       console.error("Login error:", error);
-      toast({
-        title: "Login Failed",
-        description: typeof error === 'object' && error !== null && 'message' in error 
-          ? (error as Error).message 
-          : "Invalid email or password. Please try again.",
-        variant: "destructive",
-      });
+      // Error is already handled in the signIn function
     } finally {
       setIsProcessing(false);
     }
@@ -84,23 +67,21 @@ const Dealers = () => {
     
     try {
       setIsProcessing(true);
-      await signUpDealer(signupEmail, signupPassword, dealerName, company);
-      toast({
-        title: "Account Created",
-        description: "Your dealer account has been created. You can now log in.",
+      
+      await signUp(signupEmail, signupPassword, {
+        fullName: dealerName,
+        role: 'dealer',
+        companyId: '11111111-1111-1111-1111-111111111111' // Default test company
       });
-      // Clear form and switch to login tab
+      
+      // Clear form fields
       setSignupEmail("");
       setSignupPassword("");
       setDealerName("");
       setCompany("");
     } catch (error) {
       console.error("Signup error:", error);
-      toast({
-        title: "Registration Failed",
-        description: "There was a problem creating your account. Please try again.",
-        variant: "destructive",
-      });
+      // Error is already handled in the signUp function
     } finally {
       setIsProcessing(false);
     }
@@ -141,6 +122,12 @@ const Dealers = () => {
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
                     />
+                  </div>
+                  
+                  <div className="text-right">
+                    <Link to="/forgot-password" className="text-sm text-ontario-blue hover:underline">
+                      Forgot password?
+                    </Link>
                   </div>
                   
                   <Button 

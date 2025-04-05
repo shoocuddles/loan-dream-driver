@@ -151,7 +151,7 @@ const signUp = async (email: string, password: string, userData: any) => {
     const userMetadata = {
       full_name: userData.fullName,
       role: userData.role || 'dealer',
-      company_id: userData.company_id || '11111111-1111-1111-1111-111111111111',
+      //company_id: userData.company_id || '11111111-1111-1111-1111-111111111111',
       company_name: userData.companyName || '',
     };
 

@@ -57,6 +57,7 @@ export type UserDealer = {
   isActive: boolean;
   isAdmin: boolean;
   created_at: string;
+  passwordHash: string;  // Required for the type but we don't actually use/store this
   
   // Additional fields for user_profiles compatibility
   full_name?: string;

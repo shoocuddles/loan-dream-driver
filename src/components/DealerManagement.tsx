@@ -1,27 +1,60 @@
-import { useState, useEffect } from "react";
-import { useToast } from "@/components/ui/use-toast";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { getAllDealers, addDealer, updateDealer, deleteDealer } from "@/lib/supabase";
-import { UserDealer } from "@/lib/types/supabase";
+
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter, 
+  DialogClose 
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { 
+  Select, 
+  SelectContent, 
+  SelectGroup, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+
+import { 
+  getAllDealers, 
+  addDealer, 
+  updateDealer, 
+  deleteDealer 
+} from '@/lib/supabase';
+import { useToast } from '@/hooks/use-toast';
+import { UserDealer } from '@/lib/types/supabase';
 
 const DealerManagement = () => {
   const [dealers, setDealers] = useState<UserDealer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [newDealerEmail, setNewDealerEmail] = useState("");
-  const [newDealerPassword, setNewDealerPassword] = useState("");
-  const [newDealerName, setNewDealerName] = useState("");
-  const [newDealerCompany, setNewDealerCompany] = useState("");
-  const [isAddingDealer, setIsAddingDealer] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedDealer, setSelectedDealer] = useState<UserDealer | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
+  
+  // Form states
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [company, setCompany] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
   
   useEffect(() => {
     loadDealers();
@@ -29,357 +62,344 @@ const DealerManagement = () => {
   
   const loadDealers = async () => {
     try {
-      setIsLoading(true);
-      const dealersList = await getAllDealers();
-      
-      // Map user_profiles data to the expected UserDealer format
-      const formattedDealers = dealersList.map(dealer => ({
-        id: dealer.id,
-        email: dealer.email,
-        name: dealer.full_name || dealer.email,
-        company: dealer.company_name || 'Unknown Company',
-        isAdmin: dealer.role === 'admin',
-        isActive: true, // Default to active if not specified
-        created_at: dealer.created_at,
-        // Keep original fields for compatibility
-        full_name: dealer.full_name,
-        company_name: dealer.company_name,
-        role: dealer.role
-      }));
-      
-      // Sort by name
-      formattedDealers.sort((a, b) => a.name.localeCompare(b.name));
-      setDealers(formattedDealers);
+      setLoading(true);
+      const data = await getAllDealers();
+      setDealers(data);
     } catch (error) {
-      console.error("Error loading dealers:", error);
+      console.error('Failed to load dealers:', error);
       toast({
-        title: "Error",
-        description: "Unable to load dealers. Please try again.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to load dealers. Please try again later.',
+        variant: 'destructive',
       });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
   
-  const handleAddDealer = async () => {
+  const handleAddDealer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email || !password || !name || !company) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please fill in all required fields.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     try {
-      // Validate inputs
-      if (!newDealerEmail || !newDealerPassword || !newDealerName || !newDealerCompany) {
-        toast({
-          title: "Missing Fields",
-          description: "Please fill in all fields to add a new dealer.",
-          variant: "destructive",
-        });
-        return;
-      }
+      await addDealer(email, password, name, company);
       
-      setIsAddingDealer(true);
+      toast({
+        title: 'Dealer Added',
+        description: 'New dealer account has been created successfully.',
+      });
       
-      // Add new dealer
-      await addDealer(newDealerEmail, newDealerPassword, newDealerName, newDealerCompany);
-      
-      // Clear form
-      setNewDealerEmail("");
-      setNewDealerPassword("");
-      setNewDealerName("");
-      setNewDealerCompany("");
+      setAddDialogOpen(false);
+      setEmail('');
+      setPassword('');
+      setName('');
+      setCompany('');
+      setIsAdmin(false);
       
       // Reload dealers
       await loadDealers();
-      
-      toast({
-        title: "Dealer Added",
-        description: "New dealer account has been created successfully.",
-      });
     } catch (error) {
-      console.error("Error adding dealer:", error);
+      console.error('Error adding dealer:', error);
       toast({
-        title: "Error",
-        description: "Unable to add dealer. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsAddingDealer(false);
-    }
-  };
-  
-  const handleToggleActive = async (dealer: UserDealer) => {
-    try {
-      const updatedDealer = { ...dealer, isActive: !dealer.isActive };
-      await updateDealer(dealer.id, { isActive: !dealer.isActive });
-      
-      // Update local state
-      setDealers(prev => prev.map(d => 
-        d.id === dealer.id ? updatedDealer : d
-      ));
-      
-      toast({
-        title: dealer.isActive ? "Dealer Suspended" : "Dealer Activated",
-        description: `${dealer.name} has been ${dealer.isActive ? "suspended" : "activated"}.`,
-      });
-    } catch (error) {
-      console.error("Error updating dealer:", error);
-      toast({
-        title: "Error",
-        description: "Unable to update dealer status. Please try again.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to add dealer. Please try again.',
+        variant: 'destructive',
       });
     }
   };
   
   const handleEditDealer = (dealer: UserDealer) => {
     setSelectedDealer(dealer);
-    setIsDialogOpen(true);
+    setName(dealer.name);
+    setCompany(dealer.company);
+    setIsAdmin(dealer.isAdmin);
+    setEditDialogOpen(true);
   };
   
-  const handleUpdateDealer = async () => {
-    if (!selectedDealer) return;
+  const handleDeleteConfirm = (dealer: UserDealer) => {
+    setSelectedDealer(dealer);
+    setDeleteDialogOpen(true);
+  };
+  
+  const handleUpdateDealer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedDealer || !name || !company) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please fill in all required fields.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     try {
-      await updateDealer(selectedDealer.id, {
-        name: selectedDealer.name,
-        company: selectedDealer.company,
-        isActive: selectedDealer.isActive
+      const updatedDealer = await updateDealer(selectedDealer.id, {
+        name,
+        company,
+        isAdmin
       });
       
-      // Update local state
-      setDealers(prev => prev.map(d => 
-        d.id === selectedDealer.id ? selectedDealer : d
-      ));
-      
-      setIsDialogOpen(false);
+      if (updatedDealer) {
+        // Update the dealer in the list
+        setDealers(prevDealers => 
+          prevDealers.map(dealer => 
+            dealer.id === updatedDealer.id ? updatedDealer : dealer
+          )
+        );
+      }
       
       toast({
-        title: "Dealer Updated",
-        description: "Dealer information has been updated successfully.",
+        title: 'Dealer Updated',
+        description: 'Dealer information has been updated successfully.',
       });
+      
+      setEditDialogOpen(false);
+      setSelectedDealer(null);
     } catch (error) {
-      console.error("Error updating dealer:", error);
+      console.error('Error updating dealer:', error);
       toast({
-        title: "Error",
-        description: "Unable to update dealer. Please try again.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to update dealer. Please try again.',
+        variant: 'destructive',
       });
     }
   };
   
-  const handleDeleteDealer = async (dealer: UserDealer) => {
+  const handleDeleteDealer = async () => {
+    if (!selectedDealer) return;
+    
     try {
-      setConfirmDelete(dealer.id);
-      await deleteDealer(dealer.id);
+      await deleteDealer(selectedDealer.id);
       
-      // Update local state
-      setDealers(prev => prev.filter(d => d.id !== dealer.id));
+      // Remove dealer from list
+      setDealers(prevDealers => 
+        prevDealers.filter(dealer => dealer.id !== selectedDealer.id)
+      );
       
       toast({
-        title: "Dealer Deleted",
-        description: `${dealer.name} has been deleted successfully.`,
+        title: 'Dealer Deleted',
+        description: 'Dealer account has been deleted successfully.',
       });
+      
+      setDeleteDialogOpen(false);
+      setSelectedDealer(null);
     } catch (error) {
-      console.error("Error deleting dealer:", error);
+      console.error('Error deleting dealer:', error);
       toast({
-        title: "Error",
-        description: "Unable to delete dealer. Please try again.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to delete dealer. Please try again.',
+        variant: 'destructive',
       });
-    } finally {
-      setConfirmDelete(null);
     }
   };
   
   return (
-    <Card className="h-full">
-      <CardHeader>
-        <CardTitle>Dealer Management</CardTitle>
-        <CardDescription>Add, edit, or suspend dealer accounts</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="p-4 border rounded-lg">
-          <h3 className="font-medium mb-3">Add New Dealer</h3>
-          
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <Label htmlFor="dealerName">Name</Label>
-              <Input
-                id="dealerName"
-                value={newDealerName}
-                onChange={(e) => setNewDealerName(e.target.value)}
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="dealerCompany">Company</Label>
-              <Input
-                id="dealerCompany"
-                value={newDealerCompany}
-                onChange={(e) => setNewDealerCompany(e.target.value)}
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <Label htmlFor="dealerEmail">Email</Label>
-              <Input
-                id="dealerEmail"
-                type="email"
-                value={newDealerEmail}
-                onChange={(e) => setNewDealerEmail(e.target.value)}
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="dealerPassword">Password</Label>
-              <Input
-                id="dealerPassword"
-                type="password"
-                value={newDealerPassword}
-                onChange={(e) => setNewDealerPassword(e.target.value)}
-              />
-            </div>
-          </div>
-          
-          <Button 
-            onClick={handleAddDealer}
-            disabled={isAddingDealer}
-            className="w-full bg-ontario-blue hover:bg-ontario-blue/90"
-          >
-            {isAddingDealer ? "Adding..." : "Add Dealer"}
-          </Button>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Dealer Management</h2>
+        <Button 
+          onClick={() => setAddDialogOpen(true)}
+          className="bg-ontario-blue hover:bg-ontario-blue/90"
+        >
+          Add New Dealer
+        </Button>
+      </div>
+      
+      {loading ? (
+        <div className="flex justify-center p-8">
+          <p>Loading dealers...</p>
         </div>
-        
-        <div className="border rounded-lg overflow-hidden">
-          <h3 className="font-medium p-4 bg-gray-50 border-b">Dealers List</h3>
-          
-          {isLoading ? (
-            <p className="text-center py-4 text-gray-500">Loading dealers...</p>
-          ) : dealers.length === 0 ? (
-            <p className="text-center py-4 text-gray-500">No dealers found</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dealers.map((dealer) => (
-                    <TableRow key={dealer.id}>
-                      <TableCell className="font-medium">{dealer.name}</TableCell>
-                      <TableCell>{dealer.company}</TableCell>
-                      <TableCell>{dealer.email}</TableCell>
-                      <TableCell className="text-center">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          dealer.isActive 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {dealer.isActive ? 'Active' : 'Suspended'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditDealer(dealer)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={dealer.isActive ? 'text-red-500 border-red-500' : 'text-green-500 border-green-500'}
-                            onClick={() => handleToggleActive(dealer)}
-                          >
-                            {dealer.isActive ? 'Suspend' : 'Activate'}
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            disabled={confirmDelete === dealer.id}
-                            onClick={() => handleDeleteDealer(dealer)}
-                          >
-                            {confirmDelete === dealer.id ? 'Deleting...' : 'Delete'}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Company</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {dealers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8">
+                  No dealers found. Add a new dealer to get started.
+                </TableCell>
+              </TableRow>
+            ) : (
+              dealers.map(dealer => (
+                <TableRow key={dealer.id}>
+                  <TableCell>{dealer.name}</TableCell>
+                  <TableCell>{dealer.email}</TableCell>
+                  <TableCell>{dealer.company}</TableCell>
+                  <TableCell>{dealer.isAdmin ? 'Admin' : 'Dealer'}</TableCell>
+                  <TableCell className="flex space-x-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleEditDealer(dealer)}
+                    >
+                      Edit
+                    </Button>
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => handleDeleteConfirm(dealer)}
+                    >
+                      Delete
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      )}
+      
+      {/* Add Dealer Dialog */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add New Dealer</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddDealer} className="space-y-4">
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="company">Company</Label>
+                <Input
+                  id="company"
+                  value={company}
+                  onChange={e => setCompany(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="isAdmin"
+                  checked={isAdmin}
+                  onCheckedChange={(checked) => setIsAdmin(checked === true)}
+                />
+                <Label htmlFor="isAdmin">Admin Account</Label>
+              </div>
             </div>
-          )}
-        </div>
-      </CardContent>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button type="submit">Add Dealer</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       
       {/* Edit Dealer Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Edit Dealer</DialogTitle>
-            <DialogDescription>Update dealer information</DialogDescription>
           </DialogHeader>
-          
-          {selectedDealer && (
-            <div className="space-y-4 py-2">
-              <div>
-                <Label htmlFor="editName">Name</Label>
+          <form onSubmit={handleUpdateDealer} className="space-y-4">
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Full Name</Label>
                 <Input
-                  id="editName"
-                  value={selectedDealer.name}
-                  onChange={(e) => setSelectedDealer({...selectedDealer, name: e.target.value})}
+                  id="edit-name"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  required
                 />
               </div>
-              
-              <div>
-                <Label htmlFor="editCompany">Company</Label>
+              <div className="space-y-2">
+                <Label htmlFor="edit-company">Company</Label>
                 <Input
-                  id="editCompany"
-                  value={selectedDealer.company}
-                  onChange={(e) => setSelectedDealer({...selectedDealer, company: e.target.value})}
+                  id="edit-company"
+                  value={company}
+                  onChange={e => setCompany(e.target.value)}
+                  required
                 />
               </div>
-              
-              <div>
-                <Label htmlFor="editEmail">Email</Label>
-                <Input
-                  id="editEmail"
-                  value={selectedDealer.email}
-                  disabled
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Email cannot be changed
-                </p>
-              </div>
-              
               <div className="flex items-center space-x-2">
-                <Switch
-                  checked={selectedDealer.isActive}
-                  onCheckedChange={(checked) => setSelectedDealer({...selectedDealer, isActive: checked})}
+                <Checkbox
+                  id="edit-isAdmin"
+                  checked={isAdmin}
+                  onCheckedChange={(checked) => setIsAdmin(checked === true)}
                 />
-                <Label>Active Account</Label>
+                <Label htmlFor="edit-isAdmin">Admin Account</Label>
               </div>
             </div>
-          )}
-          
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button type="submit">Save Changes</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+          </DialogHeader>
+          <p>
+            Are you sure you want to delete the dealer account for{' '}
+            <strong>{selectedDealer?.name}</strong>? This action cannot be undone.
+          </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateDealer}>
-              Save Changes
+            <DialogClose asChild>
+              <Button type="button" variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteDealer}
+            >
+              Delete Dealer
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   );
 };
 

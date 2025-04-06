@@ -11,6 +11,8 @@ mkdir -p "$MIGRATION_DIR"
 
 # Write migration SQL
 cat > "$FULL_PATH" <<'EOF'
+-- IMPORTANT: Do not modify this file directly. Use the fix_signup_trigger.sh script.
+
 -- Drop old trigger if it exists
 drop trigger if exists on_auth_user_created on auth.users;
 
@@ -282,4 +284,3 @@ echo "📡 Running Supabase DB Push..."
 supabase db push
 
 echo "🎉 Done. Your signup flow should now be fixed!"
-

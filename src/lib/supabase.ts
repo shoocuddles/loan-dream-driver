@@ -26,24 +26,18 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
   };
 
   try {
-    // Since system_settings may not be in the database schema, we need to handle this gracefully
-    try {
-      // Use a try-catch to handle possible non-existent function
-      const { data, error } = await supabase
-        .rpc('get_system_settings');
+    // Use a type assertion to handle RPC function that's not in TypeScript definitions
+    const { data, error } = await (supabase as any)
+      .rpc('get_system_settings');
         
-      if (error) {
-        console.error('Error fetching system settings:', error);
-        return DEFAULT_SETTINGS;
-      }
-      
-      return data as SystemSettings || DEFAULT_SETTINGS;
-    } catch (err) {
-      console.error('Error accessing system_settings:', err);
+    if (error) {
+      console.error('Error fetching system settings:', error);
       return DEFAULT_SETTINGS;
     }
-  } catch (error) {
-    console.error('Exception in getSystemSettings:', error);
+      
+    return data as SystemSettings || DEFAULT_SETTINGS;
+  } catch (err) {
+    console.error('Error accessing system_settings:', err);
     return DEFAULT_SETTINGS;
   }
 };
@@ -64,24 +58,17 @@ export const updateSystemSettings = async (settings: {
   lockoutPeriodHours: number;
 }): Promise<boolean> => {
   try {
-    // Use a try-catch to handle possible non-existent function
-    try {
-      const { error } = await supabase
-        .rpc('update_system_settings', {
-          p_standard_price: settings.standardPrice,
-          p_discounted_price: settings.discountedPrice,
-          p_lockout_period_hours: settings.lockoutPeriodHours
-        });
+    // Use type assertion to handle RPC function that's not in TypeScript definitions
+    const { error } = await (supabase as any)
+      .rpc('update_system_settings', {
+        p_standard_price: settings.standardPrice,
+        p_discounted_price: settings.discountedPrice,
+        p_lockout_period_hours: settings.lockoutPeriodHours
+      });
         
-      if (error) {
-        console.error('Error updating system settings:', error);
-        throw error;
-      }
-    } catch (err) {
-      console.error('Error updating system settings:', err);
-      // Fall back to direct table access if RPC function doesn't exist
-      console.info('Falling back to default implementation');
-      return true;
+    if (error) {
+      console.error('Error updating system settings:', error);
+      throw error;
     }
     
     return true;
@@ -147,10 +134,10 @@ export const submitApplication = async (application: any, isDraft = false) => {
     
     // Handle applications table gracefully if it doesn't exist
     try {
-      // Use a try-catch to handle possible non-existent function
       // If application has an ID, it's an update to an existing draft
       if (application.id) {
-        const { data: updateData, error: updateError } = await supabase
+        // Use type assertion to handle RPC function that's not in TypeScript definitions
+        const { data: updateData, error: updateError } = await (supabase as any)
           .rpc('update_application', {
             p_application_id: application.id,
             p_application_data: {
@@ -164,7 +151,8 @@ export const submitApplication = async (application: any, isDraft = false) => {
         error = updateError;
       } else {
         // New application
-        const { data: insertData, error: insertError } = await supabase
+        // Use type assertion to handle RPC function that's not in TypeScript definitions
+        const { data: insertData, error: insertError } = await (supabase as any)
           .rpc('create_application', {
             p_application_data: {
               ...application,
@@ -198,8 +186,8 @@ export const getApplications = async (): Promise<Application[]> => {
   try {
     // Handle applications table gracefully if it doesn't exist
     try {
-      // Use a try-catch to handle possible non-existent function
-      const { data, error } = await supabase
+      // Use type assertion to handle RPC function that's not in TypeScript definitions
+      const { data, error } = await (supabase as any)
         .rpc('get_all_applications');
         
       if (error) {
@@ -258,8 +246,8 @@ export const getApplicationDetails = async (id: string): Promise<Application | n
   try {
     // Handle applications table gracefully if it doesn't exist
     try {
-      // Use a try-catch to handle possible non-existent function
-      const { data, error } = await supabase
+      // Use type assertion to handle RPC function that's not in TypeScript definitions
+      const { data, error } = await (supabase as any)
         .rpc('get_application_by_id', { p_application_id: id });
         
       if (error) {
@@ -308,8 +296,8 @@ export const lockApplication = async (applicationId: string, dealerId: string): 
   try {
     // Handle application_locks table gracefully if it doesn't exist
     try {
-      // Use a try-catch to handle possible non-existent function
-      const { error } = await supabase
+      // Use type assertion to handle RPC function that's not in TypeScript definitions
+      const { error } = await (supabase as any)
         .rpc('lock_application', {
           p_application_id: applicationId,
           p_dealer_id: dealerId,
@@ -336,8 +324,8 @@ export const unlockApplication = async (applicationId: string): Promise<boolean>
   try {
     // Use RPC function instead of direct table access
     try {
-      // Use a try-catch to handle possible non-existent function
-      const { error } = await supabase
+      // Use type assertion to handle RPC function that's not in TypeScript definitions
+      const { error } = await (supabase as any)
         .rpc('unlock_application', {
           p_application_id: applicationId
         });
@@ -362,8 +350,8 @@ export const checkApplicationLock = async (applicationId: string): Promise<Appli
   try {
     // Use RPC function instead of direct table access
     try {
-      // Use a try-catch to handle possible non-existent function
-      const { data, error } = await supabase
+      // Use type assertion to handle RPC function that's not in TypeScript definitions
+      const { data, error } = await (supabase as any)
         .rpc('check_application_lock', {
           p_application_id: applicationId
         });
@@ -399,8 +387,8 @@ export const recordDownload = async (applicationId: string, dealerId: string): P
   try {
     // Use RPC function instead of direct table access
     try {
-      // Use a try-catch to handle possible non-existent function
-      const { error } = await supabase
+      // Use type assertion to handle RPC function that's not in TypeScript definitions
+      const { error } = await (supabase as any)
         .rpc('record_application_download', {
           p_application_id: applicationId,
           p_dealer_id: dealerId
@@ -550,7 +538,8 @@ export const getDealers = async (): Promise<UserDealer[]> => {
       full_name: profile.full_name,
       company_name: profile.company_name,
       role: profile.role,
-      company_id: profile.company_id
+      company_id: profile.company_id,
+      passwordHash: '' // Required by the type but we don't store it
     }));
       
     return dealers;
@@ -592,7 +581,8 @@ export const getDealerById = async (id: string): Promise<UserDealer | null> => {
       full_name: profileData.full_name,
       company_name: profileData.company_name,
       role: profileData.role,
-      company_id: profileData.company_id
+      company_id: profileData.company_id,
+      passwordHash: '' // Required by the type but we don't store it
     };
   } catch (error) {
     console.error('Error in getDealerById:', error);
@@ -604,13 +594,15 @@ export const createDealer = async (dealer: any): Promise<UserDealer | null> => {
   try {
     // Create in user_profiles using RPC
     try {
-      const { error } = await supabase.rpc('create_dealer', {
-        p_id: dealer.id,
-        p_email: dealer.email,
-        p_full_name: dealer.name,
-        p_company_name: dealer.company,
-        p_role: dealer.isAdmin ? 'admin' : 'dealer'
-      });
+      // Use type assertion to handle RPC function that's not in TypeScript definitions
+      const { error } = await (supabase as any)
+        .rpc('create_dealer', {
+          p_id: dealer.id,
+          p_email: dealer.email,
+          p_full_name: dealer.name,
+          p_company_name: dealer.company,
+          p_role: dealer.isAdmin ? 'admin' : 'dealer'
+        });
 
       if (error) {
         console.error('Error creating dealer profile:', error);
@@ -636,7 +628,14 @@ export const createDealer = async (dealer: any): Promise<UserDealer | null> => {
       }
     }
 
-    return dealer;
+    return {
+      ...dealer,
+      full_name: dealer.name,
+      company_name: dealer.company,
+      role: dealer.isAdmin ? 'admin' : 'dealer',
+      company_id: '11111111-1111-1111-1111-111111111111',
+      passwordHash: '' // Required by the type but we don't store it
+    };
   } catch (error) {
     console.error('Error in createDealer:', error);
     throw error;
@@ -684,7 +683,8 @@ export const updateDealer = async (id: string, updates: any): Promise<UserDealer
       full_name: profile.full_name,
       company_name: profile.company_name,
       role: profile.role,
-      company_id: profile.company_id
+      company_id: profile.company_id,
+      passwordHash: '' // Required by the type but we don't store it
     };
   } catch (error) {
     console.error('Error in updateDealer:', error);
@@ -696,9 +696,11 @@ export const deleteDealer = async (id: string): Promise<boolean> => {
   try {
     // Use RPC call to safely delete user
     try {
-      const { error } = await supabase.rpc('delete_user', {
-        p_user_id: id
-      });
+      // Use type assertion to handle RPC function that's not in TypeScript definitions
+      const { error } = await (supabase as any)
+        .rpc('delete_user', {
+          p_user_id: id
+        });
 
       if (error) {
         console.error('Error deleting user with RPC:', error);

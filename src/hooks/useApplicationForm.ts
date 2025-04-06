@@ -126,11 +126,6 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
         } catch (supabaseError: any) {
           console.error("❌ Detailed Supabase error during save progress:", supabaseError);
           
-          // More detailed error logging
-          if (supabaseError.status) {
-            console.error(`❌ HTTP Status: ${supabaseError.status}`);
-          }
-          
           if (supabaseError.message) {
             console.error(`❌ Error message: ${supabaseError.message}`);
           }
@@ -264,11 +259,6 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
         }
       } catch (submitError: any) {
         console.error("❌ Error during final submission:", submitError);
-        
-        // Additional diagnostic information
-        if (submitError.code) {
-          console.error(`❌ Error code: ${submitError.code}`);
-        }
         
         if (submitError.stack) {
           console.error("❌ Stack trace:", submitError.stack);

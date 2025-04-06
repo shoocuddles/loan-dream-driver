@@ -12,13 +12,15 @@ declare
   meta jsonb;
   raw_company_id text;
   valid_company_id uuid;
+  role_value text;
 begin
   -- The correct path is raw_app_meta_data -> 'user_metadata'
   meta := new.raw_app_meta_data -> 'user_metadata';
-
+  
   -- Extract values safely
   raw_company_id := meta ->> 'company_id';
-
+  role_value := meta ->> 'role';
+  
   -- Attempt to cast company_id to UUID
   begin
     valid_company_id := raw_company_id::uuid;
@@ -38,7 +40,7 @@ begin
     new.id,
     new.email,
     meta ->> 'full_name',
-    meta ->> 'role',
+    (role_value)::public.user_role,
     valid_company_id,
     meta ->> 'company_name'
   );

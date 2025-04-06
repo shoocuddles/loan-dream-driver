@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -148,10 +149,11 @@ const signUp = async (email: string, password: string, userData: any) => {
   try {
     console.log("Starting signUp with:", { email, password: '****', userData });
 
+    // Create the proper metadata structure expected by the trigger function
     const userMetadata = {
       full_name: userData.fullName,
       role: userData.role || 'dealer',
-      //company_id: userData.company_id || '11111111-1111-1111-1111-111111111111',
+      company_id: userData.company_id || '11111111-1111-1111-1111-111111111111',
       company_name: userData.companyName || '',
     };
 
@@ -165,10 +167,10 @@ const signUp = async (email: string, password: string, userData: any) => {
       }
     });
 
-    // ✅ Log full response
+    // Log full response
     console.log("Supabase signUp response:", { data, error });
 
-    // ⛔️ If there's an error, log detailed context
+    // If there's an error, log detailed context
     if (error) {
       console.error("Supabase signUp error details:", {
         message: error.message,
@@ -204,7 +206,6 @@ const signUp = async (email: string, password: string, userData: any) => {
     throw err;
   }
 };
-
 
   const signOut = async () => {
     try {

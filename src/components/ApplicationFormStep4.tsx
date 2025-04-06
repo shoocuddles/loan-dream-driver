@@ -28,20 +28,27 @@ const ApplicationFormStep4 = ({
   const [acceptTerms, setAcceptTerms] = useState(false);
 
   const validateForm = () => {
+    console.log("Validating form in Step 4");
     const newErrors: Record<string, string> = {};
     
     if (!formData.employmentStatus) newErrors.employmentStatus = "Employment status is required";
     if (!formData.monthlyIncome) newErrors.monthlyIncome = "Monthly income is required";
     if (!acceptTerms) newErrors.acceptTerms = "You must accept the terms and conditions";
     
+    console.log("Form validation errors:", newErrors);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Step 4 submit button clicked");
+    
     if (validateForm()) {
+      console.log("Form validation passed, calling onSubmit()");
       onSubmit();
+    } else {
+      console.log("Form validation failed");
     }
   };
 

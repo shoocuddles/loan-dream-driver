@@ -174,31 +174,58 @@ const Apply = () => {
 
   const handleSubmit = async () => {
     try {
+      console.log("Final submit called, marking application as complete");
+      
       setIsSubmitting(true);
       setError(null);
       
-      // Final submission (mark as complete)
-      const success = await saveProgress(formData, true);
+      // First save to localStorage immediately
+      localStorage.setItem('applicationDraft', JSON.stringify(formData));
+      console.log("Saved to localStorage");
       
-      if (success) {
-        // Clear draft data
-        localStorage.removeItem('applicationDraft');
-        localStorage.removeItem('applicationDraftId');
-        setDraftId(null);
+      try {
+        // Final submission (mark as complete)
+        console.log("Submitting to server with complete flag");
+        const success = await saveProgress(formData, true);
+        
+        if (success) {
+          console.log("Application submitted successfully");
+          
+          // Clear draft data
+          localStorage.removeItem('applicationDraft');
+          localStorage.removeItem('applicationDraftId');
+          setDraftId(null);
+          
+          toast({
+            title: "Application Submitted!",
+            description: "Thank you for applying with Ontario Loans. We'll be in touch soon.",
+            variant: "default",
+          });
+          
+          // Redirect to homepage
+          console.log("Redirecting to home page");
+          navigate("/");
+        } else {
+          throw new Error("Failed to submit application");
+        }
+      } catch (submitError) {
+        console.error("Error during final submission:", submitError);
+        
+        // Set detailed error message
+        if (submitError instanceof Error) {
+          setError(`Submission error details: ${submitError.message}`);
+        } else {
+          setError(`Unknown submission error: ${JSON.stringify(submitError)}`);
+        }
         
         toast({
-          title: "Application Submitted!",
-          description: "Thank you for applying with Ontario Loans. We'll be in touch soon.",
-          variant: "default",
+          title: "Submission Error",
+          description: "There was a problem submitting your application. See details below.",
+          variant: "destructive",
         });
-        
-        // Redirect to homepage
-        navigate("/");
-      } else {
-        throw new Error("Failed to submit application");
       }
     } catch (error) {
-      console.error("Error submitting application:", error);
+      console.error("Unhandled error in handleSubmit:", error);
       
       // Set detailed error message
       if (error instanceof Error) {

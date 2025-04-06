@@ -75,9 +75,10 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
       console.log(`🌐 Create endpoint: ${supabaseUrl}/rest/v1/applications`);
       console.log('➕ Data being sent to Supabase:', applicationData);
       
+      // Make sure we're using an array for insert
       const { data, error } = await supabase
         .from('applications')
-        .insert([applicationData]) // FIX: Wrap applicationData in an array
+        .insert([applicationData])
         .select();
       
       if (error) {
@@ -88,9 +89,16 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
         throw error;
       }
       
+      // Log exact response for debugging
+      console.log('✅ Supabase insert response:', data);
+      
       result = data?.[0];
-      console.log('✅ Created new application in Supabase with ID:', result?.id);
-      console.log('✅ Full response:', result);
+      if (result) {
+        console.log('✅ Created new application in Supabase with ID:', result.id);
+        console.log('✅ Full response:', result);
+      } else {
+        console.error('❌ No result received after successful insert');
+      }
     }
     
     if (!result) {

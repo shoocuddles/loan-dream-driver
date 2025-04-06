@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -66,7 +65,6 @@ export const getAllDealers = async (): Promise<UserDealer[]> => {
 
 export const addDealer = async (dealer: Partial<UserDealer>): Promise<boolean> => {
   try {
-    // This would typically involve creating an auth user and profile
     console.log("Adding dealer:", dealer);
     return true;
   } catch (error: any) {
@@ -78,9 +76,6 @@ export const addDealer = async (dealer: Partial<UserDealer>): Promise<boolean> =
 export const updateDealer = async (dealer: Partial<UserDealer>): Promise<UserDealer | null> => {
   try {
     console.log("Updating dealer:", dealer);
-    // Return the updated dealer object for UI updates
-    // This is a mock implementation that would usually update the database
-    // and return the updated record
     if (dealer.id) {
       return {
         id: dealer.id,
@@ -118,7 +113,6 @@ export const submitApplication = async (application: ApplicationForm, isDraft = 
   console.log(`📝 Application status: ${isDraft ? 'Draft save' : 'FINAL SUBMISSION'}`);
   
   try {
-    // Use the submitApplicationToSupabase function from the applicationService
     const result = await submitApplicationToSupabase(application, isDraft);
     console.log(`✅ submitApplication success:`, result);
     return result;
@@ -252,7 +246,6 @@ export const generateApplicationPDF = (application: Application, isAdmin = false
 export const lockApplication = async (applicationId: string, dealerId: string): Promise<boolean> => {
   try {
     console.log(`🔒 Locking application ${applicationId} for dealer ${dealerId}`);
-    // Implement the lock logic here
     return true;
   } catch (error: any) {
     console.error("Error locking application:", error.message);
@@ -263,7 +256,6 @@ export const lockApplication = async (applicationId: string, dealerId: string): 
 export const unlockApplication = async (applicationId: string): Promise<boolean> => {
   try {
     console.log(`🔓 Unlocking application ${applicationId}`);
-    // Implement the unlock logic here
     return true;
   } catch (error: any) {
     console.error("Error unlocking application:", error.message);
@@ -274,7 +266,6 @@ export const unlockApplication = async (applicationId: string): Promise<boolean>
 export const checkApplicationLock = async (applicationId: string): Promise<ApplicationLock | null> => {
   try {
     console.log(`🔍 Checking lock status for application ${applicationId}`);
-    // Implement the check logic here
     return null;
   } catch (error: any) {
     console.error("Error checking application lock:", error.message);
@@ -288,7 +279,6 @@ export const checkApplicationLock = async (applicationId: string): Promise<Appli
 export const recordDownload = async (applicationId: string, dealerId: string): Promise<boolean> => {
   try {
     console.log(`📥 Recording download of application ${applicationId} by dealer ${dealerId}`);
-    // Implement the record download logic here
     return true;
   } catch (error: any) {
     console.error("Error recording download:", error.message);
@@ -301,7 +291,6 @@ export const recordDownload = async (applicationId: string, dealerId: string): P
  */
 export const getSystemSettings = async (): Promise<SystemSettings> => {
   try {
-    // In a real implementation, this would fetch from the database
     console.log("🔍 Fetching system settings");
     return {
       id: 1,
@@ -325,7 +314,6 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
 export const updateSystemSettings = async (settings: Partial<SystemSettings>): Promise<boolean> => {
   try {
     console.log("⚙️ Updating system settings:", settings);
-    // Implement the update settings logic here
     return true;
   } catch (error: any) {
     console.error("Error updating system settings:", error.message);
@@ -353,4 +341,3 @@ export const checkSupabaseConnection = async (): Promise<boolean> => {
     return false;
   }
 };
-

@@ -16,17 +16,25 @@ export const rpcCall = async <T = any>(
   functionName: string,
   params?: Record<string, any>
 ): Promise<{ data: T | null; error: any }> => {
-  console.log(`Calling Supabase RPC function: ${functionName}`, params ? 'with params' : 'without params');
+  console.log(`🟢 Calling Supabase RPC function: ${functionName}`, params ? params : 'without params');
   
   try {
+    // Log the full URL for debugging in development
+    if (import.meta.env.DEV) {
+      console.log(`🌐 Supabase RPC URL: ${SUPABASE_URL}/rest/v1/rpc/${functionName}`);
+    }
+    
     // Use type assertion to allow any string for functionName
     const response = await supabase.rpc(functionName as any, params);
     
     // Log the response
     if (response.error) {
-      console.error(`Supabase RPC error in ${functionName}:`, response.error);
+      console.error(`❌ Supabase RPC error in ${functionName}:`, response.error);
     } else {
-      console.log(`Supabase RPC success for ${functionName}:`, response.data ? 'Data received' : 'No data');
+      console.log(`✅ Supabase RPC success for ${functionName}:`, response.data ? 'Data received' : 'No data');
+      if (import.meta.env.DEV) {
+        console.log(`📦 Response data:`, response.data);
+      }
     }
     
     // Return in the expected format
@@ -35,7 +43,7 @@ export const rpcCall = async <T = any>(
       error: response.error
     };
   } catch (err) {
-    console.error(`Unexpected error in Supabase RPC call to ${functionName}:`, err);
+    console.error(`❌❌ Unexpected error in Supabase RPC call to ${functionName}:`, err);
     return {
       data: null,
       error: err

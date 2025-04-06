@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -129,7 +128,7 @@ export const submitApplication = async (application: any, isDraft = true) => {
     let data;
     let error;
     
-    console.log(`submitApplication called with isDraft=${isDraft}, application:`, 
+    console.log(`📝 submitApplication called with isDraft=${isDraft}, application:`, 
       application.id ? `ID: ${application.id}` : 'New application');
     
     const isComplete = !isDraft;
@@ -150,21 +149,23 @@ export const submitApplication = async (application: any, isDraft = true) => {
       isComplete: isComplete
     };
     
+    console.log('📦 Application data prepared for submission:', applicationData);
+    
     try {
       // If application has an ID, it's an update to an existing draft
       if (application.id) {
-        console.log('Updating application with ID:', application.id, isComplete ? '(COMPLETE)' : '(draft)');
+        console.log('🔄 Updating application with ID:', application.id, isComplete ? '(COMPLETE)' : '(draft)');
         const response = await rpcCall('update_application', {
           p_application_id: application.id,
           p_application_data: applicationData
         });
           
-        console.log('Update application response:', response.error ? 'ERROR' : 'SUCCESS', response.data);
+        console.log('🔄 Update application response:', response.error ? '❌ ERROR' : '✅ SUCCESS', response.data);
         data = response.data;
         error = response.error;
       } else {
         // New application
-        console.log('Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
+        console.log('➕ Creating new application', isComplete ? '(COMPLETE)' : '(draft)', applicationData);
         const response = await rpcCall('create_application', {
           p_application_data: {
             ...applicationData,
@@ -172,25 +173,30 @@ export const submitApplication = async (application: any, isDraft = true) => {
           }
         });
           
-        console.log('Create application response:', response.error ? 'ERROR' : 'SUCCESS', response.data);
+        console.log('➕ Create application response:', response.error ? '❌ ERROR' : '✅ SUCCESS', response.data);
         data = response.data;
         error = response.error;
+        
+        // Check for no data and no error condition
+        if (!data && !error) {
+          console.warn("⚠️ RPC call returned no data and no error. Check Supabase logs and client setup.");
+        }
       }
     } catch (err) {
-      console.error('Error with application function:', err);
+      console.error('❌❌ Error with application function:', err);
       throw err;
     }
     
     if (error) {
-      console.error('Error submitting application:', error);
+      console.error('❌ Error submitting application:', error);
       throw error;
     }
     
     const resultData = data && data[0] ? data[0] : null;
-    console.log('Application submission result:', resultData ? 'SUCCESS' : 'NULL RESULT', resultData);
+    console.log('📊 Application submission result:', resultData ? '✅ SUCCESS' : '⚠️ NULL RESULT', resultData);
     return resultData;
   } catch (error) {
-    console.error('Exception in submitApplication:', error);
+    console.error('❌❌ Exception in submitApplication:', error);
     throw error;
   }
 };

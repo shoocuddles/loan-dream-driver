@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { ApplicationForm } from "@/lib/types";
 import { submitApplication } from "@/lib/supabase";
@@ -74,6 +73,7 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
       setIsSavingProgress(true);
       
       localStorage.setItem('applicationDraft', JSON.stringify(data));
+      console.log('📂 Saved application data to localStorage');
       
       try {
         const applicationData = {
@@ -82,24 +82,24 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
           status: isComplete ? 'submitted' : 'draft'
         };
         
-        console.log('Preparing to submit application data:', 
+        console.log('🔄 Preparing to submit application data:', 
           isComplete ? 'FINAL SUBMISSION' : 'Draft save', 
           draftId ? `with ID: ${draftId}` : 'new application');
         
         let result = null;
         try {
           if (draftId) {
-            console.log('Updating existing draft with ID:', draftId);
+            console.log('🔄 Updating existing draft with ID:', draftId);
             result = await submitApplication({ ...applicationData, id: draftId }, !isComplete);
-            console.log('Update application result:', result);
+            console.log('🔄 Update application result:', result);
           } else {
-            console.log('Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
+            console.log('➕ Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
             result = await submitApplication(applicationData, !isComplete);
-            console.log('Create application result:', result);
+            console.log('➕ Create application result:', result);
           }
           
           if (result && result.id && !draftId) {
-            console.log('Setting draft ID:', result.id);
+            console.log('🔑 Setting draft ID:', result.id);
             setDraftId(result.id);
             localStorage.setItem('applicationDraftId', result.id);
           }
@@ -109,17 +109,20 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
           if (isComplete) {
             console.log('✅ Application marked as complete successfully');
             applicationSubmitted.current = true;
+            
+            toast({
+              title: "Application Submitted!",
+              description: "Thank you for applying. We've received your submission.",
+              variant: "default",
+            });
           }
           
           return true;
-        } catch (supabaseError) {
-          console.error("Detailed Supabase error during save progress:", supabaseError);
+        } catch (supabaseError: any) {
+          console.error("❌ Detailed Supabase error during save progress:", supabaseError);
           
-          if (supabaseError instanceof Error) {
-            setError(`Supabase error details: ${supabaseError.message}`);
-          } else {
-            setError(`Unknown Supabase error: ${JSON.stringify(supabaseError)}`);
-          }
+          const errorMessage = supabaseError?.message || 'Unknown error occurred';
+          setError(`Supabase error details: ${errorMessage}`);
           
           if (!isComplete) {
             toast({
@@ -141,14 +144,11 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
             return false;
           }
         }
-      } catch (error) {
-        console.error("Detailed error saving application progress:", error);
+      } catch (error: any) {
+        console.error("❌ Detailed error saving application progress:", error);
         
-        if (error instanceof Error) {
-          setError(`Error details: ${error.message}`);
-        } else {
-          setError(`Unknown error: ${JSON.stringify(error)}`);
-        }
+        const errorMessage = error?.message || 'Unknown error occurred';
+        setError(`Error details: ${errorMessage}`);
         
         toast({
           title: "Warning",
@@ -159,14 +159,11 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
         setIsSavingProgress(false);
         return !isComplete;
       }
-    } catch (error) {
-      console.error("Unhandled error in saveProgress:", error);
+    } catch (error: any) {
+      console.error("❌ Unhandled error in saveProgress:", error);
       
-      if (error instanceof Error) {
-        setError(`Error details: ${error.message}`);
-      } else {
-        setError(`Unknown error: ${JSON.stringify(error)}`);
-      }
+      const errorMessage = error?.message || 'Unknown error occurred';
+      setError(`Error details: ${errorMessage}`);
       
       toast({
         title: "Warning",
@@ -192,7 +189,7 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
     console.log("nextStep called, saving progress and advancing to step", currentStep + 1);
     saveProgress(formData)
       .catch(err => {
-        console.error("Background save failed:", err);
+        console.error("❌ Background save failed:", err);
       });
   };
 
@@ -244,17 +241,14 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
             onSuccessfulSubmit();
           }, 2000);
         } else {
-          console.error("Failed to submit application - saveProgress returned false");
+          console.error("❌ Failed to submit application - saveProgress returned false");
           throw new Error("Failed to submit application to server");
         }
-      } catch (submitError) {
-        console.error("Error during final submission:", submitError);
+      } catch (submitError: any) {
+        console.error("❌ Error during final submission:", submitError);
         
-        if (submitError instanceof Error) {
-          setError(`Submission error details: ${submitError.message}`);
-        } else {
-          setError(`Unknown submission error: ${JSON.stringify(submitError)}`);
-        }
+        const errorMessage = submitError?.message || 'Unknown error';
+        setError(`Submission error details: ${errorMessage}`);
         
         toast({
           title: "Submission Error",
@@ -265,14 +259,11 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
         setIsSubmitting(false);
         finalSubmissionInProgress.current = false;
       }
-    } catch (error) {
-      console.error("Unhandled error in handleSubmit:", error);
+    } catch (error: any) {
+      console.error("❌ Unhandled error in handleSubmit:", error);
       
-      if (error instanceof Error) {
-        setError(`Error details: ${error.message}`);
-      } else {
-        setError(`Unknown error: ${JSON.stringify(error)}`);
-      }
+      const errorMessage = error?.message || 'Unknown error';
+      setError(`Error details: ${errorMessage}`);
       
       toast({
         title: "Submission Error",

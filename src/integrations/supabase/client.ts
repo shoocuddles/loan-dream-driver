@@ -16,9 +16,12 @@ export const rpcCall = async <T = any>(
   functionName: string,
   params?: Record<string, any>
 ): Promise<{ data: T | null; error: any }> => {
-  // We need to await the result to convert the PostgrestFilterBuilder to a Promise result
-  return await supabase.rpc(functionName, params) as Promise<{
-    data: T | null;
-    error: any;
-  }>;
+  // Use type assertion to allow any string for functionName
+  const response = await supabase.rpc(functionName as any, params);
+  
+  // Return in the expected format
+  return {
+    data: response.data as T | null,
+    error: response.error
+  };
 };

@@ -9,7 +9,20 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+console.log(`🔌 Initializing Supabase client with URL: ${SUPABASE_URL}`);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    persistSession: true
+  },
+  global: {
+    headers: {
+      'x-application-name': 'ontario-loans'
+    }
+  }
+});
+
+// Log supabase version info
+console.log(`📊 Supabase client initialized`);
 
 // Enhanced logging for Supabase operations
 const originalFrom = supabase.from.bind(supabase);
@@ -20,7 +33,7 @@ supabase.from = function(table: string) {
     // This will likely fail at runtime but prevents build errors
     return originalFrom("applications");
   }
-  console.log(`🔍 Supabase: Accessing table "${table}"`);
+  console.log(`🔍 Supabase: Accessing table "${table}" at ${SUPABASE_URL}/rest/v1/${table}`);
   return originalFrom(table);
 } as typeof supabase.from;
 
@@ -30,6 +43,7 @@ export const rpcCall = async <T = any>(
   params?: Record<string, any>
 ): Promise<{ data: T | null; error: any }> => {
   console.log(`🟢 Calling Supabase RPC function: ${functionName}`, params ? params : 'without params');
+  console.log(`🌐 RPC Endpoint: ${SUPABASE_URL}/rest/v1/rpc/${functionName}`);
   
   try {
     // Log the full URL for debugging in development
@@ -80,6 +94,60 @@ export const rpcCall = async <T = any>(
   }
 };
 
+// Track all network requests to Supabase for debugging
+const monitorSupabaseFetch = () => {
+  const originalFetch = window.fetch;
+  window.fetch = function(input, init) {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input instanceof Request ? input.url : '';
+    
+    // Only monitor Supabase requests
+    if (url.includes(SUPABASE_URL)) {
+      const method = init?.method || 'GET';
+      console.log(`🌐 Supabase Network Request: ${method} ${url}`);
+      
+      if (init?.body) {
+        try {
+          const body = JSON.parse(init.body as string);
+          console.log(`📤 Request Payload:`, body);
+        } catch (err) {
+          console.log(`📤 Request Payload (raw):`, init.body);
+        }
+      }
+      
+      return originalFetch.apply(this, [input, init]).then(
+        response => {
+          // Clone the response so we can read the body
+          const clonedResponse = response.clone();
+          
+          clonedResponse.json().then(
+            data => {
+              console.log(`📥 Supabase Response (${response.status}):`, data);
+            },
+            err => {
+              console.log(`📥 Supabase Response (${response.status}): Could not parse JSON`, err);
+            }
+          );
+          
+          return response;
+        },
+        error => {
+          console.error(`❌ Supabase Network Error:`, error);
+          throw error;
+        }
+      );
+    }
+    
+    return originalFetch.apply(this, [input, init]);
+  };
+  
+  console.log('🔍 Supabase network monitoring enabled');
+};
+
+// Initialize network monitoring in development mode
+if (import.meta.env.DEV) {
+  monitorSupabaseFetch();
+}
+
 // Enhance supabase insert and update operations with better logging
 const enhanceSupabaseInsert = () => {
   const originalInsert = supabase.from('applications').insert;
@@ -97,6 +165,8 @@ const enhanceSupabaseInsert = () => {
     // Enhance the insert function with better logging
     builder.insert = function(...args) {
       console.log(`📝 Supabase: INSERT into "${table}" with data:`, args[0]);
+      console.log(`🌐 INSERT endpoint: ${SUPABASE_URL}/rest/v1/${table}`);
+      
       const insertResult = originalInsertFn.apply(this, args);
       
       // Add a then handler to log the result
@@ -124,3 +194,48 @@ const enhanceSupabaseInsert = () => {
 
 // Initialize the enhanced methods
 enhanceSupabaseInsert();
+
+// Add debugging info to Application page to show endpoint and connection status
+export const getSupabaseConnectionInfo = () => {
+  return {
+    url: SUPABASE_URL,
+    tables: {
+      applications: `${SUPABASE_URL}/rest/v1/applications`
+    },
+    isConnected: true // This will be updated by the check
+  };
+};
+
+// Test Supabase connection
+export const testSupabaseConnection = async () => {
+  try {
+    console.log('🔍 Testing Supabase connection...');
+    const start = Date.now();
+    const { data, error } = await supabase.from('applications').select('count(*)').limit(1);
+    const elapsed = Date.now() - start;
+    
+    if (error) {
+      console.error(`❌ Supabase connection test failed after ${elapsed}ms:`, error);
+      return {
+        connected: false,
+        latency: elapsed,
+        error: error.message
+      };
+    }
+    
+    console.log(`✅ Supabase connection successful (${elapsed}ms)`);
+    return {
+      connected: true,
+      latency: elapsed,
+      data
+    };
+  } catch (err) {
+    const elapsed = Date.now() - start;
+    console.error(`❌ Unexpected Supabase connection error after ${elapsed}ms:`, err);
+    return {
+      connected: false,
+      latency: elapsed,
+      error: err instanceof Error ? err.message : String(err)
+    };
+  }
+};

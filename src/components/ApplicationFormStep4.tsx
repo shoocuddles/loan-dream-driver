@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { ApplicationForm } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
+import { getSupabaseConnectionInfo } from "@/integrations/supabase/client";
 
 interface ApplicationFormStep4Props {
   formData: ApplicationForm;
@@ -25,6 +29,9 @@ const ApplicationFormStep4 = ({
 }: ApplicationFormStep4Props) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const submissionAttempted = useRef(false);
+  const connectionInfo = getSupabaseConnectionInfo();
 
   const validateForm = () => {
     console.log("Validating form in Step 4");
@@ -42,6 +49,8 @@ const ApplicationFormStep4 = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Step 4 submit button clicked");
+    
+    submissionAttempted.current = true;
     
     if (validateForm()) {
       console.log("Form validation passed, calling onSubmit()");
@@ -130,11 +139,41 @@ const ApplicationFormStep4 = ({
         </div>
       </div>
       
+      {/* Submission Details Toggle */}
+      <div className="flex justify-center">
+        <button 
+          type="button"
+          onClick={() => setShowDebugInfo(!showDebugInfo)}
+          className="text-xs text-gray-500 hover:text-gray-700 underline"
+        >
+          {showDebugInfo ? "Hide Submission Details" : "Show Submission Details"}
+        </button>
+      </div>
+      
+      {/* Submission Details Panel */}
+      {showDebugInfo && (
+        <Alert className="bg-gray-50 border-gray-200">
+          <AlertDescription>
+            <div className="text-xs font-mono">
+              <p><span className="font-semibold">Endpoint:</span> {connectionInfo.tables.applications}</p>
+              <p><span className="font-semibold">Method:</span> POST</p>
+              <p><span className="font-semibold">Content-Type:</span> application/json</p>
+              <p><span className="font-semibold">Fields sent:</span> {Object.keys(formData).filter(k => 
+                formData[k as keyof ApplicationForm] !== '' && 
+                formData[k as keyof ApplicationForm] !== undefined
+              ).length} fields</p>
+              <p className="mt-2 text-xs text-gray-500">Check browser console for complete data details</p>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <div className="pt-4 flex justify-between">
         <Button 
           type="button" 
           variant="outline" 
           onClick={prevStep}
+          disabled={isSubmitting}
         >
           Back
         </Button>
@@ -143,9 +182,26 @@ const ApplicationFormStep4 = ({
           className="bg-ontario-blue hover:bg-ontario-blue/90"
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Submitting..." : "Submit Application"}
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Submitting...
+            </>
+          ) : "Submit Application"}
         </Button>
       </div>
+      
+      {/* Visual indication of submission in progress */}
+      {isSubmitting && submissionAttempted.current && (
+        <div className="mt-4">
+          <div className="h-1 w-full bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-full bg-ontario-blue animate-pulse rounded-full"></div>
+          </div>
+          <p className="text-center text-sm text-gray-500 mt-2">
+            Sending to {connectionInfo.url}...
+          </p>
+        </div>
+      )}
     </form>
   );
 };

@@ -41,6 +41,10 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     console.log('📦 Application data prepared for submission:', 
       isComplete ? 'FINAL SUBMISSION' : 'Draft save');
     console.log('📦 Mapped application data:', applicationData);
+
+    // Log Supabase endpoint for debugging
+    const supabaseUrl = "https://kgtfpuvksmqyaraijoal.supabase.co";
+    console.log(`🌐 Supabase endpoint: ${supabaseUrl}/rest/v1/applications`);
     
     // Use the Supabase client directly for maximum control
     let result;
@@ -48,6 +52,8 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     if (application.applicationId) {
       // Update existing application
       console.log(`🔄 Updating application with ID: ${application.applicationId}`);
+      console.log(`🌐 Update endpoint: ${supabaseUrl}/rest/v1/applications?id=eq.${application.applicationId}`);
+      
       const { data, error } = await supabase
         .from('applications')
         .update(applicationData)
@@ -66,6 +72,7 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     } else {
       // Create new application
       console.log('➕ Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
+      console.log(`🌐 Create endpoint: ${supabaseUrl}/rest/v1/applications`);
       console.log('➕ Data being sent to Supabase:', applicationData);
       
       const { data, error } = await supabase

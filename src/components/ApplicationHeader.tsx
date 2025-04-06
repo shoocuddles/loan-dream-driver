@@ -1,68 +1,57 @@
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle2, Info } from "lucide-react";
-import { useState, useEffect } from "react";
-import { getSupabaseConnectionInfo, testSupabaseConnection } from "@/integrations/supabase/client";
+import { AlertCircle, CheckCircle2, LoaderCircle } from "lucide-react";
 
 interface ApplicationHeaderProps {
   error: string | null;
   draftId: string | null;
   isSavingProgress: boolean;
   currentStep: number;
+  isConfirmation?: boolean;
 }
 
 const ApplicationHeader = ({ 
   error, 
   draftId, 
   isSavingProgress,
-  currentStep 
+  currentStep,
+  isConfirmation = false
 }: ApplicationHeaderProps) => {
-  const [connectionStatus, setConnectionStatus] = useState<{
-    connected: boolean;
-    latency?: number;
-    error?: string;
-  } | null>(null);
-  const [showDebugInfo, setShowDebugInfo] = useState(false);
-  const connectionInfo = getSupabaseConnectionInfo();
-
-  // Check connection on mount
-  useEffect(() => {
-    async function checkConnection() {
-      const status = await testSupabaseConnection();
-      setConnectionStatus(status);
-    }
+  // Map steps to titles
+  const stepTitle = () => {
+    if (isConfirmation) return "Application Confirmation";
     
-    checkConnection();
-  }, []);
-
+    switch (currentStep) {
+      case 1: return "Step 1: Personal Information";
+      case 2: return "Step 2: Vehicle Details";
+      case 3: return "Step 3: Existing Car Loan";
+      case 4: return "Step 4: Income Details";
+      default: return "Ontario Loans Application";
+    }
+  };
+  
   return (
-    <div className="mb-8">
-      <h1 className="text-3xl font-bold mb-2 text-center text-ontario-darkblue">
-        Auto Financing Application
-      </h1>
-      
-      <p className="text-lg text-center mb-6">
-        Fill out the form below to apply for auto financing
-      </p>
-      
-      {/* Display the step indicator */}
-      <div className="flex justify-center mb-6">
-        <div className="flex items-center space-x-2">
-          {[1, 2, 3, 4].map((step) => (
-            <div 
-              key={step}
-              className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                step === currentStep 
-                  ? 'bg-ontario-blue text-white font-bold' 
-                  : step < currentStep 
-                    ? 'bg-green-500 text-white' 
-                    : 'bg-gray-200 text-gray-500'
-              }`}
-            >
-              {step < currentStep ? <CheckCircle2 size={16} /> : step}
-            </div>
-          ))}
-        </div>
+    <>
+      <div className="flex flex-col items-center mb-6">
+        <h1 className="text-2xl font-bold text-ontario-blue">{stepTitle()}</h1>
+        
+        {!isConfirmation && (
+          <div className="mt-1 text-sm text-gray-500">
+            {isSavingProgress && (
+              <span className="flex items-center">
+                <LoaderCircle className="h-3 w-3 mr-1 animate-spin" />
+                Saving your progress...
+              </span>
+            )}
+            
+            {!isSavingProgress && draftId && (
+              <span className="flex items-center">
+                <CheckCircle2 className="h-3 w-3 mr-1 text-green-500" />
+                Draft saved
+              </span>
+            )}
+          </div>
+        )}
       </div>
       
       {error && (
@@ -73,57 +62,26 @@ const ApplicationHeader = ({
         </Alert>
       )}
       
-      {isSavingProgress && (
-        <Alert className="mb-6">
-          <Info className="h-4 w-4" />
-          <AlertTitle>Saving your progress</AlertTitle>
-          <AlertDescription>Please wait while your application is being saved.</AlertDescription>
-        </Alert>
-      )}
-      
-      {draftId && !error && !isSavingProgress && (
-        <Alert className="mb-6 bg-green-50">
-          <CheckCircle2 className="h-4 w-4 text-green-500" />
-          <AlertTitle>Draft Saved</AlertTitle>
-          <AlertDescription>
-            Your application is automatically saved as you progress. Draft ID: {draftId.substring(0, 8)}...
-          </AlertDescription>
-        </Alert>
-      )}
-      
-      {/* Debug information button */}
-      <div className="flex justify-center mb-4">
-        <button 
-          onClick={() => setShowDebugInfo(!showDebugInfo)}
-          className="text-xs text-gray-500 hover:text-gray-700 underline"
-        >
-          {showDebugInfo ? "Hide Debug Info" : "Show Connection Debug Info"}
-        </button>
-      </div>
-      
-      {/* Debug information panel */}
-      {showDebugInfo && (
-        <div className="bg-gray-100 p-3 rounded text-sm mb-6 font-mono text-xs">
-          <h4 className="font-bold mb-1">Supabase Connection:</h4>
-          <p>URL: {connectionInfo.url}</p>
-          <p>Applications Table: {connectionInfo.tables.applications}</p>
-          <p>Connection Status: {
-            connectionStatus === null ? "Checking..." : 
-            connectionStatus.connected ? `Connected (${connectionStatus.latency}ms)` : 
-            `Failed (${connectionStatus.error})`
-          }</p>
-          
-          <div className="mt-3">
-            <h4 className="font-bold mb-1">Application Data Path:</h4>
-            <ul className="list-disc pl-5">
-              <li>Form Data → applicationService.ts → submitApplicationToSupabase</li>
-              <li>Supabase Client → applications table</li>
-              <li>Endpoint: {connectionInfo.tables.applications}</li>
-            </ul>
+      {!isConfirmation && (
+        <div className="flex justify-center mb-6">
+          <div className="flex items-center space-x-2">
+            {[1, 2, 3, 4].map(step => (
+              <div 
+                key={step} 
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium
+                  ${currentStep === step 
+                    ? 'bg-ontario-blue text-white' 
+                    : currentStep > step 
+                      ? 'bg-green-500 text-white' 
+                      : 'bg-gray-200 text-gray-600'}`}
+              >
+                {step}
+              </div>
+            ))}
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

@@ -7,6 +7,7 @@ import ApplicationFormStep1 from "@/components/ApplicationFormStep1";
 import ApplicationFormStep2 from "@/components/ApplicationFormStep2";
 import ApplicationFormStep3 from "@/components/ApplicationFormStep3";
 import ApplicationFormStep4 from "@/components/ApplicationFormStep4";
+import ApplicationConfirmation from "@/components/ApplicationConfirmation";
 import ApplicationHeader from "@/components/ApplicationHeader";
 import { useApplicationForm } from "@/hooks/useApplicationForm";
 import { checkSupabaseConnection, detectFirebaseDependencies } from "@/lib/supabaseUtils";
@@ -21,7 +22,10 @@ const Apply = () => {
     isSavingProgress,
     draftId,
     error,
+    submissionComplete,
+    submittedData,
     updateFormData,
+    updateSubmittedApplication,
     nextStep,
     prevStep,
     handleSubmit
@@ -76,6 +80,15 @@ const Apply = () => {
             isSubmitting={isSubmitting}
           />
         );
+      case 5:
+        return (
+          <ApplicationConfirmation
+            formData={formData}
+            submittedData={submittedData}
+            updateData={updateSubmittedApplication}
+            isSubmitting={isSubmitting}
+          />
+        );
       default:
         return null;
     }
@@ -93,6 +106,7 @@ const Apply = () => {
               draftId={draftId}
               isSavingProgress={isSavingProgress}
               currentStep={currentStep}
+              isConfirmation={currentStep === 5}
             />
             
             {renderStep()}

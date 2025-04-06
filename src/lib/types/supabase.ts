@@ -12,25 +12,59 @@ export type Application = {
   applicationId?: string; // Added for compatibility with existing code
   created_at: string;
   updated_at: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  address: string;
-  city: string;
-  province: string;
-  postalCode: string;
-  vehicleType: string;
-  vehicleYear: string;
-  vehicleMake: string;
-  vehicleModel: string;
-  income: number;
-  employmentStatus: string;
-  creditScore: string;
+  
+  // Support both camelCase and lowercase (database style) properties 
+  // for backwards compatibility during migration
+  // camelCase versions (for frontend)
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
+  streetAddress?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
+  vehicleType?: string;
+  requiredFeatures?: string;
+  unwantedColors?: string;
+  preferredMakeModel?: string;
+  hasExistingLoan?: boolean;
+  currentPayment?: string;
+  amountOwed?: string;
+  currentVehicle?: string;
+  mileage?: string;
+  employmentStatus?: string;
+  monthlyIncome?: string;
+  additionalNotes?: string;
+  
+  // lowercase versions (from database)
+  fullname?: string;
+  phone?: string;
+  phonenumber?: string;
+  address?: string;
+  streetaddress?: string;
+  postalcode?: string;
+  vehicletype?: string;
+  vehicleYear?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  income?: number;
+  employmentstatus?: string;
+  requiredfeatures?: string;
+  unwantedcolors?: string;
+  preferredmakemodel?: string;
+  hasexistingloan?: boolean;
+  currentpayment?: string;
+  amountowed?: string;
+  currentvehicle?: string;
+  additionalnotes?: string;
+  creditScore?: string;
+  
   status: 'draft' | 'submitted' | 'approved' | 'rejected';
   isLocked?: boolean;
   lockExpiresAt?: string;
   lockedBy?: string;
   wasLocked?: boolean; // Added for compatibility with existing code
+  isComplete?: boolean;
 }
 
 export type ApplicationLock = {

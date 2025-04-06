@@ -69,9 +69,26 @@ const AdminDashboard = () => {
       // Get application details
       const details = await getApplicationDetails(applicationId);
       
-      // Generate and save PDF with admin flag set to true
-      const pdf = generateApplicationPDF(details, true);
-      pdf.save(`ontario-loans-admin-${applicationId}.pdf`);
+      if (!details) {
+        throw new Error("Application details not found");
+      }
+      
+      // Generate PDF with admin flag set to true
+      const pdfBlob = generateApplicationPDF(details, true);
+      
+      // Create a URL for the Blob
+      const url = URL.createObjectURL(pdfBlob);
+      
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ontario-loans-admin-${applicationId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       
       toast({
         title: "Download Complete",

@@ -43,7 +43,7 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
   const finalSubmissionInProgress = useRef(false);
   const applicationSubmitted = useRef(false);
   
-  // Use our new separated draft functionality
+  // Use our separated draft functionality
   const { draftId, isSavingProgress, saveDraft, clearDraft } = useApplicationDraft(initialFormState);
 
   const nextStep = () => {
@@ -98,8 +98,11 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
       try {
         console.log("Submitting to server with complete flag");
         
+        // Add the application ID if we're updating an existing draft
+        const applicationToSubmit = draftId ? { ...formData, applicationId: draftId } : formData;
+        
         // Use the submitApplication function from lib/supabase
-        const result = await submitApplication(formData, false);
+        const result = await submitApplication(applicationToSubmit, false);
         
         if (result) {
           console.log("✅ Application submitted successfully");

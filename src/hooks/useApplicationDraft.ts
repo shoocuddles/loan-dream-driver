@@ -75,7 +75,7 @@ export const useApplicationDraft = (initialData: ApplicationForm) => {
       try {
         let result;
         
-        // Use Supabase directly instead of abstraction layers
+        // Use Supabase directly 
         if (isDraftUpdate && draftId) {
           // Update existing draft
           const { data, error } = await supabase
@@ -107,15 +107,21 @@ export const useApplicationDraft = (initialData: ApplicationForm) => {
             localStorage.setItem('applicationDraftId', result.id);
           }
         }
+        
+        setIsSavingProgress(false);
+        return true;
       } catch (error: any) {
         console.error("❌ Supabase error saving draft:", error);
         console.error(`❌ Error message: ${error.message || 'Unknown error'}`);
         
-        // Return true anyway since we saved to localStorage
+        // Additional error detail logging
+        if (error.details) {
+          console.error("❌ Error details:", error.details);
+        }
+        
+        setIsSavingProgress(false);
+        return false;
       }
-      
-      setIsSavingProgress(false);
-      return true;
     } catch (error: any) {
       console.error("❌ Unexpected error saving draft:", error);
       setIsSavingProgress(false);

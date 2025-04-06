@@ -67,7 +67,13 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
         })
         .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error creating application in Supabase:', error);
+        console.error('❌ Error details:', error.details);
+        console.error('❌ Error code:', error.code);
+        throw error;
+      }
+      
       result = data?.[0];
       console.log('✅ Created new application in Supabase with ID:', result?.id);
     }
@@ -75,6 +81,16 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     return result;
   } catch (error: any) {
     console.error('❌ Error in submitApplicationToSupabase:', error);
+    
+    // Enhanced error logging
+    if (error.code) {
+      console.error('❌ Error code:', error.code);
+    }
+    
+    if (error.details) {
+      console.error('❌ Error details:', error.details);
+    }
+    
     throw error;
   }
 };

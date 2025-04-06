@@ -30,7 +30,9 @@ const Apply = () => {
   // Run diagnostic checks on component mount
   useEffect(() => {
     // Check Supabase connection on mount
-    checkSupabaseConnection();
+    checkSupabaseConnection().catch(err => {
+      console.error("Failed to check Supabase connection:", err);
+    });
     
     // Check for Firebase dependencies
     detectFirebaseDependencies();

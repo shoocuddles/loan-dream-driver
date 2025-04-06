@@ -4,57 +4,52 @@ import 'jspdf-autotable';
 
 // Re-export the supabase client from the centralized location
 import { supabase } from '@/integrations/supabase/client';
-import { SystemSettings, Application, ApplicationLock, ApplicationDownload, UserDealer } from '@/lib/types/supabase';
+import { 
+  SystemSettings, 
+  Application, 
+  ApplicationLock, 
+  ApplicationDownload, 
+  UserDealer,
+  UserProfile 
+} from '@/lib/types/supabase';
 export { supabase };
 
 // System settings
 export const getSystemSettings = async (): Promise<SystemSettings> => {
+  // Default settings to use if we can't get from database
+  const DEFAULT_SETTINGS: SystemSettings = {
+    id: 1,
+    standardPrice: 9.99,
+    discountedPrice: 4.99,
+    lockoutPeriodHours: 24,
+    updated_at: new Date().toISOString()
+  };
+
   try {
     // Since system_settings may not be in the database schema, we need to handle this gracefully
     try {
+      // Use RPC call instead of direct table access for better compatibility
       const { data, error } = await supabase
-        .from('system_settings')
-        .select('*')
+        .rpc('get_system_settings')
         .single();
         
       if (error) {
         console.error('Error fetching system settings:', error);
-        // Return default values if we can't get the settings
-        return {
-          id: 1,
-          standardPrice: 9.99,
-          discountedPrice: 4.99,
-          lockoutPeriodHours: 24,
-          updated_at: new Date().toISOString()
-        };
+        return DEFAULT_SETTINGS;
       }
       
       return data as SystemSettings;
     } catch (err) {
       console.error('Error accessing system_settings table:', err);
-      // Return default values if the table doesn't exist
-      return {
-        id: 1,
-        standardPrice: 9.99,
-        discountedPrice: 4.99,
-        lockoutPeriodHours: 24,
-        updated_at: new Date().toISOString()
-      };
+      return DEFAULT_SETTINGS;
     }
   } catch (error) {
     console.error('Exception in getSystemSettings:', error);
-    // Return default values if we can't get the settings
-    return {
-      id: 1,
-      standardPrice: 9.99,
-      discountedPrice: 4.99,
-      lockoutPeriodHours: 24,
-      updated_at: new Date().toISOString()
-    };
+    return DEFAULT_SETTINGS;
   }
 };
 
-// Default settings for fallback
+// Alias the default settings for accessibility elsewhere
 export const DEFAULT_SETTINGS: SystemSettings = {
   id: 1,
   standardPrice: 9.99,
@@ -70,25 +65,22 @@ export const updateSystemSettings = async (settings: {
   lockoutPeriodHours: number;
 }): Promise<boolean> => {
   try {
-    // Since system_settings may not be in the database schema, we need to handle this gracefully
+    // Use RPC call instead of direct table access for better compatibility
     try {
       const { error } = await supabase
-        .from('system_settings')
-        .update({
-          standardPrice: settings.standardPrice,
-          discountedPrice: settings.discountedPrice,
-          lockoutPeriodHours: settings.lockoutPeriodHours,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', 1);
+        .rpc('update_system_settings', {
+          p_standard_price: settings.standardPrice,
+          p_discounted_price: settings.discountedPrice,
+          p_lockout_period_hours: settings.lockoutPeriodHours
+        });
         
       if (error) {
         console.error('Error updating system settings:', error);
         throw error;
       }
     } catch (err) {
-      console.error('Error accessing system_settings table:', err);
-      // Silently fail if the table doesn't exist
+      console.error('Error updating system settings:', err);
+      // Silently fail if the function doesn't exist
     }
     
     return true;
@@ -157,28 +149,28 @@ export const submitApplication = async (application: any, isDraft = false) => {
       // If application has an ID, it's an update to an existing draft
       if (application.id) {
         const { data: updateData, error: updateError } = await supabase
-          .from('applications')
-          .update({
-            ...application,
-            updated_at: new Date().toISOString(),
-            status: isDraft ? 'draft' : 'submitted'
-          })
-          .eq('id', application.id)
-          .select();
+          .rpc('update_application', {
+            p_application_id: application.id,
+            p_application_data: {
+              ...application,
+              updated_at: new Date().toISOString(),
+              status: isDraft ? 'draft' : 'submitted'
+            }
+          });
           
         data = updateData;
         error = updateError;
       } else {
         // New application
         const { data: insertData, error: insertError } = await supabase
-          .from('applications')
-          .insert([{
-            ...application,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            status: isDraft ? 'draft' : 'submitted'
-          }])
-          .select();
+          .rpc('create_application', {
+            p_application_data: {
+              ...application,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              status: isDraft ? 'draft' : 'submitted'
+            }
+          });
           
         data = insertData;
         error = insertError;
@@ -205,16 +197,41 @@ export const getApplications = async (): Promise<Application[]> => {
     // Handle applications table gracefully if it doesn't exist
     try {
       const { data, error } = await supabase
-        .from('applications')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .rpc('get_all_applications');
         
       if (error) {
         console.error('Error fetching applications:', error);
         return [];
       }
+
+      // Ensure we return properly formatted Application objects
+      const applications = data?.map((app: any) => ({
+        id: app.id,
+        applicationId: app.id, // For compatibility
+        created_at: app.created_at,
+        updated_at: app.updated_at || app.created_at,
+        fullName: app.fullName || '',
+        email: app.email || '',
+        phone: app.phone || '',
+        address: app.address || '',
+        city: app.city || '',
+        province: app.province || 'Ontario',
+        postalCode: app.postalCode || '',
+        vehicleType: app.vehicleType || '',
+        vehicleYear: app.vehicleYear || '',
+        vehicleMake: app.vehicleMake || '',
+        vehicleModel: app.vehicleModel || '',
+        income: app.income || 0,
+        employmentStatus: app.employmentStatus || '',
+        creditScore: app.creditScore || '',
+        status: app.status || 'draft',
+        isLocked: app.isLocked || false,
+        lockExpiresAt: app.lockExpiresAt,
+        lockedBy: app.lockedBy,
+        wasLocked: app.wasLocked || false
+      })) || [];
       
-      return data as Application[] || [];
+      return applications;
     } catch (err) {
       console.error('Error accessing applications table:', err);
       return [];
@@ -234,17 +251,40 @@ export const getApplicationDetails = async (id: string): Promise<Application | n
     // Handle applications table gracefully if it doesn't exist
     try {
       const { data, error } = await supabase
-        .from('applications')
-        .select('*')
-        .eq('id', id)
-        .single();
+        .rpc('get_application_by_id', { p_application_id: id });
         
       if (error) {
         console.error('Error fetching application details:', error);
         return null;
       }
       
-      return data as Application;
+      if (!data) return null;
+      
+      const app = data;
+      return {
+        id: app.id,
+        applicationId: app.id, // For compatibility
+        created_at: app.created_at,
+        updated_at: app.updated_at || app.created_at,
+        fullName: app.fullName || '',
+        email: app.email || '',
+        phone: app.phone || '',
+        address: app.address || '',
+        city: app.city || '',
+        province: app.province || 'Ontario',
+        postalCode: app.postalCode || '',
+        vehicleType: app.vehicleType || '',
+        vehicleYear: app.vehicleYear || '',
+        vehicleMake: app.vehicleMake || '',
+        vehicleModel: app.vehicleModel || '',
+        income: app.income || 0,
+        employmentStatus: app.employmentStatus || '',
+        creditScore: app.creditScore || '',
+        status: app.status || 'draft',
+        isLocked: app.isLocked || false,
+        lockExpiresAt: app.lockExpiresAt,
+        lockedBy: app.lockedBy
+      };
     } catch (err) {
       console.error('Error accessing applications table:', err);
       return null;
@@ -260,20 +300,18 @@ export const lockApplication = async (applicationId: string, dealerId: string): 
     // Handle application_locks table gracefully if it doesn't exist
     try {
       const { error } = await supabase
-        .from('application_locks')
-        .insert([{
-          application_id: applicationId,
-          dealer_id: dealerId,
-          locked_at: new Date().toISOString(),
-          expires_at: new Date(Date.now() + DEFAULT_SETTINGS.lockoutPeriodHours * 60 * 60 * 1000).toISOString() 
-        }]);
+        .rpc('lock_application', {
+          p_application_id: applicationId,
+          p_dealer_id: dealerId,
+          p_hours: DEFAULT_SETTINGS.lockoutPeriodHours
+        });
         
       if (error) {
         console.error('Error locking application:', error);
         return false;
       }
     } catch (err) {
-      console.error('Error accessing application_locks table:', err);
+      console.error('Error locking application:', err);
       return false;
     }
     
@@ -286,19 +324,19 @@ export const lockApplication = async (applicationId: string, dealerId: string): 
 
 export const unlockApplication = async (applicationId: string): Promise<boolean> => {
   try {
-    // Handle application_locks table gracefully if it doesn't exist
+    // Use RPC function instead of direct table access
     try {
       const { error } = await supabase
-        .from('application_locks')
-        .delete()
-        .eq('application_id', applicationId);
+        .rpc('unlock_application', {
+          p_application_id: applicationId
+        });
         
       if (error) {
         console.error('Error unlocking application:', error);
         return false;
       }
     } catch (err) {
-      console.error('Error accessing application_locks table:', err);
+      console.error('Error unlocking application:', err);
       return false;
     }
     
@@ -311,26 +349,31 @@ export const unlockApplication = async (applicationId: string): Promise<boolean>
 
 export const checkApplicationLock = async (applicationId: string): Promise<ApplicationLock | null> => {
   try {
-    // Handle application_locks table gracefully if it doesn't exist
+    // Use RPC function instead of direct table access
     try {
       const { data, error } = await supabase
-        .from('application_locks')
-        .select('*')
-        .eq('application_id', applicationId)
-        .single();
+        .rpc('check_application_lock', {
+          p_application_id: applicationId
+        });
         
       if (error) {
-        if (error.code === 'PGRST116') {
-          // No lock found (single row error)
-          return null;
-        }
         console.error('Error checking application lock:', error);
         return null;
       }
       
-      return data as ApplicationLock;
+      if (!data) return null;
+      
+      // Map response to ApplicationLock type
+      return {
+        id: data.id,
+        application_id: data.application_id,
+        dealer_id: data.dealer_id,
+        locked_at: data.locked_at,
+        expires_at: data.expires_at,
+        isLocked: true // For compatibility with existing code
+      };
     } catch (err) {
-      console.error('Error accessing application_locks table:', err);
+      console.error('Error checking application lock:', err);
       return null;
     }
   } catch (error) {
@@ -341,22 +384,20 @@ export const checkApplicationLock = async (applicationId: string): Promise<Appli
 
 export const recordDownload = async (applicationId: string, dealerId: string): Promise<boolean> => {
   try {
-    // Handle application_downloads table gracefully if it doesn't exist
+    // Use RPC function instead of direct table access
     try {
       const { error } = await supabase
-        .from('application_downloads')
-        .insert([{
-          application_id: applicationId,
-          dealer_id: dealerId,
-          downloaded_at: new Date().toISOString()
-        }]);
+        .rpc('record_application_download', {
+          p_application_id: applicationId,
+          p_dealer_id: dealerId
+        });
         
       if (error) {
         console.error('Error recording download:', error);
         return false;
       }
     } catch (err) {
-      console.error('Error accessing application_downloads table:', err);
+      console.error('Error recording download:', err);
       return false;
     }
     
@@ -471,115 +512,101 @@ export const generateApplicationsCSV = (applications: any[]) => {
 
 // Dealers
 export const getDealers = async (): Promise<UserDealer[]> => {
-    try {
-        // First try to get dealers from the dealers table
-        try {
-            const { data, error } = await supabase
-                .from('dealers')
-                .select('*');
-
-            if (!error && data && data.length > 0) {
-                return data as UserDealer[];
-            }
-        } catch (err) {
-            console.log('Dealers table not found, trying user_profiles instead:', err);
-        }
-
-        // If dealers table doesn't exist or is empty, try getting from user_profiles
-        const { data, error } = await supabase
-            .from('user_profiles')
-            .select('*');
-
-        if (error) {
-            console.error('Error fetching user profiles:', error);
-            return [];
-        }
-
-        return data || [];
-    } catch (error) {
-        console.error('Error in getDealers:', error);
-        return [];
+  try {
+    // Try to get from user_profiles
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('user_profiles')
+      .select('*');
+      
+    if (profilesError) {
+      console.error('Error fetching dealer profiles:', profilesError);
+      return [];
     }
+      
+    // Map user_profiles to UserDealer format
+    const dealers: UserDealer[] = (profilesData || []).map(profile => ({
+      id: profile.id,
+      email: profile.email,
+      name: profile.full_name || profile.email,
+      company: profile.company_name || 'Unknown Company',
+      isAdmin: profile.role === 'admin',
+      isActive: true, // Default to active
+      created_at: profile.created_at,
+      // Keep original fields for compatibility
+      full_name: profile.full_name,
+      company_name: profile.company_name,
+      role: profile.role,
+      company_id: profile.company_id
+    }));
+      
+    return dealers;
+  } catch (error) {
+    console.error('Error in getDealers:', error);
+    return [];
+  }
 };
 
 // Alias for getDealers for consistency with other code
 export const getAllDealers = getDealers;
 
 export const getDealerById = async (id: string): Promise<UserDealer | null> => {
-    try {
-        // First try to get from dealers table
-        try {
-            const { data, error } = await supabase
-                .from('dealers')
-                .select('*')
-                .eq('id', id)
-                .single();
-
-            if (!error && data) {
-                return data as UserDealer;
-            }
-        } catch (err) {
-            console.log('Dealers table not found, trying user_profiles instead:', err);
-        }
-
-        // If dealers table doesn't exist or record not found, try user_profiles
-        const { data, error } = await supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('id', id)
-            .single();
-
-        if (error) {
-            console.error('Error fetching dealer by ID:', error);
-            return null;
-        }
-
-        return data || null;
-    } catch (error) {
-        console.error('Error in getDealerById:', error);
-        return null;
+  try {
+    // Get from user_profiles
+    const { data: profileData, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', id)
+      .single();
+      
+    if (profileError) {
+      console.error('Error fetching dealer profile by ID:', profileError);
+      return null;
     }
+      
+    if (!profileData) return null;
+      
+    // Map to UserDealer format
+    return {
+      id: profileData.id,
+      email: profileData.email,
+      name: profileData.full_name || profileData.email,
+      company: profileData.company_name || 'Unknown Company',
+      isAdmin: profileData.role === 'admin',
+      isActive: true, // Default to active
+      created_at: profileData.created_at,
+      // Keep original fields for compatibility
+      full_name: profileData.full_name,
+      company_name: profileData.company_name,
+      role: profileData.role,
+      company_id: profileData.company_id
+    };
+  } catch (error) {
+    console.error('Error in getDealerById:', error);
+    return null;
+  }
 };
 
 export const createDealer = async (dealer: any): Promise<UserDealer | null> => {
-    try {
-        // Try to create in dealers table first
-        try {
-            const { data, error } = await supabase
-                .from('dealers')
-                .insert([dealer])
-                .select();
+  try {
+    // Create in user_profiles
+    const { data, error } = await supabase.rpc('create_dealer', {
+      p_id: dealer.id,
+      p_email: dealer.email,
+      p_full_name: dealer.name,
+      p_company_name: dealer.company,
+      p_role: dealer.isAdmin ? 'admin' : 'dealer'
+    });
 
-            if (!error && data && data.length > 0) {
-                return data[0] as UserDealer;
-            }
-        } catch (err) {
-            console.log('Dealers table not found, trying user_profiles instead:', err);
-        }
-
-        // If dealers table doesn't exist, try creating in user_profiles
-        const { data, error } = await supabase
-            .from('user_profiles')
-            .insert([{
-                id: dealer.id,
-                email: dealer.email,
-                full_name: dealer.name,
-                company_name: dealer.company,
-                role: dealer.isAdmin ? 'admin' : 'dealer',
-                company_id: '11111111-1111-1111-1111-111111111111' // Default company ID
-            }])
-            .select();
-
-        if (error) {
-            console.error('Error creating dealer profile:', error);
-            throw error;
-        }
-
-        return data && data.length > 0 ? data[0] as unknown as UserDealer : null;
-    } catch (error) {
-        console.error('Error in createDealer:', error);
-        throw error;
+    if (error) {
+      console.error('Error creating dealer profile:', error);
+      throw error;
     }
+
+    return dealer;
+  } catch (error) {
+    console.error('Error in createDealer:', error);
+    throw error;
+  }
 };
 
 // Alias for createDealer for consistency with other code
@@ -588,75 +615,64 @@ export const addDealer = async (email: string, password: string, name: string, c
 };
 
 export const updateDealer = async (id: string, updates: any): Promise<UserDealer | null> => {
-    try {
-        // Try to update in dealers table first
-        try {
-            const { data, error } = await supabase
-                .from('dealers')
-                .update(updates)
-                .eq('id', id)
-                .select();
+  try {
+    // Map fields to user_profiles schema
+    const userProfileUpdates: any = {};
+    if (updates.name) userProfileUpdates.full_name = updates.name;
+    if (updates.company) userProfileUpdates.company_name = updates.company;
+    if (updates.isAdmin !== undefined) userProfileUpdates.role = updates.isAdmin ? 'admin' : 'dealer';
 
-            if (!error && data && data.length > 0) {
-                return data[0] as UserDealer;
-            }
-        } catch (err) {
-            console.log('Dealers table not found, trying user_profiles instead:', err);
-        }
+    // Update in user_profiles
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .update(userProfileUpdates)
+      .eq('id', id)
+      .select();
 
-        // Map fields to user_profiles schema
-        const userProfileUpdates: any = {};
-        if (updates.name) userProfileUpdates.full_name = updates.name;
-        if (updates.company) userProfileUpdates.company_name = updates.company;
-        if (updates.isAdmin !== undefined) userProfileUpdates.role = updates.isAdmin ? 'admin' : 'dealer';
-
-        // If dealers table doesn't exist, try updating in user_profiles
-        const { data, error } = await supabase
-            .from('user_profiles')
-            .update(userProfileUpdates)
-            .eq('id', id)
-            .select();
-
-        if (error) {
-            console.error('Error updating user profile:', error);
-            throw error;
-        }
-
-        return data && data.length > 0 ? data[0] as unknown as UserDealer : null;
-    } catch (error) {
-        console.error('Error in updateDealer:', error);
-        throw error;
+    if (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
     }
+    
+    if (!data || !data[0]) return null;
+    
+    // Map to UserDealer format
+    const profile = data[0];
+    return {
+      id: profile.id,
+      email: profile.email,
+      name: profile.full_name || profile.email,
+      company: profile.company_name || 'Unknown Company',
+      isAdmin: profile.role === 'admin',
+      isActive: true, // Default to active
+      created_at: profile.created_at,
+      // Keep original fields for compatibility
+      full_name: profile.full_name,
+      company_name: profile.company_name,
+      role: profile.role,
+      company_id: profile.company_id
+    };
+  } catch (error) {
+    console.error('Error in updateDealer:', error);
+    throw error;
+  }
 };
 
 export const deleteDealer = async (id: string): Promise<boolean> => {
-    try {
-        // Try to delete from dealers table first
-        try {
-            const { error } = await supabase
-                .from('dealers')
-                .delete()
-                .eq('id', id);
+  try {
+    // Use RPC call to safely delete user
+    const { error } = await supabase.rpc('delete_user', {
+      p_user_id: id
+    });
 
-            if (!error) {
-                return true;
-            }
-        } catch (err) {
-            console.log('Dealers table not found, trying auth.users instead:', err);
-        }
-
-        // If dealers table doesn't exist, try deleting the auth user
-        // This will cascade to user_profiles due to foreign key constraints
-        const { error } = await supabase.auth.admin.deleteUser(id);
-
-        if (error) {
-            console.error('Error deleting user:', error);
-            throw error;
-        }
-
-        return true;
-    } catch (error) {
-        console.error('Error in deleteDealer:', error);
-        throw error;
+    if (error) {
+      console.error('Error deleting user:', error);
+      throw error;
     }
+
+    return true;
+  } catch (error) {
+    console.error('Error in deleteDealer:', error);
+    throw error;
+  }
 };

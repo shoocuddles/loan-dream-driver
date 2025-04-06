@@ -19,7 +19,7 @@ import {
   generateApplicationsCSV,
   DEFAULT_SETTINGS
 } from "@/lib/supabase";
-import { Application } from "@/lib/types/supabase";
+import { Application, ApplicationLock } from "@/lib/types/supabase";
 
 const DealerDashboard = () => {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -80,7 +80,7 @@ const DealerDashboard = () => {
       // Process applications to mark those that were previously locked
       const processedApps = appList.map((app: Application) => ({
         ...app,
-        // Use id as applicationId for consistency
+        // Ensure applicationId is set for compatibility with existing code
         applicationId: app.id,
         wasLocked: app.lockedBy && !app.isLocked && app.lockedBy !== 'currentDealerId'
       }));
@@ -124,21 +124,24 @@ const DealerDashboard = () => {
         selectedApplications.map(id => getApplicationDetails(id))
       );
       
+      // Filter out any null values (applications that could not be retrieved)
+      const validApps = selectedApps.filter(app => app !== null) as Application[];
+      
       // Calculate total cost based on application status
       let totalCost = 0;
       const newDownloads = [];
       
-      for (const app of selectedApps) {
+      for (const app of validApps) {
         // Check if the application is already downloaded
-        if (!downloadedApps.includes(app.applicationId)) {
+        if (!downloadedApps.includes(app.id)) {
           // Check lock status and pricing
-          const lockStatus = await checkApplicationLock(app.applicationId);
+          const lockStatus = await checkApplicationLock(app.id);
           
-          if (lockStatus && lockStatus.isLocked) {
+          if (lockStatus && (lockStatus as ApplicationLock).isLocked) {
             // Skip this application if it's locked by someone else
             toast({
               title: "Application Locked",
-              description: `Application ${app.applicationId} is currently locked and cannot be downloaded.`,
+              description: `Application ${app.id} is currently locked and cannot be downloaded.`,
               variant: "destructive",
             });
             continue;
@@ -146,7 +149,7 @@ const DealerDashboard = () => {
           
           // For simplicity, use standard price since we don't have the full pricing logic
           totalCost += DEFAULT_SETTINGS.standardPrice;
-          newDownloads.push(app.applicationId);
+          newDownloads.push(app.id);
         }
       }
       
@@ -191,13 +194,13 @@ const DealerDashboard = () => {
       // Generate and download the file
       if (format === 'pdf') {
         // For multiple PDFs, create one and then combine
-        for (const app of selectedApps) {
+        for (const app of validApps) {
           const pdf = generateApplicationPDF(app);
-          pdf.save(`ontario-loans-application-${app.id || app.applicationId}.pdf`);
+          pdf.save(`ontario-loans-application-${app.id}.pdf`);
         }
       } else {
         // Generate CSV
-        const csvContent = generateApplicationsCSV(selectedApps);
+        const csvContent = generateApplicationsCSV(validApps);
         const blob = new Blob([csvContent], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -211,7 +214,7 @@ const DealerDashboard = () => {
       
       toast({
         title: "Download Complete",
-        description: `Successfully downloaded ${selectedApps.length} applications.`
+        description: `Successfully downloaded ${validApps.length} applications.`
       });
       
       // Clear selection
@@ -238,7 +241,7 @@ const DealerDashboard = () => {
       // Check if the application is locked
       const lockStatus = await checkApplicationLock(applicationId);
       
-      if (lockStatus && lockStatus.isLocked) {
+      if (lockStatus && (lockStatus as ApplicationLock).isLocked) {
         const canDownload = false; // Simplified logic
         if (!canDownload) {
           toast({
@@ -279,6 +282,15 @@ const DealerDashboard = () => {
       
       // Get application details
       const details = await getApplicationDetails(applicationId);
+      if (!details) {
+        toast({
+          title: "Error",
+          description: "Unable to retrieve application details.",
+          variant: "destructive",
+        });
+        setProcessingId(null);
+        return;
+      }
       
       // Lock application for other dealers if this is a new download
       if (!downloadedApps.includes(applicationId)) {

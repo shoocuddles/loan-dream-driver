@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -33,7 +32,7 @@ const DealerManagement = () => {
       setIsLoading(true);
       const dealersList = await getAllDealers();
       
-      // Map user_profiles data to the expected Dealer format
+      // Map user_profiles data to the expected UserDealer format
       const formattedDealers = dealersList.map(dealer => ({
         id: dealer.id,
         email: dealer.email,
@@ -41,7 +40,11 @@ const DealerManagement = () => {
         company: dealer.company_name || 'Unknown Company',
         isAdmin: dealer.role === 'admin',
         isActive: true, // Default to active if not specified
-        created_at: dealer.created_at
+        created_at: dealer.created_at,
+        // Keep original fields for compatibility
+        full_name: dealer.full_name,
+        company_name: dealer.company_name,
+        role: dealer.role
       }));
       
       // Sort by name
@@ -101,7 +104,7 @@ const DealerManagement = () => {
     }
   };
   
-  const handleToggleActive = async (dealer: Dealer) => {
+  const handleToggleActive = async (dealer: UserDealer) => {
     try {
       const updatedDealer = { ...dealer, isActive: !dealer.isActive };
       await updateDealer(dealer.id, { isActive: !dealer.isActive });
@@ -125,7 +128,7 @@ const DealerManagement = () => {
     }
   };
   
-  const handleEditDealer = (dealer: Dealer) => {
+  const handleEditDealer = (dealer: UserDealer) => {
     setSelectedDealer(dealer);
     setIsDialogOpen(true);
   };
@@ -161,7 +164,7 @@ const DealerManagement = () => {
     }
   };
   
-  const handleDeleteDealer = async (dealer: Dealer) => {
+  const handleDeleteDealer = async (dealer: UserDealer) => {
     try {
       setConfirmDelete(dealer.id);
       await deleteDealer(dealer.id);

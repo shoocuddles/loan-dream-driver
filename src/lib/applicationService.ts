@@ -1,4 +1,3 @@
-
 import { ApplicationForm } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -91,6 +90,9 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     // Map application fields to match our database schema
     const applicationData = mapApplicationToDbFormat(application, isDraft);
     
+    // Always set user_id to null for anonymous submissions to avoid RLS issues
+    applicationData.user_id = null;
+    
     console.log('📦 Application data prepared for submission:', 
       isDraft ? 'Draft save' : 'FINAL SUBMISSION', applicationData);
     
@@ -150,9 +152,8 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           // Update existing application
           console.log(`🔄 Updating application with ID: ${application.applicationId} (Attempt ${retryCount + 1})`);
           
-          // Remove user_id if it's being updated - RLS will handle this
-          const updateData = { ...applicationData };
-          delete updateData.user_id; // Remove user_id to avoid RLS issues
+          // Always set user_id to null for anonymous submissions
+          const updateData = { ...applicationData, user_id: null };
           
           const { data, error } = await supabase
             .from('applications')
@@ -194,11 +195,10 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           // Create new application
           console.log('➕ Creating new application', isDraft ? '(DRAFT)' : '(COMPLETE)');
           
-          // Make sure we're using an array for insert
+          // Make sure we're using an array for insert and always set user_id to null
           const insertData = { 
             ...applicationData, 
             created_at: new Date().toISOString(),
-            // Remove user_id for anonymous submissions to avoid RLS issues
             user_id: null
           };
           
@@ -257,15 +257,8 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
       try {
         console.log("🔄 Trying direct API method as fallback");
         
-        // For direct API, also remove user_id for anonymous submissions
-        const apiData = { ...applicationData };
-        if (!application.applicationId) {
-          // For new applications, set user_id to null explicitly
-          apiData.user_id = null;
-        } else {
-          // For updates, remove user_id field completely
-          delete apiData.user_id;
-        }
+        // For direct API, always set user_id to null for public submissions
+        const apiData = { ...applicationData, user_id: null };
         
         if (application.applicationId) {
           // Update using direct API

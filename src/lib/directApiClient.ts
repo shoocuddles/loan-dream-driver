@@ -37,14 +37,8 @@ const createHeaders = (customHeaders = {}): HeadersInit => {
     ...customHeaders
   };
 
-  // Try to use auth token if available
-  const authToken = getAuthToken();
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
-  } else {
-    // Fallback to anonymous key
-    headers['Authorization'] = `Bearer ${SUPABASE_KEY}`;
-  }
+  // For applications, we always use the anon key to avoid RLS issues
+  headers['Authorization'] = `Bearer ${SUPABASE_KEY}`;
 
   return headers;
 };
@@ -56,10 +50,14 @@ export async function directInsertApplication(data: any): Promise<any> {
   try {
     console.log("🔌 Using direct API insert method as fallback");
     
+    // Ensure user_id is null to avoid RLS issues with anonymous submissions
+    const payload = { ...data };
+    payload.user_id = null;
+    
     const response = await fetch(`${SUPABASE_URL}/rest/v1/applications`, {
       method: 'POST',
       headers: createHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify(payload)
     });
     
     if (!response.ok) {
@@ -77,7 +75,7 @@ export async function directInsertApplication(data: any): Promise<any> {
             'Authorization': `Bearer ${SUPABASE_KEY}`, 
             'Prefer': 'return=representation'
           },
-          body: JSON.stringify(data)
+          body: JSON.stringify(payload)
         });
         
         if (!retryResponse.ok) {
@@ -110,10 +108,14 @@ export async function directUpdateApplication(id: string, data: any): Promise<an
   try {
     console.log(`🔌 Using direct API update method as fallback for ID: ${id}`);
     
+    // Ensure user_id is null to avoid RLS issues with anonymous submissions
+    const payload = { ...data };
+    payload.user_id = null;
+    
     const response = await fetch(`${SUPABASE_URL}/rest/v1/applications?id=eq.${id}`, {
       method: 'PATCH',
       headers: createHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify(payload)
     });
     
     if (!response.ok) {
@@ -131,7 +133,7 @@ export async function directUpdateApplication(id: string, data: any): Promise<an
             'Authorization': `Bearer ${SUPABASE_KEY}`,
             'Prefer': 'return=representation'
           },
-          body: JSON.stringify(data)
+          body: JSON.stringify(payload)
         });
         
         if (!retryResponse.ok) {

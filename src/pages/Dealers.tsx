@@ -68,11 +68,12 @@ const Dealers = () => {
         companyName: company
       });
       
-      // Send all required user metadata - ensure we're consistent with naming
+      // Send proper user metadata directly - this matches what the trigger expects
       await signUp(signupEmail, signupPassword, {
         full_name: dealerName,
         role: 'dealer',
-        company_name: company
+        company_name: company,
+        // Don't include company_id as we'll generate it server-side in the trigger
       });
       
       // Clear form fields

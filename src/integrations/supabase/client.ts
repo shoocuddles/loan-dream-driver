@@ -11,12 +11,13 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-// Add a generic RPC function with proper type casting to handle any RPC function
+// Add a generic RPC function with proper type casting and async handling
 export const rpcCall = async <T = any>(
   functionName: string,
   params?: Record<string, any>
 ): Promise<{ data: T | null; error: any }> => {
-  return supabase.rpc(functionName as any, params as any) as Promise<{
+  // We need to await the result to convert the PostgrestFilterBuilder to a Promise result
+  return await supabase.rpc(functionName, params) as Promise<{
     data: T | null;
     error: any;
   }>;

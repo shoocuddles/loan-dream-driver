@@ -309,15 +309,33 @@ export const recordDownload = async (applicationId: string, dealerId: string): P
 export const getSystemSettings = async (): Promise<SystemSettings> => {
   try {
     console.log("🔍 Fetching system settings");
-    return {
-      id: 1,
-      standardPrice: DEFAULT_SETTINGS.standardPrice,
-      discountedPrice: DEFAULT_SETTINGS.discountedPrice,
-      lockoutPeriodHours: DEFAULT_SETTINGS.lockoutPeriodHours,
-      updated_at: new Date().toISOString()
+    
+    // Get system settings from Supabase
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('*')
+      .limit(1)
+      .single();
+    
+    if (error) {
+      console.error("Error fetching system settings:", error.message);
+      throw error;
+    }
+    
+    // Map database field names to our local naming convention
+    const settings = {
+      id: data.id,
+      standardPrice: data.standard_price,
+      discountedPrice: data.discounted_price,
+      lockoutPeriodHours: data.temporary_lock_minutes / 60,
+      updated_at: data.updated_at
     };
+    
+    console.log("Loaded system settings:", settings);
+    return settings;
   } catch (error: any) {
     console.error("Error fetching system settings:", error.message);
+    // Fall back to default settings
     return {
       id: 1,
       standardPrice: DEFAULT_SETTINGS.standardPrice,
@@ -331,6 +349,34 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
 export const updateSystemSettings = async (settings: Partial<SystemSettings>): Promise<boolean> => {
   try {
     console.log("⚙️ Updating system settings:", settings);
+    
+    // Convert lockoutPeriodHours to minutes for the database
+    const dbSettings: any = {};
+    
+    if (settings.standardPrice !== undefined) {
+      dbSettings.standard_price = settings.standardPrice;
+    }
+    
+    if (settings.discountedPrice !== undefined) {
+      dbSettings.discounted_price = settings.discountedPrice;
+    }
+    
+    if (settings.lockoutPeriodHours !== undefined) {
+      dbSettings.temporary_lock_minutes = settings.lockoutPeriodHours * 60;
+    }
+    
+    // Update system settings in Supabase
+    const { error } = await supabase
+      .from('system_settings')
+      .update(dbSettings)
+      .eq('id', 1);
+    
+    if (error) {
+      console.error("Error updating system settings:", error.message);
+      throw error;
+    }
+    
+    console.log("System settings updated successfully");
     return true;
   } catch (error: any) {
     console.error("Error updating system settings:", error.message);

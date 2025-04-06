@@ -103,13 +103,23 @@ const PricingSettings = () => {
       
       console.log("Update system settings result:", result);
       
-      toast({
-        title: "Settings Saved",
-        description: "Pricing settings have been updated successfully.",
-      });
-      
-      // Reload settings to ensure UI is in sync with database
-      await loadSettings();
+      if (result) {
+        toast({
+          title: "Settings Saved",
+          description: "Pricing settings have been updated successfully.",
+        });
+        
+        // Reload settings after a short delay to ensure DB has updated
+        setTimeout(() => {
+          loadSettings();
+        }, 500);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to save pricing settings. Please try again.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Error saving settings:", error);
       toast({

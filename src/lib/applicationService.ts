@@ -69,6 +69,10 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
       
       result = data?.[0];
       console.log('✅ Updated application in Supabase:', result);
+      
+      if (!result) {
+        throw new Error(`No data returned after updating application ID: ${application.applicationId}`);
+      }
     } else {
       // Create new application
       console.log('➕ Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
@@ -98,12 +102,8 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
         console.log('✅ Full response:', result);
       } else {
         console.error('❌ No result received after successful insert');
+        throw new Error('No result received from Supabase insert operation');
       }
-    }
-    
-    if (!result) {
-      console.error('❌ No result received from Supabase operation');
-      throw new Error('No result received from database operation');
     }
     
     return result;

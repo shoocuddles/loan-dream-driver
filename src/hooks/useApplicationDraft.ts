@@ -103,10 +103,10 @@ export const useApplicationDraft = (initialData: ApplicationForm) => {
           console.log('🆕 Sending INSERT request to Supabase for new draft');
           const { data, error } = await supabase
             .from('applications')
-            .insert({
+            .insert([{
               ...applicationData,
               created_at: new Date().toISOString()
-            })
+            }])
             .select();
           
           if (error) {

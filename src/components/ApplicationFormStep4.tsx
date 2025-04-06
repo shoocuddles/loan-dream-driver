@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ApplicationForm } from "@/lib/types";
@@ -9,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Info } from "lucide-react";
 import { getSupabaseConnectionInfo, testSupabaseConnection } from "@/integrations/supabase/client";
 
 interface ApplicationFormStep4Props {
@@ -32,6 +31,7 @@ const ApplicationFormStep4 = ({
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<{connected: boolean, latency?: number}>({connected: false});
   const submissionAttempted = useRef(false);
+  const submissionSuccessful = useRef(false);
   const connectionInfo = getSupabaseConnectionInfo();
 
   // Test Supabase connection when debug panel is opened
@@ -79,6 +79,65 @@ const ApplicationFormStep4 = ({
       console.log("Form validation failed");
     }
   };
+
+  // Determine the button state
+  const getSubmitButton = () => {
+    if (submissionSuccessful.current) {
+      return (
+        <Button 
+          type="button" 
+          className="bg-green-500 hover:bg-green-500 cursor-not-allowed"
+          disabled={true}
+        >
+          <CheckCircle2 className="mr-2 h-4 w-4" />
+          Application Submitted
+        </Button>
+      );
+    }
+
+    if (isSubmitting) {
+      return (
+        <Button 
+          type="submit" 
+          className="bg-ontario-blue hover:bg-ontario-blue/90"
+          disabled={true}
+        >
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Submitting...
+        </Button>
+      );
+    }
+
+    // If submission attempted and failed
+    if (submissionAttempted.current && Object.keys(errors).length > 0) {
+      return (
+        <Button 
+          type="submit" 
+          className="bg-ontario-blue hover:bg-ontario-blue/90"
+        >
+          Try Again
+        </Button>
+      );
+    }
+
+    // Default state
+    return (
+      <Button 
+        type="submit" 
+        className="bg-ontario-blue hover:bg-ontario-blue/90"
+        disabled={isSubmitting}
+      >
+        Submit Application
+      </Button>
+    );
+  };
+
+  // Update success state when submission completes
+  useEffect(() => {
+    if (!isSubmitting && submissionAttempted.current && Object.keys(errors).length === 0) {
+      submissionSuccessful.current = true;
+    }
+  }, [isSubmitting, errors]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -211,22 +270,12 @@ const ApplicationFormStep4 = ({
           type="button" 
           variant="outline" 
           onClick={prevStep}
-          disabled={isSubmitting}
+          disabled={isSubmitting || submissionSuccessful.current}
         >
           Back
         </Button>
-        <Button 
-          type="submit" 
-          className="bg-ontario-blue hover:bg-ontario-blue/90"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Submitting...
-            </>
-          ) : "Submit Application"}
-        </Button>
+        
+        {getSubmitButton()}
       </div>
       
       {/* Visual indication of submission in progress */}

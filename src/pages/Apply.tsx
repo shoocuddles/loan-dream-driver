@@ -50,6 +50,7 @@ const Apply = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const finalSubmissionInProgress = useRef(false);
+  const applicationSubmitted = useRef(false);
 
   useEffect(() => {
     const savedDraft = localStorage.getItem('applicationDraft');
@@ -66,6 +67,11 @@ const Apply = () => {
 
   const saveProgress = async (data: ApplicationForm, isComplete = false) => {
     try {
+      if (!isComplete && applicationSubmitted.current) {
+        console.log("⚠️ Draft save blocked: Application already submitted successfully");
+        return true;
+      }
+
       if (!isComplete && finalSubmissionInProgress.current) {
         console.log("Draft save skipped because final submission is in progress");
         return true;
@@ -108,6 +114,7 @@ const Apply = () => {
         
         if (isComplete) {
           console.log('Application marked as complete successfully');
+          applicationSubmitted.current = true;
         }
         
         return true;
@@ -165,6 +172,11 @@ const Apply = () => {
     setCurrentStep(currentStep + 1);
     window.scrollTo(0, 0);
     
+    if (applicationSubmitted.current) {
+      console.log("⚠️ Skipping nextStep auto-save: Application already submitted");
+      return;
+    }
+    
     console.log("nextStep called, saving progress and advancing to step", currentStep + 1);
     saveProgress(formData)
       .catch(err => {
@@ -178,6 +190,11 @@ const Apply = () => {
   };
 
   const updateFormData = (data: Partial<ApplicationForm>) => {
+    if (applicationSubmitted.current) {
+      console.log("⚠️ Skipping form update: Application already submitted");
+      return;
+    }
+    
     setFormData(prev => ({ ...prev, ...data }));
   };
 
@@ -198,7 +215,8 @@ const Apply = () => {
         const success = await saveProgress(formData, true);
         
         if (success) {
-          console.log("Application submitted successfully");
+          console.log("✅ Application submitted successfully");
+          applicationSubmitted.current = true;
           
           localStorage.removeItem('applicationDraft');
           localStorage.removeItem('applicationDraftId');

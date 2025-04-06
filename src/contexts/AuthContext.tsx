@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { AuthState, UserProfile } from "@/lib/types/auth";
 import { Database } from "@/lib/types/supabase-types";
+import { safeUserProfile, safeParam } from "@/lib/typeUtils";
 
 interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<void>;
@@ -34,10 +35,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
-          const { data: profile, error } = await supabase
+          const { data, error } = await supabase
             .from('user_profiles')
             .select('*')
-            .eq('id', session.user.id as string)
+            .eq('id', safeParam(session.user.id))
             .single();
           
           if (error) {
@@ -52,10 +53,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
           
+          const profile = safeUserProfile(data);
+          
           setAuthState({
             user: session.user,
             session,
-            profile: profile as UserProfile,
+            profile,
             isLoading: false,
             isAdmin: profile?.role === 'admin' || false,
           });
@@ -86,10 +89,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (session) {
           try {
-            const { data: profile, error } = await supabase
+            const { data, error } = await supabase
               .from('user_profiles')
               .select('*')
-              .eq('id', session.user.id as string)
+              .eq('id', safeParam(session.user.id))
               .single();
             
             if (error) {
@@ -104,10 +107,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               return;
             }
             
+            const profile = safeUserProfile(data);
+            
             setAuthState({
               user: session.user,
               session,
-              profile: profile as UserProfile,
+              profile,
               isLoading: false,
               isAdmin: profile?.role === 'admin' || false,
             });
@@ -150,17 +155,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
 
       if (data.session) {
-        const { data: profile, error } = await supabase
+        const { data: profileData, error } = await supabase
           .from('user_profiles')
           .select('*')
-          .eq('id', data.user.id as string)
+          .eq('id', safeParam(data.user.id))
           .single();
         
         if (error) {
           console.error("Error fetching user profile after sign in:", error);
         }
         
-        const userProfile = profile as UserProfile;
+        const userProfile = safeUserProfile(profileData);
         
         if (userProfile?.role === 'admin') {
           navigate('/admin-dashboard');
@@ -290,10 +295,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      // Cast the data as any to avoid TypeScript errors with the Supabase types
       const { error } = await supabase
         .from('user_profiles')
         .update(data as any)
-        .eq('id', authState.user.id);
+        .eq('id', safeParam(authState.user.id));
 
       if (error) throw error;
 

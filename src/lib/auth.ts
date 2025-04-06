@@ -2,12 +2,13 @@
 import { supabase } from "@/integrations/supabase/client";
 import { UserProfile, Company } from "@/lib/types/auth";
 import { Database } from "@/lib/types/supabase-types";
+import { safeUserProfile, safeCompany, safeUserProfiles, safeParam } from "./typeUtils";
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   const { data, error } = await supabase
     .from('user_profiles')
     .select('*')
-    .eq('id', userId as string)
+    .eq('id', safeParam(userId))
     .single();
   
   if (error) {
@@ -15,14 +16,14 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     return null;
   }
   
-  return data as UserProfile;
+  return safeUserProfile(data);
 }
 
 export async function getCompany(companyId: string): Promise<Company | null> {
   const { data, error } = await supabase
     .from('companies')
     .select('*')
-    .eq('id', companyId as string)
+    .eq('id', safeParam(companyId))
     .single();
   
   if (error) {
@@ -30,21 +31,21 @@ export async function getCompany(companyId: string): Promise<Company | null> {
     return null;
   }
   
-  return data as Company;
+  return safeCompany(data);
 }
 
 export async function getCompanyUsers(companyId: string): Promise<UserProfile[]> {
   const { data, error } = await supabase
     .from('user_profiles')
     .select('*')
-    .eq('company_id', companyId as string);
+    .eq('company_id', safeParam(companyId));
   
   if (error) {
     console.error("Error fetching company users:", error);
     return [];
   }
   
-  return (data || []) as UserProfile[];
+  return safeUserProfiles(data || []);
 }
 
 export async function updateUserEmail(newEmail: string) {

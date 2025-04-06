@@ -14,6 +14,7 @@ import {
   ApplicationLock,
 } from './types/supabase';
 import { Database } from './types/supabase-types';
+import { safeUserProfile, safeParam } from './typeUtils';
 
 // Define default system settings
 export const DEFAULT_SETTINGS = {
@@ -44,22 +45,28 @@ export const getAllDealers = async (): Promise<UserDealer[]> => {
     const { data, error } = await supabase
       .from('user_profiles')
       .select('*')
-      .eq('role', 'dealer' as any);
+      .eq('role', safeParam('dealer'));
     
     if (error) throw error;
     
-    if (!data) return [];
+    if (!data || !Array.isArray(data)) return [];
     
-    return data.map(profile => ({
-      id: profile.id,
-      email: profile.email,
-      name: profile.full_name || '',
-      company: profile.company_name || '',
-      isActive: true,
-      isAdmin: profile.role === 'admin',
-      passwordHash: '',
-      created_at: profile.created_at
-    }));
+    // Use safe mapping for profiles to dealer type
+    return data.map(profile => {
+      // Check that the required properties exist before accessing them
+      if (!profile) return null;
+      
+      return {
+        id: profile.id || '',
+        email: profile.email || '',
+        name: profile.full_name || '',
+        company: profile.company_name || '',
+        isActive: true,
+        isAdmin: profile.role === 'admin',
+        passwordHash: '',
+        created_at: profile.created_at || new Date().toISOString()
+      };
+    }).filter(Boolean) as UserDealer[]; // Filter out any nulls
   } catch (error: any) {
     console.error("Error fetching dealers:", error.message);
     return [];

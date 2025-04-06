@@ -2,38 +2,23 @@ import { ApplicationForm } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Database } from "@/lib/types/supabase-types";
+import { 
+  mapFormToDbSchema, 
+  getSafeInsertValue, 
+  getSafeUpdateValue, 
+  getSafeParamValue,
+  isSupabaseError
+} from "./applicationUtils";
 
 type ApplicationInsertData = Database['public']['Tables']['applications']['Insert'];
 type ApplicationUpdateData = Database['public']['Tables']['applications']['Update'];
 
 /**
  * Maps ApplicationForm to database schema format
+ * Using the utility function for typesafe mapping
  */
-const mapApplicationToDbFormat = (application: ApplicationForm, isDraft = true): ApplicationInsertData => {
-  return {
-    fullname: application.fullName,
-    phonenumber: application.phoneNumber,
-    email: application.email,
-    streetaddress: application.streetAddress,
-    city: application.city,
-    province: application.province,
-    postalcode: application.postalCode,
-    vehicletype: application.vehicleType,
-    requiredfeatures: application.requiredFeatures,
-    unwantedcolors: application.unwantedColors,
-    preferredmakemodel: application.preferredMakeModel,
-    hasexistingloan: application.hasExistingLoan,
-    currentpayment: application.currentPayment,
-    amountowed: application.amountOwed,
-    currentvehicle: application.currentVehicle,
-    mileage: application.mileage,
-    employmentstatus: application.employmentStatus,
-    monthlyincome: application.monthlyIncome,
-    additionalnotes: application.additionalNotes,
-    updated_at: new Date().toISOString(),
-    status: isDraft ? 'draft' : 'submitted',
-    iscomplete: !isDraft
-  };
+const mapApplicationToDbFormat = (application: ApplicationForm, isDraft = true): any => {
+  return mapFormToDbSchema(application, isDraft);
 };
 
 // Store application data for offline recovery
@@ -120,10 +105,13 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 3000))
         ]);
         
-        console.log(`🔍 Connection check before submission: ${connectionCheck.error ? 'Failed' : 'Success'}`);
+        const checkError = connectionCheck && typeof connectionCheck === 'object' && 'error' in connectionCheck ? 
+          connectionCheck.error : null;
         
-        if (connectionCheck.error) {
-          console.warn(`⚠️ Connection issue detected (attempt ${retryCount + 1}/${maxRetries}): ${connectionCheck.error.message}`);
+        console.log(`🔍 Connection check before submission: ${checkError ? 'Failed' : 'Success'}`);
+        
+        if (checkError) {
+          console.warn(`⚠️ Connection issue detected (attempt ${retryCount + 1}/${maxRetries}): ${checkError.message || 'Unknown error'}`);
           
           // If this is the last retry, store for offline recovery
           if (retryCount === maxRetries - 1) {
@@ -143,8 +131,8 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           
           const { data, error } = await supabase
             .from('applications')
-            .update(applicationData as ApplicationUpdateData)
-            .eq('id', application.applicationId)
+            .update(getSafeUpdateValue(applicationData))
+            .eq('id', getSafeParamValue(application.applicationId))
             .select();
           
           if (error) {
@@ -186,7 +174,7 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           const insertData = { ...applicationData, created_at: new Date().toISOString() };
           const { data, error } = await supabase
             .from('applications')
-            .insert([insertData])
+            .insert(getSafeInsertValue([insertData]))
             .select();
           
           if (error) {
@@ -244,13 +232,15 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     console.error('❌ Error in submitApplicationToSupabase:', error);
     
     // Enhanced error logging
-    if (error.code) {
-      console.error('❌ Error code:', error.code);
-    }
-    
-    if (error.message) {
-      console.error('❌ Error message:', error.message);
-      toast.error(`Submission error: ${error.message}`);
+    if (isSupabaseError(error)) {
+      if ('code' in error) {
+        console.error('❌ Error code:', error.code);
+      }
+      
+      if ('message' in error) {
+        console.error('❌ Error message:', error.message);
+        toast.error(`Submission error: ${error.message}`);
+      }
     }
     
     // Save for offline recovery as a last resort

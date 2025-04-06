@@ -3,38 +3,21 @@ import { useState, useEffect } from "react";
 import { ApplicationForm } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/lib/types/supabase-types";
+import { 
+  mapFormToDbSchema, 
+  getSafeInsertValue, 
+  getSafeUpdateValue, 
+  getSafeParamValue 
+} from "@/lib/applicationUtils";
 
 type ApplicationInsertData = Database['public']['Tables']['applications']['Insert'];
 type ApplicationUpdateData = Database['public']['Tables']['applications']['Update'];
 
 /**
- * Maps ApplicationForm to database schema format
+ * Maps ApplicationForm to database schema format using our utility function
  */
-const mapFormToDbFormat = (formData: ApplicationForm): ApplicationInsertData => {
-  return {
-    fullname: formData.fullName,
-    phonenumber: formData.phoneNumber,
-    email: formData.email,
-    streetaddress: formData.streetAddress,
-    city: formData.city,
-    province: formData.province,
-    postalcode: formData.postalCode,
-    vehicletype: formData.vehicleType,
-    requiredfeatures: formData.requiredFeatures,
-    unwantedcolors: formData.unwantedColors,
-    preferredmakemodel: formData.preferredMakeModel,
-    hasexistingloan: formData.hasExistingLoan,
-    currentpayment: formData.currentPayment,
-    amountowed: formData.amountOwed,
-    currentvehicle: formData.currentVehicle,
-    mileage: formData.mileage,
-    employmentstatus: formData.employmentStatus,
-    monthlyincome: formData.monthlyIncome,
-    additionalnotes: formData.additionalNotes,
-    status: 'draft',
-    iscomplete: false,
-    updated_at: new Date().toISOString()
-  };
+const mapFormToDbFormat = (formData: ApplicationForm): any => {
+  return mapFormToDbSchema(formData, true); // true = isDraft
 };
 
 /**
@@ -95,8 +78,8 @@ export const useApplicationDraft = (initialData: ApplicationForm) => {
           console.log(`🔄 Sending UPDATE request to Supabase for draft ID: ${draftId}`);
           const { data, error } = await supabase
             .from('applications')
-            .update(applicationData as ApplicationUpdateData)
-            .eq('id', draftId as string)
+            .update(getSafeUpdateValue(applicationData))
+            .eq('id', getSafeParamValue(draftId))
             .select();
           
           if (error) {
@@ -118,7 +101,7 @@ export const useApplicationDraft = (initialData: ApplicationForm) => {
           
           const { data, error } = await supabase
             .from('applications')
-            .insert([insertData])
+            .insert(getSafeInsertValue([insertData]))
             .select();
           
           if (error) {

@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # Set migration directory
@@ -24,6 +25,7 @@ declare
   raw_company_id text;
   valid_company_id uuid;
 begin
+  -- The correct path is raw_app_meta_data -> 'user_metadata'
   meta := new.raw_app_meta_data -> 'user_metadata';
 
   -- Extract values safely

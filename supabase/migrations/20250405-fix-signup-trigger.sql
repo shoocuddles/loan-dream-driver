@@ -1,3 +1,4 @@
+
 -- Drop old trigger if it exists
 drop trigger if exists on_auth_user_created on auth.users;
 
@@ -12,6 +13,7 @@ declare
   raw_company_id text;
   valid_company_id uuid;
 begin
+  -- The correct path is raw_app_meta_data -> 'user_metadata'
   meta := new.raw_app_meta_data -> 'user_metadata';
 
   -- Extract values safely

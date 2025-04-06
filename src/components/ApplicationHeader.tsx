@@ -1,7 +1,7 @@
 
-import React from 'react';
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import ApplicationStepIndicator from './ApplicationStepIndicator';
+import React from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Save, CheckCircle } from "lucide-react";
 
 interface ApplicationHeaderProps {
   error: string | null;
@@ -10,43 +10,67 @@ interface ApplicationHeaderProps {
   currentStep: number;
 }
 
-const ApplicationHeader: React.FC<ApplicationHeaderProps> = ({ 
-  error,
-  draftId,
-  isSavingProgress,
-  currentStep
-}) => {
+const ApplicationHeader = ({ error, draftId, isSavingProgress, currentStep }: ApplicationHeaderProps) => {
   return (
-    <div className="mb-8">
-      <h1 className="text-3xl font-bold text-center text-ontario-blue">Apply for Auto Financing</h1>
-      <p className="text-center text-gray-600 mt-2">Complete the form below to get started</p>
-      
-      {error && (
-        <Alert variant="destructive" className="mt-4">
-          <AlertTitle>Submission Error</AlertTitle>
-          <AlertDescription className="whitespace-pre-wrap break-words">
-            {error}
-          </AlertDescription>
-        </Alert>
-      )}
-      
-      {draftId && (
-        <div className="mt-4 px-4 py-2 bg-green-50 border border-green-200 rounded-md">
-          <p className="text-sm text-green-700">
-            Your progress is being saved automatically. You can return to complete your application later.
-          </p>
+    <div className="mb-6">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold text-center text-ontario-blue">
+          Auto Loan Application
+        </h1>
+        
+        <p className="text-gray-500 text-center mb-4">
+          Complete this form to apply for auto financing.
+        </p>
+        
+        {/* Step numbers */}
+        <div className="flex justify-center mb-4">
+          <div className="flex items-center space-x-2">
+            {[1, 2, 3, 4].map((step) => (
+              <div 
+                key={step}
+                className={`rounded-full w-8 h-8 flex items-center justify-center border ${
+                  currentStep === step
+                    ? "bg-ontario-blue text-white border-ontario-blue"
+                    : currentStep > step
+                    ? "bg-green-100 text-green-700 border-green-300"
+                    : "bg-gray-100 text-gray-500 border-gray-300"
+                }`}
+              >
+                {currentStep > step ? (
+                  <CheckCircle className="w-5 h-5 text-green-700" />
+                ) : (
+                  <span>{step}</span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      )}
-      
-      {isSavingProgress && (
-        <div className="mt-4 px-4 py-2 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-sm text-blue-700">
-            Saving your progress...
-          </p>
-        </div>
-      )}
-      
-      <ApplicationStepIndicator currentStep={currentStep} />
+        
+        {/* Error message */}
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
+        {/* Draft status */}
+        {draftId && (
+          <div className="text-sm text-center text-gray-500 flex items-center justify-center gap-1 mb-2">
+            {isSavingProgress ? (
+              <>
+                <Save className="h-3 w-3 animate-pulse" />
+                <span>Saving progress...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-3 w-3 text-green-600" />
+                <span>Progress saved automatically</span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

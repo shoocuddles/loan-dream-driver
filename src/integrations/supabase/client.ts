@@ -73,3 +73,43 @@ export const rpcCall = async <T = any>(
     };
   }
 };
+
+// Enhance supabase insert and update operations with better logging
+const enhanceSupabaseInsert = () => {
+  const originalInsert = supabase.from('').insert;
+  
+  // @ts-ignore - We're monkey patching for logging purposes
+  supabase.from = function(table) {
+    const builder = originalFrom(table);
+    const originalInsertFn = builder.insert;
+    
+    // Enhance the insert function with better logging
+    builder.insert = function(...args) {
+      console.log(`📝 Supabase: INSERT into "${table}" with data:`, args[0]);
+      const insertResult = originalInsertFn.apply(this, args);
+      
+      // Add a then handler to log the result
+      const originalThen = insertResult.then;
+      insertResult.then = function(onFulfilled, onRejected) {
+        return originalThen.call(this, (result) => {
+          if (result.error) {
+            console.error(`❌ Supabase: INSERT failed for "${table}":`, result.error);
+            console.error(`❌ Error message: ${result.error.message}`);
+            console.error(`❌ Error details:`, result.error.details);
+            console.error(`❌ Error code:`, result.error.code);
+          } else {
+            console.log(`✅ Supabase: INSERT successful for "${table}"`, result.data);
+          }
+          return onFulfilled ? onFulfilled(result) : result;
+        }, onRejected);
+      };
+      
+      return insertResult;
+    };
+    
+    return builder;
+  };
+};
+
+// Initialize the enhanced methods
+enhanceSupabaseInsert();

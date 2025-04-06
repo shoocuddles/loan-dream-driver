@@ -89,6 +89,11 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
       console.log('✅ Full response:', result);
     }
     
+    if (!result) {
+      console.error('❌ No result received from Supabase operation');
+      throw new Error('No result received from database operation');
+    }
+    
     return result;
   } catch (error: any) {
     console.error('❌ Error in submitApplicationToSupabase:', error);
@@ -100,6 +105,14 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     
     if (error.details) {
       console.error('❌ Error details:', error.details);
+    }
+    
+    if (error.message) {
+      console.error('❌ Error message:', error.message);
+    }
+    
+    if (error.stack) {
+      console.error('❌ Stack trace:', error.stack);
     }
     
     throw error;

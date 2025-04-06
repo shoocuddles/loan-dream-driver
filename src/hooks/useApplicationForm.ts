@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+
+import { useState, useRef, useCallback } from "react";
 import { ApplicationForm } from "@/lib/types";
 import { submitApplication } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
@@ -60,6 +61,11 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
       saveDraft(formData)
         .catch(err => {
           console.error("❌ Background save failed:", err);
+          toast({
+            title: "Save Error",
+            description: "Could not save your progress. Please try again.",
+            variant: "destructive",
+          });
         });
     } else {
       console.log("Draft save skipped because final submission is in progress");
@@ -105,6 +111,7 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
           console.log("✅ Application submitted successfully:", result);
           applicationSubmitted.current = true;
           
+          // Clear draft after successful submission
           clearDraft();
           
           toast({
@@ -113,13 +120,23 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
             variant: "default",
           });
           
+          // Navigate away after successful submission with a delay
           setTimeout(() => {
             console.log("Navigating away after successful submission");
             onSuccessfulSubmit();
           }, 2000);
         } else {
           console.error("❌ Failed to submit application - submitApplication returned falsy value");
-          throw new Error("Failed to submit application to server");
+          setError("Failed to submit application. Please try again.");
+          
+          toast({
+            title: "Submission Error",
+            description: "Failed to submit your application. Please try again.",
+            variant: "destructive",
+          });
+          
+          setIsSubmitting(false);
+          finalSubmissionInProgress.current = false;
         }
       } catch (submitError: any) {
         console.error("❌ Error during final submission:", submitError);
@@ -133,7 +150,7 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
         
         toast({
           title: "Submission Error",
-          description: "There was a problem submitting your application. See details below.",
+          description: "There was a problem submitting your application: " + errorMessage,
           variant: "destructive",
         });
         
@@ -143,12 +160,16 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
     } catch (error: any) {
       console.error("❌ Unhandled error in handleSubmit:", error);
       
+      if (error.stack) {
+        console.error("❌ Stack trace:", error.stack);
+      }
+      
       const errorMessage = error?.message || 'Unknown error';
       setError(`Error details: ${errorMessage}`);
       
       toast({
         title: "Submission Error",
-        description: "There was a problem submitting your application. See details below.",
+        description: "There was a problem submitting your application: " + errorMessage,
         variant: "destructive",
       });
       

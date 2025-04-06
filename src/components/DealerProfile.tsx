@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/integrations/supabase/client';
-import { UserProfile } from '@/lib/types/supabase';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -29,8 +28,7 @@ const DealerProfile = () => {
       setFormData({
         full_name: profile.full_name || '',
         phone: profile.phone || '',
-        // Use undefined check for company_name
-        company_name: (profile as any).company_name || ''
+        company_name: profile.company_name || ''
       });
     }
   }, [profile]);

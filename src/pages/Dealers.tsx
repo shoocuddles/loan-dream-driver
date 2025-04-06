@@ -62,10 +62,12 @@ const Dealers = () => {
     try {
       setIsProcessing(true);
       
+      // Send all required user metadata
+      // No company_id needed here - the trigger function will generate one
       await signUp(signupEmail, signupPassword, {
-        fullName: dealerName,
+        full_name: dealerName,  // Use full_name for consistency with trigger function
         role: 'dealer',
-        companyName: company
+        company_name: company   // Use company_name for consistency with trigger function
       });
       
       // Clear form fields

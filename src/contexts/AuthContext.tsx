@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -37,7 +36,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [retryCount, setRetryCount] = useState(0);
   const maxRetries = 3;
 
-  // Helper function to update state
   const updateAuthState = async (session: any) => {
     const user = session?.user || null;
     let profile = null;
@@ -53,8 +51,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     
-    // Special case for admin login - for backward compatibility
-    // This should be removed once all admins are migrated to Supabase auth
     if (user?.email === "6352910@gmail.com") {
       isAdmin = true;
     }
@@ -67,7 +63,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAdmin,
     });
     
-    // Store admin status in localStorage for backward compatibility
     if (isAdmin) {
       localStorage.setItem('isAdmin', 'true');
     } else {
@@ -76,12 +71,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // Set up the auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log("Auth state changed:", event);
         
-        // Only try to fetch profile data if we have a session
         if (session) {
           updateAuthState(session);
         } else {
@@ -97,7 +90,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Then check for existing session
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -149,16 +141,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data.session) {
-        // Session is handled by the auth state listener
-        
-        // Special case for admin login - for backward compatibility
         if (email === "6352910@gmail.com" && password === "Ian123") {
           localStorage.setItem('isAdmin', 'true');
           navigate('/admin-dashboard');
           return;
         }
         
-        // Check if the user is an admin
         const profile = await getUserProfile(data.session.user.id);
         const isAdmin = profile?.role === 'admin';
         
@@ -170,7 +158,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isAdmin,
         });
         
-        // Redirect based on role
         if (isAdmin) {
           navigate('/admin-dashboard');
         } else {
@@ -184,7 +171,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (retryCount < maxRetries && 
          (error.message?.includes("Network") || error.message?.includes("timeout"))) {
-        // Retry on network errors
         toast.warning(`Connection issue. Retrying (${retryCount + 1}/${maxRetries})...`);
         setRetryCount(prev => prev + 1);
         setTimeout(() => signIn(email, password), 1000);
@@ -200,11 +186,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setState(prev => ({ ...prev, isLoading: true }));
       
-      // Add role and sanitize input
       const metadata = {
-        full_name: userData.fullName || "",
+        full_name: userData.fullName || userData.full_name || "",
         role: userData.role || "dealer",
-        company_name: userData.companyName || ""
+        company_name: userData.companyName || userData.company_name || ""
       };
       
       console.log("📨 Sending metadata to signUp:", metadata);
@@ -237,12 +222,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         "Account created successfully! Please check your email for verification instructions."
       );
       
-      // Auto login after signup
       if (data.session) {
         setState({
           user: data.session.user,
           session: data.session,
-          profile: null, // Profile will be loaded by the auth state listener
+          profile: null,
           isLoading: false,
           isAdmin: false,
         });

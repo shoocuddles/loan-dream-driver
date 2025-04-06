@@ -110,7 +110,7 @@ const PricingSettings = () => {
           description: "Pricing settings have been updated successfully.",
         });
         
-        // Force reload settings without delay - the previous timeout might be causing issues
+        // Force reload settings without delay
         await loadSettings();
         
         // Double-check that the values are now correct

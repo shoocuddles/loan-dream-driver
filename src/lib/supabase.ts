@@ -318,7 +318,7 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
       .single();
     
     if (error) {
-      console.error("Error fetching system settings:", error.message);
+      console.error("Error fetching system settings:", error);
       throw error;
     }
     
@@ -334,7 +334,7 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
     console.log("Loaded system settings:", settings);
     return settings;
   } catch (error: any) {
-    console.error("Error fetching system settings:", error.message);
+    console.error("Error fetching system settings:", error);
     // Fall back to default settings
     return {
       id: 1,
@@ -375,14 +375,14 @@ export const updateSystemSettings = async (settings: Partial<SystemSettings>): P
       .select();
     
     if (error) {
-      console.error("Error updating system settings:", error.message);
+      console.error("Error updating system settings:", error);
       throw error;
     }
     
     console.log("System settings updated successfully:", data);
     return true;
   } catch (error: any) {
-    console.error("Error updating system settings:", error.message);
+    console.error("Error updating system settings:", error);
     return false;
   }
 };

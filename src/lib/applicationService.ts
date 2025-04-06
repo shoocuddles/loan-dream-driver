@@ -13,10 +13,29 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     
     // Map application fields to match our database schema
     const applicationData = {
-      ...application,
+      // Map camelCase to lowercase field names to match database schema
+      fullname: application.fullName,
+      phonenumber: application.phoneNumber,
+      email: application.email,
+      streetaddress: application.streetAddress,
+      city: application.city,
+      province: application.province,
+      postalcode: application.postalCode,
+      vehicletype: application.vehicleType,
+      requiredfeatures: application.requiredFeatures,
+      unwantedcolors: application.unwantedColors,
+      preferredmakemodel: application.preferredMakeModel,
+      hasexistingloan: application.hasExistingLoan,
+      currentpayment: application.currentPayment,
+      amountowed: application.amountOwed,
+      currentvehicle: application.currentVehicle,
+      mileage: application.mileage,
+      employmentstatus: application.employmentStatus,
+      monthlyincome: application.monthlyIncome,
+      additionalnotes: application.additionalNotes,
       updated_at: new Date().toISOString(),
       status: isComplete ? 'submitted' : 'draft',
-      isComplete: isComplete
+      iscomplete: isComplete
     };
     
     console.log('📦 Application data prepared for submission:', 

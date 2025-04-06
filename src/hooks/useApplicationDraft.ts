@@ -45,11 +45,30 @@ export const useApplicationDraft = (initialData: ApplicationForm) => {
       const isDraftUpdate = !!draftId;
       console.log(`🔄 ${isDraftUpdate ? 'Updating' : 'Creating'} draft in Supabase${isDraftUpdate ? ` (ID: ${draftId})` : ''}`);
       
-      // Prepare application data
+      // Map application data from our model to database schema
       const applicationData = {
-        ...formData,
-        isComplete: false,
+        // Map camelCase to lowercase field names to match database schema
+        fullname: formData.fullName,
+        phonenumber: formData.phoneNumber,
+        email: formData.email,
+        streetaddress: formData.streetAddress,
+        city: formData.city,
+        province: formData.province,
+        postalcode: formData.postalCode,
+        vehicletype: formData.vehicleType,
+        requiredfeatures: formData.requiredFeatures,
+        unwantedcolors: formData.unwantedColors,
+        preferredmakemodel: formData.preferredMakeModel,
+        hasexistingloan: formData.hasExistingLoan,
+        currentpayment: formData.currentPayment,
+        amountowed: formData.amountOwed,
+        currentvehicle: formData.currentVehicle,
+        mileage: formData.mileage,
+        employmentstatus: formData.employmentStatus,
+        monthlyincome: formData.monthlyIncome,
+        additionalnotes: formData.additionalNotes,
         status: 'draft',
+        iscomplete: false,
         updated_at: new Date().toISOString()
       };
       

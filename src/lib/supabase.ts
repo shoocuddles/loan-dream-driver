@@ -1,9 +1,11 @@
+
 import { createClient } from '@supabase/supabase-js';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 // Re-export the supabase client from the centralized location
 import { supabase, rpcCall } from '@/integrations/supabase/client';
+import { submitApplicationToSupabase } from '@/lib/applicationService';
 import { 
   SystemSettings, 
   Application, 

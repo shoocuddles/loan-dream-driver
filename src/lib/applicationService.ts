@@ -77,10 +77,7 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
       
       const { data, error } = await supabase
         .from('applications')
-        .insert({
-          ...applicationData,
-          created_at: new Date().toISOString(),
-        })
+        .insert([applicationData]) // FIX: Wrap applicationData in an array
         .select();
       
       if (error) {

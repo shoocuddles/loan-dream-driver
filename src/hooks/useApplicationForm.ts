@@ -105,6 +105,7 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
         const applicationToSubmit = draftId ? { ...formData, applicationId: draftId } : formData;
         console.log("Final application data:", applicationToSubmit);
         
+        // FIX: Make sure we correctly await the result and handle it
         const result = await submitApplication(applicationToSubmit, false);
         
         if (result) {

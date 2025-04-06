@@ -1,5 +1,5 @@
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ApplicationForm } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
-import { getSupabaseConnectionInfo } from "@/integrations/supabase/client";
+import { getSupabaseConnectionInfo, testSupabaseConnection } from "@/integrations/supabase/client";
 
 interface ApplicationFormStep4Props {
   formData: ApplicationForm;
@@ -30,8 +30,18 @@ const ApplicationFormStep4 = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<{connected: boolean, latency?: number}>({connected: false});
   const submissionAttempted = useRef(false);
   const connectionInfo = getSupabaseConnectionInfo();
+
+  // Test Supabase connection when debug panel is opened
+  useEffect(() => {
+    if (showDebugInfo) {
+      testSupabaseConnection()
+        .then(status => setConnectionStatus(status))
+        .catch(() => setConnectionStatus({connected: false}));
+    }
+  }, [showDebugInfo]);
 
   const validateForm = () => {
     console.log("Validating form in Step 4");
@@ -54,7 +64,17 @@ const ApplicationFormStep4 = ({
     
     if (validateForm()) {
       console.log("Form validation passed, calling onSubmit()");
-      onSubmit();
+      
+      // Log connection status before submission for debugging
+      if (import.meta.env.DEV) {
+        testSupabaseConnection().then(status => {
+          console.log("Supabase connection status before submission:", status);
+          // Proceed with submission
+          onSubmit();
+        });
+      } else {
+        onSubmit();
+      }
     } else {
       console.log("Form validation failed");
     }
@@ -69,7 +89,7 @@ const ApplicationFormStep4 = ({
           <Label htmlFor="employmentStatus">Employment Status</Label>
           <Select 
             value={formData.employmentStatus} 
-            onValueChange={(value: any) => updateFormData({ employmentStatus: value })}
+            onValueChange={(value: string) => updateFormData({ employmentStatus: value })}
           >
             <SelectTrigger className={errors.employmentStatus ? "border-red-500" : ""}>
               <SelectValue placeholder="Select your employment status" />
@@ -150,11 +170,11 @@ const ApplicationFormStep4 = ({
         </button>
       </div>
       
-      {/* Submission Details Panel */}
+      {/* Extended Submission Details Panel */}
       {showDebugInfo && (
         <Alert className="bg-gray-50 border-gray-200">
           <AlertDescription>
-            <div className="text-xs font-mono">
+            <div className="text-xs font-mono space-y-2">
               <p><span className="font-semibold">Endpoint:</span> {connectionInfo.tables.applications}</p>
               <p><span className="font-semibold">Method:</span> POST</p>
               <p><span className="font-semibold">Content-Type:</span> application/json</p>
@@ -162,6 +182,20 @@ const ApplicationFormStep4 = ({
                 formData[k as keyof ApplicationForm] !== '' && 
                 formData[k as keyof ApplicationForm] !== undefined
               ).length} fields</p>
+              <p><span className="font-semibold">Connection Status:</span> 
+                <span className={connectionStatus.connected ? "text-green-500" : "text-red-500"}>
+                  {connectionStatus.connected ? ` Connected (${connectionStatus.latency}ms)` : " Not connected"}
+                </span>
+              </p>
+              <p><span className="font-semibold">Request Body Sample:</span></p>
+              <pre className="text-xs bg-gray-100 p-2 mt-2 rounded overflow-auto max-h-32">
+                {JSON.stringify({
+                  fullname: formData.fullName,
+                  email: formData.email, 
+                  status: "submitted",
+                  iscomplete: true
+                }, null, 2)}
+              </pre>
               <p className="mt-2 text-xs text-gray-500">Check browser console for complete data details</p>
             </div>
           </AlertDescription>

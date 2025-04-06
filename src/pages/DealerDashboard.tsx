@@ -1,515 +1,472 @@
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useAuth } from '@/hooks/use-auth';
-import { useToast } from "@/hooks/use-toast";
-import {
-  getApplications,
+import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { ApplicationItem, DownloadedApplication, LockType } from '@/lib/types/dealer-dashboard';
+import { generateApplicationPDF } from '@/lib/supabase';
+import DealerDashboardLayout from '@/components/DealerDashboardLayout';
+import ApplicationTable from '@/components/ApplicationTable';
+import DownloadedApplications from '@/components/DownloadedApplications';
+import DealerProfile from '@/components/DealerProfile';
+import PaymentSettings from '@/components/PaymentSettings';
+import BulkActionsBar from '@/components/BulkActionsBar';
+import ApplicationDetails from '@/components/ApplicationDetails';
+import { 
+  fetchAvailableApplications,
+  fetchDownloadedApplications,
   lockApplication,
-  checkApplicationLock,
   unlockApplication,
   recordDownload,
-  DEFAULT_SETTINGS
-} from '@/lib/supabase';
-import { Application, ApplicationLock } from '@/lib/types/supabase';
-import { format } from 'date-fns';
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Download, Lock, Unlock, Eye } from 'lucide-react';
+  fetchLockoutPeriods,
+} from '@/lib/dealerService';
 
 const DealerDashboard = () => {
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [actionInProgress, setActionInProgress] = useState('');
+  const [applications, setApplications] = useState<ApplicationItem[]>([]);
+  const [downloadedApps, setDownloadedApps] = useState<DownloadedApplication[]>([]);
+  const [selectedApplications, setSelectedApplications] = useState<string[]>([]);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingDownloaded, setIsLoadingDownloaded] = useState(true);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'download' | 'lock';
+    applicationIds: string[];
+    lockType?: LockType;
+  } | null>(null);
+  const [detailsApplication, setDetailsApplication] = useState<ApplicationItem | DownloadedApplication | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [lockOptions, setLockOptions] = useState<{ id: number, name: string, type: LockType, fee: number }[]>([
+    { id: 1, name: '24 Hours', type: '24hours', fee: 4.99 },
+    { id: 2, name: '1 Week', type: '1week', fee: 9.99 },
+    { id: 3, name: 'Permanent', type: 'permanent', fee: 29.99 }
+  ]);
+  
   const { user } = useAuth();
-  const { toast } = useToast();
-  const navigate = useNavigate();
 
   useEffect(() => {
-    loadApplications();
-  }, []);
+    if (user) {
+      loadData();
+      loadLockOptions();
+    }
+  }, [user]);
 
-  const loadApplications = async () => {
+  const loadData = async () => {
+    setIsLoading(true);
+    setIsLoadingDownloaded(true);
+    
     try {
-      setLoading(true);
-      const data = await getApplications();
-      setApplications(data);
+      const appsData = await fetchAvailableApplications();
+      setApplications(appsData);
+
+      const downloadedData = await fetchDownloadedApplications();
+      setDownloadedApps(downloadedData);
     } catch (error) {
-      console.error("Error fetching applications:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load applications. Please try again.",
-        variant: "destructive",
-      });
+      console.error("Error loading data:", error);
+      toast.error("Failed to load data. Please try again.");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
+      setIsLoadingDownloaded(false);
     }
   };
 
-  const handleViewDetails = (application: Application) => {
-    navigate(`/applications/${application.id}`);
+  const loadLockOptions = async () => {
+    try {
+      const periods = await fetchLockoutPeriods();
+      
+      if (periods.length > 0) {
+        setLockOptions(periods.map(period => ({
+          id: period.id,
+          name: period.name,
+          type: period.name === '24 Hours' 
+            ? '24hours' 
+            : period.name === '1 Week' 
+              ? '1week' 
+              : 'permanent',
+          fee: period.fee
+        })));
+      }
+    } catch (error) {
+      console.error("Error loading lock options:", error);
+    }
   };
 
-  const handleLockApplication = async (application: Application) => {
-    if (!user || !application) return;
+  const handleViewDetails = (application: ApplicationItem | DownloadedApplication) => {
+    setDetailsApplication(application);
+    setShowDetails(true);
+  };
+
+  const handleLockApplication = async (applicationId: string, lockType: LockType) => {
+    if (!user) return;
 
     try {
-      setActionInProgress(application.id);
-      const success = await lockApplication(application.id, user.id);
+      setProcessingId(applicationId);
+
+      if (lockType !== 'temporary') {
+        // For paid locks, set up pending action for payment
+        setPendingAction({
+          type: 'lock',
+          applicationIds: [applicationId],
+          lockType
+        });
+        setShowPaymentDialog(true);
+        return;
+      }
+
+      // For temporary locks, proceed immediately
+      const success = await lockApplication(applicationId, lockType);
 
       if (success) {
-        // Update the applications list to show the application as locked
-        setApplications(prevApplications =>
-          prevApplications.map(app =>
-            app.id === application.id
-              ? { ...app, isLocked: true, lockedBy: user.id }
-              : app
-          )
-        );
-
-        toast({
-          title: "Application Locked",
-          description: `You have locked "${application.fullName}'s" application.`,
-        });
+        toast.success(`Application temporarily locked for 2 minutes`);
+        loadData();
       } else {
-        toast({
-          title: "Error",
-          description: "Failed to lock application. Please try again.",
-          variant: "destructive",
-        });
+        toast.error("Failed to lock application. Please try again.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error locking application:", error);
-      toast({
-        title: "Error",
-        description: "An error occurred while locking the application.",
-        variant: "destructive",
-      });
+      toast.error("An error occurred while locking the application.");
     } finally {
-      setActionInProgress('');
+      setProcessingId(null);
     }
   };
 
-  const handleProcessPayment = async (application: Application) => {
-    // Placeholder for payment processing logic
-    toast({
-      title: "Payment Processing",
-      description: "Simulating payment processing...",
-    });
+  const handleUnlockApplication = async (applicationId: string) => {
+    try {
+      setProcessingId(applicationId);
+      const success = await unlockApplication(applicationId);
+
+      if (success) {
+        toast.success("Application unlocked successfully");
+        loadData();
+      } else {
+        toast.error("Failed to unlock application. Please try again.");
+      }
+    } catch (error: any) {
+      console.error("Error unlocking application:", error);
+      toast.error("An error occurred while unlocking the application.");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDownload = async (applicationId: string) => {
+    if (!user) return;
 
     try {
-      setActionInProgress(application.id);
-      // Simulate successful payment
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Record the download
-      if (user) {
-        const success = await recordDownload(application.id, user.id);
-        if (success) {
-          toast({
-            title: "Application Downloaded",
-            description: `"${application.fullName}'s" application has been downloaded.`,
-          });
-        } else {
-          toast({
-            title: "Error",
-            description: "Failed to record download. Please try again.",
-            variant: "destructive",
-          });
-        }
-      }
-
-      // Unlock the application after successful download
-      const unlockSuccess = await unlockApplication(application.id);
-      if (unlockSuccess) {
-        // Update the applications list to show the application as unlocked
-        setApplications(prevApplications =>
-          prevApplications.map(app =>
-            app.id === application.id
-              ? { ...app, isLocked: false, lockedBy: null }
-              : app
-          )
-        );
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to unlock application. Please try again.",
-          variant: "destructive",
+      setProcessingId(applicationId);
+      
+      // Check if the application is already downloaded by this dealer
+      const isDownloaded = downloadedApps.some(app => app.applicationId === applicationId);
+      
+      if (!isDownloaded) {
+        // If not downloaded, set up pending action for payment
+        setPendingAction({
+          type: 'download',
+          applicationIds: [applicationId]
         });
+        setShowPaymentDialog(true);
+        return;
+      }
+      
+      // For already downloaded applications, download directly
+      const application = applications.find(app => app.applicationId === applicationId) || 
+                          downloadedApps.find(app => app.applicationId === applicationId);
+      
+      if (!application) {
+        toast.error("Application not found");
+        return;
+      }
+      
+      // Generate and download PDF
+      const pdfBlob = generateApplicationPDF({
+        id: application.applicationId,
+        fullName: application.fullName,
+        created_at: application.submissionDate || new Date().toISOString(),
+        status: 'submitted'
+      });
+      
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `application_${application.applicationId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success("Application downloaded successfully");
+    } catch (error: any) {
+      console.error("Error downloading application:", error);
+      toast.error("An error occurred while downloading the application.");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleBulkDownload = async () => {
+    if (!user || selectedApplications.length === 0) return;
+
+    // Check if all selected applications are already downloaded
+    const notDownloaded = selectedApplications.filter(
+      id => !downloadedApps.some(app => app.applicationId === id)
+    );
+
+    if (notDownloaded.length > 0) {
+      // If any not downloaded, set up pending action for payment
+      setPendingAction({
+        type: 'download',
+        applicationIds: selectedApplications
+      });
+      setShowPaymentDialog(true);
+    } else {
+      // If all already downloaded, download all PDFs
+      try {
+        for (const appId of selectedApplications) {
+          const application = applications.find(app => app.applicationId === appId) || 
+                              downloadedApps.find(app => app.applicationId === appId);
+          
+          if (!application) continue;
+          
+          const pdfBlob = generateApplicationPDF({
+            id: application.applicationId,
+            fullName: application.fullName,
+            created_at: application.submissionDate || new Date().toISOString(),
+            status: 'submitted'
+          });
+          
+          const url = URL.createObjectURL(pdfBlob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `application_${application.applicationId}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+        
+        toast.success(`${selectedApplications.length} applications downloaded`);
+        setSelectedApplications([]);
+      } catch (error) {
+        console.error("Error in bulk download:", error);
+        toast.error("Failed to download some applications");
+      }
+    }
+  };
+
+  const handleBulkLock = async (lockType: LockType) => {
+    if (!user || selectedApplications.length === 0) return;
+
+    setPendingAction({
+      type: 'lock',
+      applicationIds: selectedApplications,
+      lockType
+    });
+    setShowPaymentDialog(true);
+  };
+
+  const handleProcessPayment = async () => {
+    if (!pendingAction) return;
+
+    try {
+      setShowPaymentDialog(false);
+      
+      if (pendingAction.type === 'download') {
+        // Simulate payment processing (this would integrate with Stripe)
+        toast.success("Payment processed successfully");
+        
+        // Record downloads for each application
+        for (const appId of pendingAction.applicationIds) {
+          await recordDownload(appId);
+        }
+        
+        toast.success(`${pendingAction.applicationIds.length} application(s) purchased`);
+        
+        // Clear selection and reload data
+        setSelectedApplications([]);
+        await loadData();
+      } else if (pendingAction.type === 'lock' && pendingAction.lockType) {
+        // Simulate payment processing for locks
+        toast.success("Payment processed successfully");
+        
+        // Create locks for each application
+        for (const appId of pendingAction.applicationIds) {
+          await lockApplication(appId, pendingAction.lockType);
+        }
+        
+        toast.success(`${pendingAction.applicationIds.length} application(s) locked`);
+        
+        // Clear selection and reload data
+        setSelectedApplications([]);
+        await loadData();
       }
     } catch (error) {
       console.error("Error processing payment:", error);
-      toast({
-        title: "Error",
-        description: "An error occurred while processing the payment.",
-        variant: "destructive",
-      });
+      toast.error("Failed to process payment");
     } finally {
-      setActionInProgress('');
+      setPendingAction(null);
     }
   };
 
-  const handleUnlockApplication = async (application: Application) => {
-    try {
-      setActionInProgress(application.id);
-      const success = await unlockApplication(application.id);
-
-      if (success) {
-        // Update the applications list to show the application as unlocked
-        setApplications(prevApplications =>
-          prevApplications.map(app =>
-            app.id === application.id
-              ? { ...app, isLocked: false, lockedBy: null }
-              : app
-          )
-        );
-
-        toast({
-          title: "Application Unlocked",
-          description: `You have unlocked "${application.fullName}'s" application.`,
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to unlock application. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error unlocking application:", error);
-      toast({
-        title: "Error",
-        description: "An error occurred while unlocking the application.",
-        variant: "destructive",
-      });
-    } finally {
-      setActionInProgress('');
-    }
-  };
-
-  const renderApplicationActions = (application: Application, lock: ApplicationLock | null) => {
-    if (lock?.isLocked) {
-      const expiresAt = lock.expires_at ? new Date(lock.expires_at) : null;
-      const timeLeft = expiresAt ? expiresAt.getTime() - Date.now() : 0;
-      const hoursLeft = Math.ceil(timeLeft / (1000 * 60 * 60));
-
-      return (
-        <>
-          <Badge variant="destructive">
-            Locked by another dealer
-          </Badge>
-          <p className="text-sm text-gray-500">
-            Expires in {hoursLeft} hours
-          </p>
-        </>
-      );
-    }
-
-    return (
-      <>
-        <Button
-          size="sm"
-          onClick={() => handleProcessPayment(application)}
-          disabled={actionInProgress === application.id}
-        >
-          {actionInProgress === application.id ? 'Processing...' : 'Download'}
-        </Button>
-        {application.isLocked && application.lockedBy === user?.id && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleUnlockApplication(application)}
-            disabled={actionInProgress === application.id}
-          >
-            {actionInProgress === application.id ? 'Unlocking...' : 'Unlock'}
-          </Button>
-        )}
-      </>
+  const toggleApplicationSelection = (applicationId: string) => {
+    setSelectedApplications(prev => 
+      prev.includes(applicationId)
+        ? prev.filter(id => id !== applicationId)
+        : [...prev, applicationId]
     );
   };
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Dealer Dashboard</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <p>Loading applications...</p>
-        ) : (
-          <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="px-6 py-3">Application ID</TableHead>
-                  <TableHead className="px-6 py-3">Full Name</TableHead>
-                  <TableHead className="px-6 py-3">Email</TableHead>
-                  <TableHead className="px-6 py-3">Submitted Date</TableHead>
-                  <TableHead className="px-6 py-3">Status</TableHead>
-                  <TableHead className="px-6 py-3">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {applications.map((application) => {
-                  const lockPromise = checkApplicationLock(application.id);
+  const handleSelectAll = (select: boolean) => {
+    if (select) {
+      // Only select applications that aren't locked by others
+      const selectableApps = applications
+        .filter(app => !app.lockInfo?.isLocked || app.lockInfo?.isOwnLock)
+        .map(app => app.applicationId);
+      setSelectedApplications(selectableApps);
+    } else {
+      setSelectedApplications([]);
+    }
+  };
 
-                  return (
-                    <TableRow key={application.id}>
-                      <TableCell className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
-                        {application.id}
-                      </TableCell>
-                      <TableCell className="px-6 py-4">{application.fullName}</TableCell>
-                      <TableCell className="px-6 py-4">{application.email}</TableCell>
-                      <TableCell className="px-6 py-4">
-                        {format(new Date(application.created_at), 'MMMM d, yyyy')}
-                      </TableCell>
-                      <TableCell className="px-6 py-4">{application.status}</TableCell>
-                      <TableCell className="px-6 py-4">
-                        <div className="flex items-center space-x-4">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => handleViewDetails(application)}
-                          >
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </Button>
-                          <LockStatus application={application} />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+  // Find appropriate price for the payment dialog
+  const calculateTotalPrice = () => {
+    if (!pendingAction) return 0;
+    
+    let total = 0;
+    
+    // For downloads
+    if (pendingAction.type === 'download') {
+      for (const appId of pendingAction.applicationIds) {
+        const app = applications.find(a => a.applicationId === appId);
+        if (!app) continue;
+        
+        // If already downloaded, it's free
+        if (downloadedApps.some(d => d.applicationId === appId)) {
+          continue;
+        }
+        
+        // If previously locked by someone else but not downloaded by current user
+        const wasLocked = app.lockInfo?.isLocked && !app.lockInfo?.isOwnLock;
+        total += wasLocked ? (app.discountedPrice || 5.99) : (app.standardPrice || 10.99);
+      }
+    }
+    
+    // For locks
+    if (pendingAction.type === 'lock' && pendingAction.lockType) {
+      const option = lockOptions.find(o => o.type === pendingAction.lockType);
+      if (option) {
+        total += option.fee * pendingAction.applicationIds.length;
+      }
+    }
+    
+    return total;
+  };
+
+  return (
+    <DealerDashboardLayout
+      availableApplications={
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Available Applications</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ApplicationTable
+                applications={applications}
+                isLoading={isLoading}
+                selectedApplications={selectedApplications}
+                toggleApplicationSelection={toggleApplicationSelection}
+                selectAll={handleSelectAll}
+                onLock={handleLockApplication}
+                onUnlock={handleUnlockApplication}
+                onDownload={handleDownload}
+                onViewDetails={handleViewDetails}
+                processingId={processingId}
+                lockOptions={lockOptions}
+              />
+              
+              <BulkActionsBar
+                selectedCount={selectedApplications.length}
+                onBulkDownload={handleBulkDownload}
+                onBulkLock={handleBulkLock}
+                onClearSelection={() => setSelectedApplications([])}
+                isProcessing={!!processingId}
+              />
+              
+              <div className="mt-6 text-sm text-gray-500">
+                <p>
+                  Note: You will be charged for each new application download. 
+                  Previously downloaded applications can be accessed for free.
+                  Applications that have been recently downloaded by other dealers 
+                  will be available at a discounted rate.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <ApplicationDetails
+            application={detailsApplication as ApplicationItem}
+            isOpen={showDetails}
+            onClose={() => setShowDetails(false)}
+            isDownloaded={downloadedApps.some(app => app.applicationId === detailsApplication?.applicationId)}
+            onDownload={handleDownload}
+            onLock={handleLockApplication}
+            onUnlock={handleUnlockApplication}
+            isProcessing={processingId === detailsApplication?.applicationId}
+          />
+          
+          <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Confirm Payment</DialogTitle>
+                <DialogDescription>
+                  {pendingAction?.type === 'download' 
+                    ? `You're about to purchase ${pendingAction.applicationIds.length} application(s).`
+                    : `You're about to lock ${pendingAction?.applicationIds.length} application(s).`
+                  }
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="border-t border-b py-3">
+                  <div className="flex justify-between font-medium">
+                    <span>Total:</span>
+                    <span>${calculateTotalPrice().toFixed(2)}</span>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => setShowPaymentDialog(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    className="flex-1 bg-ontario-blue hover:bg-ontario-blue/90"
+                    onClick={handleProcessPayment}
+                  >
+                    Process Payment
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 text-center">
+                  Your payment will be processed securely through Stripe
+                </p>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
+      }
+      downloadedApplications={
+        <DownloadedApplications
+          applications={downloadedApps}
+          isLoading={isLoadingDownloaded}
+          onDownload={handleDownload}
+          onViewDetails={handleViewDetails}
+        />
+      }
+      profile={<DealerProfile />}
+      payment={<PaymentSettings />}
+    />
   );
 };
 
 export default DealerDashboard;
-
-interface LockStatusProps {
-  application: Application;
-}
-
-const LockStatus: React.FC<LockStatusProps> = ({ application }) => {
-  const [lock, setLock] = useState<ApplicationLock | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [actionInProgress, setActionInProgress] = useState('');
-
-  useEffect(() => {
-    const fetchLockStatus = async () => {
-      setIsLoading(true);
-      try {
-        const lockData = await checkApplicationLock(application.id);
-        setLock(lockData);
-      } catch (error) {
-        console.error("Error checking application lock:", error);
-        toast({
-          title: "Error",
-          description: "Failed to check application lock status.",
-          variant: "destructive",
-        });
-        setLock(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchLockStatus();
-  }, [application.id, toast]);
-
-  const handleLockApplication = async () => {
-    if (!user || !application) return;
-
-    try {
-      setActionInProgress(application.id);
-      const success = await lockApplication(application.id, user.id);
-
-      if (success) {
-        // Optimistically update the lock status
-        setLock({
-          id: 'temp', // Temporary ID, will be replaced on refresh
-          application_id: application.id,
-          dealer_id: user.id,
-          locked_at: new Date().toISOString(),
-          expires_at: new Date(Date.now() + DEFAULT_SETTINGS.lockoutPeriodHours * 60 * 60 * 1000).toISOString(),
-          isLocked: true
-        });
-
-        toast({
-          title: "Application Locked",
-          description: `You have locked "${application.fullName}'s" application.`,
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to lock application. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error locking application:", error);
-      toast({
-        title: "Error",
-        description: "An error occurred while locking the application.",
-        variant: "destructive",
-      });
-    } finally {
-      setActionInProgress('');
-    }
-  };
-
-  const handleUnlockApplication = async () => {
-    try {
-      setActionInProgress(application.id);
-      const success = await unlockApplication(application.id);
-
-      if (success) {
-        // Optimistically update the lock status
-        setLock(null);
-
-        toast({
-          title: "Application Unlocked",
-          description: `You have unlocked "${application.fullName}'s" application.`,
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to unlock application. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error unlocking application:", error);
-      toast({
-        title: "Error",
-        description: "An error occurred while unlocking the application.",
-        variant: "destructive",
-      });
-    } finally {
-      setActionInProgress('');
-    }
-  };
-
-  const handleProcessPayment = async () => {
-    // Placeholder for payment processing logic
-    toast({
-      title: "Payment Processing",
-      description: "Simulating payment processing...",
-    });
-
-    try {
-      setActionInProgress(application.id);
-      // Simulate successful payment
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Record the download
-      if (user) {
-        const success = await recordDownload(application.id, user.id);
-        if (success) {
-          toast({
-            title: "Application Downloaded",
-            description: `"${application.fullName}'s" application has been downloaded.`,
-          });
-        } else {
-          toast({
-            title: "Error",
-            description: "Failed to record download. Please try again.",
-            variant: "destructive",
-          });
-        }
-      }
-
-      // Unlock the application after successful download
-      const unlockSuccess = await unlockApplication(application.id);
-      if (unlockSuccess) {
-        setLock(null);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to unlock application. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error processing payment:", error);
-      toast({
-        title: "Error",
-        description: "An error occurred while processing the payment.",
-        variant: "destructive",
-      });
-    } finally {
-      setActionInProgress('');
-    }
-  };
-
-  if (isLoading) {
-    return <p>Checking lock status...</p>;
-  }
-
-  if (lock?.isLocked) {
-    const expiresAt = lock.expires_at ? new Date(lock.expires_at) : null;
-    const timeLeft = expiresAt ? expiresAt.getTime() - Date.now() : 0;
-    const hoursLeft = Math.ceil(timeLeft / (1000 * 60 * 60));
-
-    return (
-      <>
-        <Badge variant="destructive">
-          Locked by another dealer
-        </Badge>
-        <p className="text-sm text-gray-500">
-          Expires in {hoursLeft} hours
-        </p>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <Button
-        size="sm"
-        onClick={() => handleProcessPayment()}
-        disabled={actionInProgress === application.id}
-      >
-        {actionInProgress === application.id ? 'Processing...' : <><Download className="mr-2 h-4 w-4" /> Download</>}
-      </Button>
-      {lock && lock.dealer_id === user?.id && (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => handleUnlockApplication()}
-          disabled={actionInProgress === application.id}
-        >
-          {actionInProgress === application.id ? 'Unlocking...' : <><Unlock className="mr-2 h-4 w-4" /> Unlock</>}
-        </Button>
-      )}
-      {!lock && (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => handleLockApplication()}
-          disabled={actionInProgress === application.id}
-        >
-          {actionInProgress === application.id ? 'Locking...' : <><Lock className="mr-2 h-4 w-4" /> Lock</>}
-        </Button>
-      )}
-    </>
-  );
-};

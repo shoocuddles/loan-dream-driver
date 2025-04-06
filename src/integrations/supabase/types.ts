@@ -9,6 +9,91 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      application_downloads: {
+        Row: {
+          application_id: string
+          dealer_id: string
+          downloaded_at: string
+          id: string
+          payment_amount: number | null
+          payment_id: string | null
+        }
+        Insert: {
+          application_id: string
+          dealer_id: string
+          downloaded_at?: string
+          id?: string
+          payment_amount?: number | null
+          payment_id?: string | null
+        }
+        Update: {
+          application_id?: string
+          dealer_id?: string
+          downloaded_at?: string
+          id?: string
+          payment_amount?: number | null
+          payment_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_downloads_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      application_locks: {
+        Row: {
+          application_id: string
+          created_at: string
+          dealer_id: string
+          expires_at: string
+          id: string
+          is_paid: boolean | null
+          lock_type: string
+          locked_at: string
+          payment_amount: number | null
+          payment_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          dealer_id: string
+          expires_at: string
+          id?: string
+          is_paid?: boolean | null
+          lock_type: string
+          locked_at?: string
+          payment_amount?: number | null
+          payment_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          dealer_id?: string
+          expires_at?: string
+          id?: string
+          is_paid?: boolean | null
+          lock_type?: string
+          locked_at?: string
+          payment_amount?: number | null
+          payment_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_locks_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       applications: {
         Row: {
           additionalnotes: string | null
@@ -158,6 +243,60 @@ export type Database = {
           },
         ]
       }
+      lockout_periods: {
+        Row: {
+          created_at: string
+          fee: number
+          hours: number
+          id: number
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fee: number
+          hours: number
+          id?: number
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fee?: number
+          hours?: number
+          id?: number
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      system_settings: {
+        Row: {
+          discounted_price: number
+          id: number
+          standard_price: number
+          temporary_lock_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          discounted_price?: number
+          id?: number
+          standard_price?: number
+          temporary_lock_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          discounted_price?: number
+          id?: number
+          standard_price?: number
+          temporary_lock_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_profiles: {
         Row: {
           company_id: string
@@ -220,6 +359,18 @@ export type Database = {
         }
         Returns: Json
       }
+      get_applications_for_dealer: {
+        Args: {
+          p_dealer_id: string
+        }
+        Returns: Json
+      }
+      get_dealer_downloads: {
+        Args: {
+          p_dealer_id: string
+        }
+        Returns: Json
+      }
       get_user_company: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -227,6 +378,46 @@ export type Database = {
       get_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      is_application_downloaded_by_dealer: {
+        Args: {
+          p_application_id: string
+          p_dealer_id: string
+        }
+        Returns: boolean
+      }
+      is_application_locked: {
+        Args: {
+          p_application_id: string
+          p_current_dealer_id?: string
+        }
+        Returns: Json
+      }
+      lock_application: {
+        Args: {
+          p_application_id: string
+          p_dealer_id: string
+          p_lock_type: string
+          p_payment_id?: string
+          p_payment_amount?: number
+        }
+        Returns: Json
+      }
+      record_application_download: {
+        Args: {
+          p_application_id: string
+          p_dealer_id: string
+          p_payment_id?: string
+          p_payment_amount?: number
+        }
+        Returns: Json
+      }
+      unlock_application: {
+        Args: {
+          p_application_id: string
+          p_dealer_id: string
+        }
+        Returns: Json
       }
       update_application: {
         Args: {

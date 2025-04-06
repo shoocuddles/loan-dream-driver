@@ -11,6 +11,8 @@ import ApplicationConfirmation from "@/components/ApplicationConfirmation";
 import ApplicationHeader from "@/components/ApplicationHeader";
 import { useApplicationForm } from "@/hooks/useApplicationForm";
 import { checkSupabaseConnection, detectFirebaseDependencies } from "@/lib/supabaseUtils";
+import { toast } from "sonner";
+import { checkForOfflineSubmission, recoverOfflineSubmission } from "@/lib/applicationService";
 
 const Apply = () => {
   const navigate = useNavigate();
@@ -40,6 +42,25 @@ const Apply = () => {
     
     // Check for Firebase dependencies
     detectFirebaseDependencies();
+    
+    // Check for offline submissions that need recovery
+    if (checkForOfflineSubmission()) {
+      toast.info(
+        "We found an application saved offline. Attempting to submit it now.",
+        {
+          duration: 8000,
+          action: {
+            label: "Dismiss",
+            onClick: () => {}
+          }
+        }
+      );
+      
+      // Try to recover offline submission
+      recoverOfflineSubmission().catch(err => {
+        console.error("Failed to recover offline submission:", err);
+      });
+    }
   }, []);
 
   const renderStep = () => {

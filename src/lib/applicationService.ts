@@ -1,4 +1,3 @@
-
 import { ApplicationForm } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -37,6 +36,64 @@ const mapApplicationToDbFormat = (application: ApplicationForm, isDraft = true):
   };
 };
 
+// Store application data for offline recovery
+const storeForOfflineRecovery = (application: ApplicationForm, isDraft: boolean): void => {
+  try {
+    const offlineStorage = {
+      application,
+      isDraft,
+      timestamp: new Date().toISOString(),
+      retryCount: 0
+    };
+    
+    // Store in localStorage for recovery
+    localStorage.setItem('offlineApplicationSubmission', JSON.stringify(offlineStorage));
+    console.log('📱 Application stored for offline recovery');
+  } catch (error) {
+    console.error('❌ Error storing application for offline recovery:', error);
+  }
+};
+
+// Check if there's an offline submission to recover
+export const checkForOfflineSubmission = (): boolean => {
+  return localStorage.getItem('offlineApplicationSubmission') !== null;
+};
+
+// Try to submit any offline applications
+export const recoverOfflineSubmission = async (): Promise<boolean> => {
+  try {
+    const offlineData = localStorage.getItem('offlineApplicationSubmission');
+    if (!offlineData) return false;
+    
+    const parsedData = JSON.parse(offlineData);
+    console.log('🔄 Found offline application submission, attempting recovery');
+    
+    // Update retry count
+    parsedData.retryCount++;
+    localStorage.setItem('offlineApplicationSubmission', JSON.stringify(parsedData));
+    
+    // If retry count exceeds 5, don't automatically retry anymore
+    if (parsedData.retryCount > 5) {
+      console.log('⚠️ Max retry count exceeded for offline submission');
+      return false;
+    }
+    
+    const result = await submitApplicationToSupabase(parsedData.application, parsedData.isDraft);
+    if (result) {
+      // Success - remove from offline storage
+      localStorage.removeItem('offlineApplicationSubmission');
+      console.log('✅ Successfully recovered offline submission');
+      toast.success('Your previously saved application has been submitted successfully!');
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('❌ Error recovering offline submission:', error);
+    return false;
+  }
+};
+
 /**
  * Submits an application directly to Supabase without using Firebase
  */
@@ -49,8 +106,7 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     
     console.log('📦 Application data prepared for submission:', 
       isDraft ? 'Draft save' : 'FINAL SUBMISSION');
-    console.log('📦 Mapped application data:', applicationData);
-
+    
     // Add retry logic for better reliability
     let retryCount = 0;
     const maxRetries = 3;
@@ -58,20 +114,25 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     
     while (retryCount < maxRetries) {
       try {
-        // Force a new connection attempt before sending data
-        const connectionCheck = await supabase.from('applications').select('count').limit(1).single();
+        // Force a new connection attempt before sending data with a shorter timeout
+        const connectionCheck = await Promise.race([
+          supabase.from('applications').select('count').limit(1).single(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 3000))
+        ]);
+        
         console.log(`🔍 Connection check before submission: ${connectionCheck.error ? 'Failed' : 'Success'}`);
         
         if (connectionCheck.error) {
           console.warn(`⚠️ Connection issue detected (attempt ${retryCount + 1}/${maxRetries}): ${connectionCheck.error.message}`);
           
-          // If this is the last retry, show a toast notification
+          // If this is the last retry, store for offline recovery
           if (retryCount === maxRetries - 1) {
-            toast.error("Connection to database failed. Please check your internet connection and try again.");
+            storeForOfflineRecovery(application, isDraft);
+            toast.error("Connection to database failed. Your application has been saved locally and will be submitted when connection is restored.");
           }
           
-          // Wait before retrying with exponential backoff
-          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+          // Wait before retrying with exponential backoff (but shorter times)
+          await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
           retryCount++;
           continue;
         }
@@ -83,21 +144,22 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           const { data, error } = await supabase
             .from('applications')
             .update(applicationData as ApplicationUpdateData)
-            .eq('id', application.applicationId as string)
+            .eq('id', application.applicationId)
             .select();
           
           if (error) {
             console.error('❌ Supabase update error:', error);
-            console.error('❌ Error details:', error.details);
-            console.error('❌ Error code:', error.code);
             
-            // If this is the last retry, throw the error
-            if (retryCount === maxRetries - 1) throw error;
+            // If this is the last retry, store for offline recovery
+            if (retryCount === maxRetries - 1) {
+              storeForOfflineRecovery(application, isDraft);
+              throw error;
+            }
             
             // Otherwise, retry
             retryCount++;
-            // Wait before retrying with exponential backoff
-            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+            // Wait before retrying with shorter exponential backoff
+            await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
             continue;
           }
           
@@ -119,7 +181,6 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
         } else {
           // Create new application
           console.log('➕ Creating new application', isDraft ? '(DRAFT)' : '(COMPLETE)');
-          console.log('➕ Data being sent to Supabase:', applicationData);
           
           // Make sure we're using an array for insert
           const insertData = { ...applicationData, created_at: new Date().toISOString() };
@@ -130,20 +191,18 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           
           if (error) {
             console.error('❌ Error creating application in Supabase:', error);
-            console.error('❌ Error details:', error.details);
-            console.error('❌ Error code:', error.code);
-            console.error('❌ Data that failed:', applicationData);
             
-            // Show toast notification for user feedback
+            // If this is the last retry, store for offline recovery
             if (retryCount === maxRetries - 1) {
-              toast.error("Connection error. Please try again.");
+              storeForOfflineRecovery(application, isDraft);
+              toast.error("Connection error. Your application has been saved offline.");
               throw error;
             }
             
             // Otherwise, retry
             retryCount++;
             // Wait before retrying with exponential backoff
-            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+            await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
             continue;
           }
           
@@ -153,10 +212,10 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           result = data?.[0];
           if (result) {
             console.log('✅ Created new application in Supabase with ID:', result.id);
-            console.log('✅ Full response:', result);
             toast.success(isDraft ? "Draft saved" : "Application submitted successfully!");
           } else {
             console.error('❌ No result received after successful insert');
+            storeForOfflineRecovery(application, isDraft);
             throw new Error('No result received from Supabase insert operation');
           }
           
@@ -166,15 +225,17 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
       } catch (innerError) {
         console.error(`❌ Error during submission attempt ${retryCount + 1}:`, innerError);
         
-        // If this is the last retry, rethrow
-        if (retryCount === maxRetries - 1) throw innerError;
+        // If this is the last retry, save offline and rethrow
+        if (retryCount === maxRetries - 1) {
+          storeForOfflineRecovery(application, isDraft);
+          throw innerError;
+        }
         
-        // Otherwise, log and retry
-        console.warn(`Retry ${retryCount + 1}/${maxRetries} failed:`, innerError);
+        // Otherwise, retry
         retryCount++;
         
-        // Wait before retrying (exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+        // Wait before retrying (shorter exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
       }
     }
     
@@ -187,18 +248,13 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
       console.error('❌ Error code:', error.code);
     }
     
-    if (error.details) {
-      console.error('❌ Error details:', error.details);
-    }
-    
     if (error.message) {
       console.error('❌ Error message:', error.message);
       toast.error(`Submission error: ${error.message}`);
     }
     
-    if (error.stack) {
-      console.error('❌ Stack trace:', error.stack);
-    }
+    // Save for offline recovery as a last resort
+    storeForOfflineRecovery(application, isDraft);
     
     throw error;
   }

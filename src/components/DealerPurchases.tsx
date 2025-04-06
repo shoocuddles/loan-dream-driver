@@ -38,12 +38,13 @@ const DealerPurchases = () => {
           payment_amount,
           dealer_id,
           application_id,
-          user_profiles!dealer_id(full_name, email),
-          applications!application_id(fullname, vehicletype, status)
+          user_profiles!inner(full_name, email),
+          applications!inner(fullname, vehicletype, status)
         `)
         .order('downloaded_at', { ascending: false });
       
       if (downloadsError) {
+        console.error('Error fetching dealer purchases:', downloadsError.message);
         throw downloadsError;
       }
       
@@ -75,8 +76,8 @@ const DealerPurchases = () => {
       header: 'Dealer',
       cell: ({ row }) => (
         <div className="font-medium">
-          <div>{row.dealerName}</div>
-          <div className="text-xs text-gray-500">{row.dealerEmail}</div>
+          <div>{row.original.dealerName}</div>
+          <div className="text-xs text-gray-500">{row.original.dealerEmail}</div>
         </div>
       ),
     },
@@ -84,7 +85,7 @@ const DealerPurchases = () => {
       accessorKey: 'clientName',
       header: 'Client Name',
       cell: ({ row }) => (
-        <div className="font-medium">{row.clientName}</div>
+        <div className="font-medium">{row.original.clientName}</div>
       ),
     },
     {
@@ -97,7 +98,7 @@ const DealerPurchases = () => {
       cell: ({ row }) => {
         let badgeVariant = "outline";
         
-        switch (row.status.toLowerCase()) {
+        switch (row.original.status.toLowerCase()) {
           case 'submitted':
             badgeVariant = "default";
             break;
@@ -112,7 +113,7 @@ const DealerPurchases = () => {
         }
         
         return (
-          <Badge variant={badgeVariant as any}>{row.status}</Badge>
+          <Badge variant={badgeVariant as any}>{row.original.status}</Badge>
         );
       },
     },
@@ -124,7 +125,7 @@ const DealerPurchases = () => {
       accessorKey: 'paymentAmount',
       header: 'Payment Amount',
       cell: ({ row }) => (
-        <div>${row.paymentAmount.toFixed(2)}</div>
+        <div>${row.original.paymentAmount.toFixed(2)}</div>
       ),
     },
   ];

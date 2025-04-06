@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -220,7 +219,7 @@ export const generateApplicationPDF = (application: Application, isAdmin = false
   doc.text('Financial Information', 14, 110);
   doc.setFont('helvetica', 'normal');
   doc.text(`Employment Status: ${application.employmentStatus || application.employmentstatus || ''}`, 14, 120);
-  doc.text(`Monthly Income: $${application.monthlyIncome || application.monthlyincome || application.income || ''}`, 14, 127);
+  doc.text(`Monthly Income: $${application.monthlyIncome || application.income || ''}`, 14, 127);
   
   // For compatibility, handle different property names
   const hasExistingLoan = application.hasExistingLoan || application.hasexistingloan || false;

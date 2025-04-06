@@ -1,9 +1,10 @@
-
 import { useState, useRef, useCallback, useEffect } from "react";
 import { ApplicationForm } from "@/lib/types";
 import { submitApplicationToSupabase } from "@/lib/applicationService";
 import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { useApplicationDraft } from "./useApplicationDraft";
+import { checkNetworkConnectivity, diagnoseConnectionIssues } from "@/integrations/supabase/client";
 
 const initialFormState: ApplicationForm = {
   // Step 1: Personal Info
@@ -41,9 +42,10 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
   const [error, setError] = useState<string | null>(null);
   const [submissionComplete, setSubmissionComplete] = useState(false);
   const [submittedData, setSubmittedData] = useState<any>(null);
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
   const finalSubmissionInProgress = useRef(false);
   const applicationSubmitted = useRef(false);
+  const submissionAttempts = useRef(0);
   
   const { draftId, isSavingProgress, saveDraft, clearDraft } = useApplicationDraft(initialFormState);
 
@@ -76,7 +78,7 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
       saveDraft(formData)
         .catch(err => {
           console.error("❌ Background save failed:", err);
-          toast({
+          uiToast({
             title: "Save Error",
             description: "Could not save your progress. Please try again.",
             variant: "destructive",
@@ -105,7 +107,7 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
   const updateSubmittedApplication = async (updatedData: Partial<ApplicationForm>) => {
     if (!submittedData || !submittedData.id) {
       console.error("❌ Cannot update: No submitted application data available");
-      toast({
+      uiToast({
         title: "Update Error",
         description: "Cannot update application: No submission data found.",
         variant: "destructive",
@@ -136,7 +138,8 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
         setFormData(prev => ({ ...prev, ...updatedData }));
         setSubmittedData(result);
         
-        toast({
+        toast.success("Application updated successfully");
+        uiToast({
           title: "Update Successful",
           description: "Your application has been updated successfully.",
           variant: "default",
@@ -148,7 +151,8 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
       console.error("❌ Error updating application:", error);
       setError(`Update error: ${error.message}`);
       
-      toast({
+      toast.error(`Failed to update: ${error.message}`);
+      uiToast({
         title: "Update Error",
         description: `Failed to update: ${error.message}`,
         variant: "destructive",
@@ -167,7 +171,20 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
       setError(null);
       
       finalSubmissionInProgress.current = true;
+      submissionAttempts.current += 1;
       
+      // First check network connectivity
+      const isNetworkConnected = await checkNetworkConnectivity();
+      if (!isNetworkConnected) {
+        const errorMsg = "Network connectivity issue detected. Please check your internet connection and try again.";
+        console.error("❌ " + errorMsg);
+        setError(errorMsg);
+        setIsSubmitting(false);
+        finalSubmissionInProgress.current = false;
+        return;
+      }
+      
+      // Save to localStorage first (this is fast and reliable)
       localStorage.setItem('applicationDraft', JSON.stringify(formData));
       console.log("Saved to localStorage");
       
@@ -192,7 +209,8 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
           // Clear draft after successful submission
           clearDraft();
           
-          toast({
+          toast.success("Application submitted successfully!");
+          uiToast({
             title: "Application Submitted!",
             description: "Thank you for applying with Ontario Loans. We'll be in touch soon.",
             variant: "default",
@@ -205,7 +223,8 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
           console.error("❌ Failed to submit application - submitApplicationToSupabase returned falsy value");
           setError("Failed to submit application. Please try again.");
           
-          toast({
+          toast.error("Failed to submit your application. Please try again.");
+          uiToast({
             title: "Submission Error",
             description: "Failed to submit your application. Please try again.",
             variant: "destructive",
@@ -218,10 +237,15 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
           console.error("❌ Stack trace:", submitError.stack);
         }
         
-        const errorMessage = submitError?.message || 'Unknown error';
-        setError(`Submission error details: ${errorMessage}`);
+        // Diagnose connection issues
+        const diagnosisResult = await diagnoseConnectionIssues();
+        console.log("Connection diagnosis:", diagnosisResult);
         
-        toast({
+        const errorMessage = submitError?.message || 'Unknown error';
+        setError(`Submission error details: ${errorMessage}. ${diagnosisResult}`);
+        
+        toast.error("There was a problem submitting your application: " + errorMessage);
+        uiToast({
           title: "Submission Error",
           description: "There was a problem submitting your application: " + errorMessage,
           variant: "destructive",
@@ -237,7 +261,8 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
       const errorMessage = error?.message || 'Unknown error';
       setError(`Error details: ${errorMessage}`);
       
-      toast({
+      toast.error("There was a problem submitting your application: " + errorMessage);
+      uiToast({
         title: "Submission Error",
         description: "There was a problem submitting your application: " + errorMessage,
         variant: "destructive",

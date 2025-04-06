@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, Loader2, Info } from "lucide-react";
 import { getSupabaseConnectionInfo, testSupabaseConnection } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface ApplicationFormStep4Props {
   formData: ApplicationForm;
@@ -38,8 +39,16 @@ const ApplicationFormStep4 = ({
   useEffect(() => {
     if (showDebugInfo) {
       testSupabaseConnection()
-        .then(status => setConnectionStatus(status))
-        .catch(() => setConnectionStatus({connected: false}));
+        .then(status => {
+          setConnectionStatus(status);
+          if (!status.connected) {
+            toast.error("Database connection unavailable. Please try again later.");
+          }
+        })
+        .catch(() => {
+          setConnectionStatus({connected: false});
+          toast.error("Failed to check database connection.");
+        });
     }
   }, [showDebugInfo]);
 
@@ -65,18 +74,24 @@ const ApplicationFormStep4 = ({
     if (validateForm()) {
       console.log("Form validation passed, calling onSubmit()");
       
-      // Log connection status before submission for debugging
-      if (import.meta.env.DEV) {
-        testSupabaseConnection().then(status => {
-          console.log("Supabase connection status before submission:", status);
-          // Proceed with submission
+      // First, check connection status
+      testSupabaseConnection().then(status => {
+        console.log("Supabase connection status before submission:", status);
+        
+        if (!status.connected) {
+          toast.error("Unable to connect to the database. Please check your internet connection and try again.");
+        } else {
+          // Proceed with submission when connected
           onSubmit();
-        });
-      } else {
+        }
+      }).catch(error => {
+        console.error("Connection check failed:", error);
+        toast.error("Connection check failed. Attempting submission anyway...");
         onSubmit();
-      }
+      });
     } else {
       console.log("Form validation failed");
+      toast.error("Please fix the errors before submitting.");
     }
   };
 

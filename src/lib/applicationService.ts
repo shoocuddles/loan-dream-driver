@@ -1,6 +1,6 @@
-
 import { ApplicationForm } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 /**
  * Submits an application directly to Supabase without using Firebase
@@ -42,67 +42,99 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
       isComplete ? 'FINAL SUBMISSION' : 'Draft save');
     console.log('📦 Mapped application data:', applicationData);
 
-    // Log Supabase endpoint for debugging
-    const supabaseUrl = "https://kgtfpuvksmqyaraijoal.supabase.co";
-    console.log(`🌐 Supabase endpoint: ${supabaseUrl}/rest/v1/applications`);
-    
-    // Use the Supabase client directly for maximum control
+    // Add retry logic for better reliability
+    let retryCount = 0;
+    const maxRetries = 3;
     let result;
     
-    if (application.applicationId) {
-      // Update existing application
-      console.log(`🔄 Updating application with ID: ${application.applicationId}`);
-      console.log(`🌐 Update endpoint: ${supabaseUrl}/rest/v1/applications?id=eq.${application.applicationId}`);
-      
-      const { data, error } = await supabase
-        .from('applications')
-        .update(applicationData)
-        .eq('id', application.applicationId)
-        .select();
-      
-      if (error) {
-        console.error('❌ Supabase update error:', error);
-        console.error('❌ Error details:', error.details);
-        console.error('❌ Error code:', error.code);
-        throw error;
-      }
-      
-      result = data?.[0];
-      console.log('✅ Updated application in Supabase:', result);
-      
-      if (!result) {
-        throw new Error(`No data returned after updating application ID: ${application.applicationId}`);
-      }
-    } else {
-      // Create new application
-      console.log('➕ Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
-      console.log(`🌐 Create endpoint: ${supabaseUrl}/rest/v1/applications`);
-      console.log('➕ Data being sent to Supabase:', applicationData);
-      
-      // Make sure we're using an array for insert
-      const { data, error } = await supabase
-        .from('applications')
-        .insert([applicationData])
-        .select();
-      
-      if (error) {
-        console.error('❌ Error creating application in Supabase:', error);
-        console.error('❌ Error details:', error.details);
-        console.error('❌ Error code:', error.code);
-        console.error('❌ Data that failed:', applicationData);
-        throw error;
-      }
-      
-      // Log exact response for debugging
-      console.log('✅ Supabase insert response:', data);
-      
-      result = data?.[0];
-      if (result) {
-        console.log('✅ Created new application in Supabase with ID:', result.id);
-        console.log('✅ Full response:', result);
-      } else {
-        console.error('❌ No result received after successful insert');
-        throw new Error('No result received from Supabase insert operation');
+    while (retryCount < maxRetries) {
+      try {
+        if (application.applicationId) {
+          // Update existing application
+          console.log(`🔄 Updating application with ID: ${application.applicationId} (Attempt ${retryCount + 1})`);
+          
+          const { data, error } = await supabase
+            .from('applications')
+            .update(applicationData)
+            .eq('id', application.applicationId)
+            .select();
+          
+          if (error) {
+            console.error('❌ Supabase update error:', error);
+            console.error('❌ Error details:', error.details);
+            console.error('❌ Error code:', error.code);
+            
+            // If this is the last retry, throw the error
+            if (retryCount === maxRetries - 1) throw error;
+            
+            // Otherwise, retry
+            retryCount++;
+            continue;
+          }
+          
+          result = data?.[0];
+          console.log('✅ Updated application in Supabase:', result);
+          
+          if (!result) {
+            throw new Error(`No data returned after updating application ID: ${application.applicationId}`);
+          }
+          
+          // Success, break out of retry loop
+          break;
+        } else {
+          // Create new application
+          console.log('➕ Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
+          console.log('➕ Data being sent to Supabase:', applicationData);
+          
+          // Make sure we're using an array for insert
+          const { data, error } = await supabase
+            .from('applications')
+            .insert([applicationData])
+            .select();
+          
+          if (error) {
+            console.error('❌ Error creating application in Supabase:', error);
+            console.error('❌ Error details:', error.details);
+            console.error('❌ Error code:', error.code);
+            console.error('❌ Data that failed:', applicationData);
+            
+            // Show toast notification for user feedback
+            toast.error("Connection error. Please try again.");
+            
+            // If this is the last retry, throw the error
+            if (retryCount === maxRetries - 1) throw error;
+            
+            // Otherwise, retry
+            retryCount++;
+            continue;
+          }
+          
+          // Log exact response for debugging
+          console.log('✅ Supabase insert response:', data);
+          
+          result = data?.[0];
+          if (result) {
+            console.log('✅ Created new application in Supabase with ID:', result.id);
+            console.log('✅ Full response:', result);
+            toast.success(isComplete ? "Application submitted successfully!" : "Draft saved");
+          } else {
+            console.error('❌ No result received after successful insert');
+            throw new Error('No result received from Supabase insert operation');
+          }
+          
+          // Success, break out of retry loop
+          break;
+        }
+      } catch (innerError) {
+        // If this is the last retry, rethrow
+        if (retryCount === maxRetries - 1) throw innerError;
+        
+        // Otherwise, log and retry
+        console.warn(`Retry ${retryCount + 1}/${maxRetries} failed:`, innerError);
+        retryCount++;
+        
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
       }
     }
     
@@ -121,6 +153,7 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     
     if (error.message) {
       console.error('❌ Error message:', error.message);
+      toast.error(`Submission error: ${error.message}`);
     }
     
     if (error.stack) {

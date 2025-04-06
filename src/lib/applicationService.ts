@@ -40,6 +40,7 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     
     console.log('📦 Application data prepared for submission:', 
       isComplete ? 'FINAL SUBMISSION' : 'Draft save');
+    console.log('📦 Mapped application data:', applicationData);
     
     // Use the Supabase client directly for maximum control
     let result;
@@ -53,12 +54,20 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
         .eq('id', application.applicationId)
         .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Supabase update error:', error);
+        console.error('❌ Error details:', error.details);
+        console.error('❌ Error code:', error.code);
+        throw error;
+      }
+      
       result = data?.[0];
-      console.log('✅ Updated application in Supabase');
+      console.log('✅ Updated application in Supabase:', result);
     } else {
       // Create new application
       console.log('➕ Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
+      console.log('➕ Data being sent to Supabase:', applicationData);
+      
       const { data, error } = await supabase
         .from('applications')
         .insert({
@@ -71,11 +80,13 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
         console.error('❌ Error creating application in Supabase:', error);
         console.error('❌ Error details:', error.details);
         console.error('❌ Error code:', error.code);
+        console.error('❌ Data that failed:', applicationData);
         throw error;
       }
       
       result = data?.[0];
       console.log('✅ Created new application in Supabase with ID:', result?.id);
+      console.log('✅ Full response:', result);
     }
     
     return result;

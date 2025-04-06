@@ -11,6 +11,13 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
+// Enhanced logging for Supabase operations
+const originalFrom = supabase.from.bind(supabase);
+supabase.from = (table) => {
+  console.log(`🔍 Supabase: Accessing table "${table}"`);
+  return originalFrom(table);
+};
+
 // Add a generic RPC function with proper type casting and async handling
 export const rpcCall = async <T = any>(
   functionName: string,

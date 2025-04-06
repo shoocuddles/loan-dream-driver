@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { ApplicationForm } from "@/lib/types";
 import { submitApplication } from "@/lib/supabase";
@@ -43,7 +42,6 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
   const finalSubmissionInProgress = useRef(false);
   const applicationSubmitted = useRef(false);
   
-  // Use our separated draft functionality
   const { draftId, isSavingProgress, saveDraft, clearDraft } = useApplicationDraft(initialFormState);
 
   const nextStep = () => {
@@ -58,7 +56,6 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
     
     console.log("nextStep called, saving progress and advancing to step", currentStep + 1);
     
-    // Only save if we're not already submitting the final form
     if (!finalSubmissionInProgress.current) {
       saveDraft(formData)
         .catch(err => {
@@ -86,6 +83,7 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
   const handleSubmit = async () => {
     try {
       console.log("Final submit called, marking application as complete");
+      console.log("Form data being submitted:", formData);
       
       setIsSubmitting(true);
       setError(null);
@@ -98,17 +96,15 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
       try {
         console.log("Submitting to server with complete flag");
         
-        // Add the application ID if we're updating an existing draft
         const applicationToSubmit = draftId ? { ...formData, applicationId: draftId } : formData;
+        console.log("Final application data:", applicationToSubmit);
         
-        // Use the submitApplication function from lib/supabase
         const result = await submitApplication(applicationToSubmit, false);
         
         if (result) {
-          console.log("✅ Application submitted successfully");
+          console.log("✅ Application submitted successfully:", result);
           applicationSubmitted.current = true;
           
-          // Clean up local storage
           clearDraft();
           
           toast({
@@ -118,6 +114,7 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
           });
           
           setTimeout(() => {
+            console.log("Navigating away after successful submission");
             onSuccessfulSubmit();
           }, 2000);
         } else {

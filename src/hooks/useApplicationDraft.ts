@@ -19,6 +19,7 @@ export const useApplicationDraft = (initialData: ApplicationForm) => {
     if (savedDraft) {
       try {
         console.log("📋 Found saved draft in localStorage");
+        console.log("📋 Draft data:", JSON.parse(savedDraft));
       } catch (err) {
         console.error("❌ Error parsing saved draft:", err);
       }
@@ -36,6 +37,7 @@ export const useApplicationDraft = (initialData: ApplicationForm) => {
   const saveDraft = async (formData: ApplicationForm): Promise<boolean> => {
     try {
       setIsSavingProgress(true);
+      console.log("Beginning draft save process");
       
       // Save to localStorage first (fast)
       localStorage.setItem('applicationDraft', JSON.stringify(formData));
@@ -72,23 +74,33 @@ export const useApplicationDraft = (initialData: ApplicationForm) => {
         updated_at: new Date().toISOString()
       };
       
+      console.log("🔄 Mapped draft data for database:", applicationData);
+      
       try {
         let result;
         
         // Use Supabase directly 
         if (isDraftUpdate && draftId) {
           // Update existing draft
+          console.log(`🔄 Sending UPDATE request to Supabase for draft ID: ${draftId}`);
           const { data, error } = await supabase
             .from('applications')
             .update(applicationData)
             .eq('id', draftId)
             .select();
           
-          if (error) throw error;
+          if (error) {
+            console.error("❌ Supabase error updating draft:", error);
+            console.error("❌ Error details:", error.details);
+            console.error("❌ Error code:", error.code);
+            throw error;
+          }
+          
           result = data?.[0];
-          console.log('✅ Updated draft in Supabase');
+          console.log('✅ Updated draft in Supabase:', result);
         } else {
           // Create new draft
+          console.log('🆕 Sending INSERT request to Supabase for new draft');
           const { data, error } = await supabase
             .from('applications')
             .insert({
@@ -97,12 +109,18 @@ export const useApplicationDraft = (initialData: ApplicationForm) => {
             })
             .select();
           
-          if (error) throw error;
+          if (error) {
+            console.error("❌ Supabase error creating draft:", error);
+            console.error("❌ Error details:", error.details);
+            console.error("❌ Error code:", error.code);
+            throw error;
+          }
           
           result = data?.[0];
           
           if (result?.id) {
             console.log('🆕 Created new draft in Supabase with ID:', result.id);
+            console.log('🆕 Full result:', result);
             setDraftId(result.id);
             localStorage.setItem('applicationDraftId', result.id);
           }
@@ -124,6 +142,7 @@ export const useApplicationDraft = (initialData: ApplicationForm) => {
       }
     } catch (error: any) {
       console.error("❌ Unexpected error saving draft:", error);
+      console.error("❌ Error stack:", error.stack);
       setIsSavingProgress(false);
       return false;
     }

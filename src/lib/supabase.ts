@@ -114,15 +114,17 @@ export const deleteDealer = async (dealerId: string): Promise<boolean> => {
  * Submits an application to Supabase using our centralized applicationService
  */
 export const submitApplication = async (application: ApplicationForm, isDraft = true): Promise<any> => {
-  console.log(`📝 submitApplication called with isDraft=${isDraft}, application: ${isDraft ? 'Draft save' : 'FINAL SUBMISSION'} new application`);
-  
-  console.log('📦 Application data prepared for submission:', application);
+  console.log(`📝 submitApplication called with isDraft=${isDraft}, application:`, application);
+  console.log(`📝 Application status: ${isDraft ? 'Draft save' : 'FINAL SUBMISSION'}`);
   
   try {
     // Use the submitApplicationToSupabase function from the applicationService
-    return await submitApplicationToSupabase(application, isDraft);
+    const result = await submitApplicationToSupabase(application, isDraft);
+    console.log(`✅ submitApplication success:`, result);
+    return result;
   } catch (error: any) {
     console.error(`❌ Error in submitApplication: ${error.message || 'Unknown error'}`);
+    console.error(`❌ Stack trace:`, error.stack);
     throw error;
   }
 };

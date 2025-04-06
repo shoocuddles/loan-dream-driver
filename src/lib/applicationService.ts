@@ -1,6 +1,41 @@
+
 import { ApplicationForm } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Database } from "@/lib/types/supabase-types";
+
+type ApplicationInsertData = Database['public']['Tables']['applications']['Insert'];
+type ApplicationUpdateData = Database['public']['Tables']['applications']['Update'];
+
+/**
+ * Maps ApplicationForm to database schema format
+ */
+const mapApplicationToDbFormat = (application: ApplicationForm, isDraft = true): ApplicationInsertData => {
+  return {
+    fullname: application.fullName,
+    phonenumber: application.phoneNumber,
+    email: application.email,
+    streetaddress: application.streetAddress,
+    city: application.city,
+    province: application.province,
+    postalcode: application.postalCode,
+    vehicletype: application.vehicleType,
+    requiredfeatures: application.requiredFeatures,
+    unwantedcolors: application.unwantedColors,
+    preferredmakemodel: application.preferredMakeModel,
+    hasexistingloan: application.hasExistingLoan,
+    currentpayment: application.currentPayment,
+    amountowed: application.amountOwed,
+    currentvehicle: application.currentVehicle,
+    mileage: application.mileage,
+    employmentstatus: application.employmentStatus,
+    monthlyincome: application.monthlyIncome,
+    additionalnotes: application.additionalNotes,
+    updated_at: new Date().toISOString(),
+    status: isDraft ? 'draft' : 'submitted',
+    iscomplete: !isDraft
+  };
+};
 
 /**
  * Submits an application directly to Supabase without using Firebase
@@ -9,37 +44,11 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
   try {
     console.log(`📝 Submitting application to Supabase (isDraft=${isDraft})`);
     
-    const isComplete = !isDraft;
-    
     // Map application fields to match our database schema
-    const applicationData = {
-      // Map camelCase to lowercase field names to match database schema
-      fullname: application.fullName,
-      phonenumber: application.phoneNumber,
-      email: application.email,
-      streetaddress: application.streetAddress,
-      city: application.city,
-      province: application.province,
-      postalcode: application.postalCode,
-      vehicletype: application.vehicleType,
-      requiredfeatures: application.requiredFeatures,
-      unwantedcolors: application.unwantedColors,
-      preferredmakemodel: application.preferredMakeModel,
-      hasexistingloan: application.hasExistingLoan,
-      currentpayment: application.currentPayment,
-      amountowed: application.amountOwed,
-      currentvehicle: application.currentVehicle,
-      mileage: application.mileage,
-      employmentstatus: application.employmentStatus,
-      monthlyincome: application.monthlyIncome,
-      additionalnotes: application.additionalNotes,
-      updated_at: new Date().toISOString(),
-      status: isComplete ? 'submitted' : 'draft',
-      iscomplete: isComplete
-    };
+    const applicationData = mapApplicationToDbFormat(application, isDraft);
     
     console.log('📦 Application data prepared for submission:', 
-      isComplete ? 'FINAL SUBMISSION' : 'Draft save');
+      isDraft ? 'Draft save' : 'FINAL SUBMISSION');
     console.log('📦 Mapped application data:', applicationData);
 
     // Add retry logic for better reliability
@@ -73,8 +82,8 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           
           const { data, error } = await supabase
             .from('applications')
-            .update(applicationData)
-            .eq('id', application.applicationId)
+            .update(applicationData as ApplicationUpdateData)
+            .eq('id', application.applicationId as string)
             .select();
           
           if (error) {
@@ -99,23 +108,24 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
             throw new Error(`No data returned after updating application ID: ${application.applicationId}`);
           }
           
-          if (isComplete) {
-            toast.success("Application submitted successfully!");
-          } else {
+          if (isDraft) {
             toast.success("Draft saved successfully");
+          } else {
+            toast.success("Application submitted successfully!");
           }
           
           // Success, break out of retry loop
           break;
         } else {
           // Create new application
-          console.log('➕ Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
+          console.log('➕ Creating new application', isDraft ? '(DRAFT)' : '(COMPLETE)');
           console.log('➕ Data being sent to Supabase:', applicationData);
           
           // Make sure we're using an array for insert
+          const insertData = { ...applicationData, created_at: new Date().toISOString() };
           const { data, error } = await supabase
             .from('applications')
-            .insert([{ ...applicationData, created_at: new Date().toISOString() }])
+            .insert([insertData])
             .select();
           
           if (error) {
@@ -144,7 +154,7 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           if (result) {
             console.log('✅ Created new application in Supabase with ID:', result.id);
             console.log('✅ Full response:', result);
-            toast.success(isComplete ? "Application submitted successfully!" : "Draft saved");
+            toast.success(isDraft ? "Draft saved" : "Application submitted successfully!");
           } else {
             console.error('❌ No result received after successful insert');
             throw new Error('No result received from Supabase insert operation');

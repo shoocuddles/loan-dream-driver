@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -13,6 +14,7 @@ import {
   UserDealer,
   ApplicationLock,
 } from './types/supabase';
+import { Database } from './types/supabase-types';
 
 // Define default system settings
 export const DEFAULT_SETTINGS = {
@@ -43,11 +45,13 @@ export const getAllDealers = async (): Promise<UserDealer[]> => {
     const { data, error } = await supabase
       .from('user_profiles')
       .select('*')
-      .eq('role', 'dealer');
+      .eq('role', 'dealer' as any);
     
     if (error) throw error;
     
-    return data?.map(profile => ({
+    if (!data) return [];
+    
+    return data.map(profile => ({
       id: profile.id,
       email: profile.email,
       name: profile.full_name || '',
@@ -56,7 +60,7 @@ export const getAllDealers = async (): Promise<UserDealer[]> => {
       isAdmin: profile.role === 'admin',
       passwordHash: '',
       created_at: profile.created_at
-    })) || [];
+    }));
   } catch (error: any) {
     console.error("Error fetching dealers:", error.message);
     return [];
@@ -178,16 +182,17 @@ export const generateApplicationPDF = (application: Application, isAdmin = false
   doc.setFont('helvetica', 'bold');
   doc.text('Personal Information', 14, 25);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Full Name: ${application.fullName}`, 14, 35);
-  doc.text(`Phone: ${application.phoneNumber || application.phone}`, 14, 42);
-  doc.text(`Email: ${application.email}`, 14, 49);
+  doc.text(`Full Name: ${application.fullName || application.fullname || ''}`, 14, 35);
+  doc.text(`Phone: ${application.phoneNumber || application.phonenumber || application.phone || ''}`, 14, 42);
+  doc.text(`Email: ${application.email || ''}`, 14, 49);
   
   // Use proper property names based on the Application type
+  const streetAddress = application.streetAddress || application.streetaddress || application.address || '';
   const addressStr = [
-    application.streetAddress || application.address,
-    application.city,
-    application.province,
-    application.postalCode
+    streetAddress,
+    application.city || '',
+    application.province || '',
+    application.postalCode || application.postalcode || ''
   ].filter(Boolean).join(", ");
   
   doc.text(`Address: ${addressStr}`, 14, 56);
@@ -196,46 +201,52 @@ export const generateApplicationPDF = (application: Application, isAdmin = false
   doc.setFont('helvetica', 'bold');
   doc.text('Vehicle Information', 14, 70);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Vehicle Type: ${application.vehicleType}`, 14, 80);
+  doc.text(`Vehicle Type: ${application.vehicleType || application.vehicletype || ''}`, 14, 80);
   
   // For compatibility, handle different property names
-  if (application.preferredMakeModel) {
-    doc.text(`Preferred Make/Model: ${application.preferredMakeModel}`, 14, 87);
+  const preferredMakeModel = application.preferredMakeModel || application.preferredmakemodel || '';
+  if (preferredMakeModel) {
+    doc.text(`Preferred Make/Model: ${preferredMakeModel}`, 14, 87);
   }
   
   // For compatibility, handle different property names
-  if (application.requiredFeatures) {
-    doc.text(`Required Features: ${application.requiredFeatures}`, 14, 94);
+  const requiredFeatures = application.requiredFeatures || application.requiredfeatures || '';
+  if (requiredFeatures) {
+    doc.text(`Required Features: ${requiredFeatures}`, 14, 94);
   }
   
   // Financial Info Section
   doc.setFont('helvetica', 'bold');
   doc.text('Financial Information', 14, 110);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Employment Status: ${application.employmentStatus}`, 14, 120);
-  doc.text(`Monthly Income: $${application.monthlyIncome || application.income}`, 14, 127);
+  doc.text(`Employment Status: ${application.employmentStatus || application.employmentstatus || ''}`, 14, 120);
+  doc.text(`Monthly Income: $${application.monthlyIncome || application.monthlyincome || application.income || ''}`, 14, 127);
   
   // For compatibility, handle different property names
-  if (application.hasExistingLoan) {
-    doc.text(`Current Vehicle: ${application.currentVehicle || 'N/A'}`, 14, 134);
-    doc.text(`Current Payment: $${application.currentPayment || 'N/A'}`, 14, 141);
-    doc.text(`Amount Owed: $${application.amountOwed || 'N/A'}`, 14, 148);
+  const hasExistingLoan = application.hasExistingLoan || application.hasexistingloan || false;
+  if (hasExistingLoan) {
+    doc.text(`Current Vehicle: ${application.currentVehicle || application.currentvehicle || 'N/A'}`, 14, 134);
+    doc.text(`Current Payment: $${application.currentPayment || application.currentpayment || 'N/A'}`, 14, 141);
+    doc.text(`Amount Owed: $${application.amountOwed || application.amountowed || 'N/A'}`, 14, 148);
     doc.text(`Mileage: ${application.mileage || 'N/A'} km`, 14, 155);
   }
   
   // For compatibility, handle different property names
-  if (application.additionalNotes) {
+  const additionalNotes = application.additionalNotes || application.additionalnotes || '';
+  if (additionalNotes) {
     doc.setFont('helvetica', 'bold');
     doc.text('Additional Notes', 14, 165);
     doc.setFont('helvetica', 'normal');
-    const notes = doc.splitTextToSize(application.additionalNotes, 180);
+    const notes = doc.splitTextToSize(additionalNotes, 180);
     doc.text(notes, 14, 172);
   }
   
   // Add timestamp and ID
   doc.setFontSize(8);
   doc.text(`Application ID: ${application.id}`, 14, 285);
-  doc.text(`Created: ${new Date(application.created_at || '').toLocaleString()}`, 14, 290);
+  
+  const createdAt = application.created_at || '';
+  doc.text(`Created: ${new Date(createdAt).toLocaleString()}`, 14, 290);
   
   return doc.output('blob');
 };

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { AuthState, UserProfile } from "@/lib/types/auth";
+import { Database } from "@/lib/types/supabase-types";
 
 interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<void>;
@@ -33,16 +34,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
-          const { data: profile } = await supabase
+          const { data: profile, error } = await supabase
             .from('user_profiles')
             .select('*')
-            .eq('id', session.user.id)
+            .eq('id', session.user.id as string)
             .single();
+          
+          if (error) {
+            console.error("Error fetching user profile:", error);
+            setAuthState({
+              user: session.user,
+              session,
+              profile: null,
+              isLoading: false,
+              isAdmin: false,
+            });
+            return;
+          }
           
           setAuthState({
             user: session.user,
             session,
-            profile,
+            profile: profile as UserProfile,
             isLoading: false,
             isAdmin: profile?.role === 'admin' || false,
           });
@@ -73,21 +86,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (session) {
           try {
-            const { data: profile } = await supabase
+            const { data: profile, error } = await supabase
               .from('user_profiles')
               .select('*')
-              .eq('id', session.user.id)
+              .eq('id', session.user.id as string)
               .single();
+            
+            if (error) {
+              console.error("Error getting user profile:", error);
+              setAuthState({
+                user: session.user,
+                session,
+                profile: null,
+                isLoading: false,
+                isAdmin: false,
+              });
+              return;
+            }
             
             setAuthState({
               user: session.user,
               session,
-              profile,
+              profile: profile as UserProfile,
               isLoading: false,
               isAdmin: profile?.role === 'admin' || false,
             });
           } catch (error) {
             console.error("Error getting user profile:", error);
+            setAuthState({
+              user: session.user,
+              session,
+              profile: null,
+              isLoading: false,
+              isAdmin: false,
+            });
           }
         } else {
           setAuthState({
@@ -118,13 +150,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
 
       if (data.session) {
-        const { data: profile } = await supabase
+        const { data: profile, error } = await supabase
           .from('user_profiles')
           .select('*')
-          .eq('id', data.user.id)
+          .eq('id', data.user.id as string)
           .single();
         
-        if (profile?.role === 'admin') {
+        if (error) {
+          console.error("Error fetching user profile after sign in:", error);
+        }
+        
+        const userProfile = profile as UserProfile;
+        
+        if (userProfile?.role === 'admin') {
           navigate('/admin-dashboard');
         } else {
           navigate('/dealer-dashboard');
@@ -132,7 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         toast({
           title: "Login Successful",
-          description: `Welcome back, ${profile?.full_name || email}`,
+          description: `Welcome back, ${userProfile?.full_name || email}`,
         });
       }
     } catch (error: any) {
@@ -254,7 +292,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { error } = await supabase
         .from('user_profiles')
-        .update(data)
+        .update(data as any)
         .eq('id', authState.user.id);
 
       if (error) throw error;

@@ -1,12 +1,13 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { UserProfile, Company } from "@/lib/types/auth";
+import { Database } from "@/lib/types/supabase-types";
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   const { data, error } = await supabase
     .from('user_profiles')
     .select('*')
-    .eq('id', userId)
+    .eq('id', userId as string)
     .single();
   
   if (error) {
@@ -14,14 +15,14 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     return null;
   }
   
-  return data;
+  return data as UserProfile;
 }
 
 export async function getCompany(companyId: string): Promise<Company | null> {
   const { data, error } = await supabase
     .from('companies')
     .select('*')
-    .eq('id', companyId)
+    .eq('id', companyId as string)
     .single();
   
   if (error) {
@@ -29,21 +30,21 @@ export async function getCompany(companyId: string): Promise<Company | null> {
     return null;
   }
   
-  return data;
+  return data as Company;
 }
 
 export async function getCompanyUsers(companyId: string): Promise<UserProfile[]> {
   const { data, error } = await supabase
     .from('user_profiles')
     .select('*')
-    .eq('company_id', companyId);
+    .eq('company_id', companyId as string);
   
   if (error) {
     console.error("Error fetching company users:", error);
     return [];
   }
   
-  return data || [];
+  return (data || []) as UserProfile[];
 }
 
 export async function updateUserEmail(newEmail: string) {

@@ -26,7 +26,7 @@ declare
   valid_company_id uuid;
   role_value text;
 begin
-  -- Get the metadata from the new user
+  -- Get the metadata from the new user - try both locations
   meta := coalesce(new.raw_user_metadata, new.raw_app_meta_data);
   
   -- Extract values safely

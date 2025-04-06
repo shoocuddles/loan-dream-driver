@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -5,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getSystemSettings, updateSystemSettings } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { SystemSettings } from "@/lib/types/supabase";
 
 const PricingSettings = () => {
   const [standardPrice, setStandardPrice] = useState("");
@@ -20,9 +22,11 @@ const PricingSettings = () => {
         setIsLoading(true);
         const settings = await getSystemSettings();
         
-        setStandardPrice(settings.standardPrice.toString());
-        setDiscountedPrice(settings.discountedPrice.toString());
-        setLockoutPeriod(settings.lockoutPeriodHours.toString());
+        if (settings) {
+          setStandardPrice(settings.standardPrice.toString());
+          setDiscountedPrice(settings.discountedPrice.toString());
+          setLockoutPeriod(settings.lockoutPeriodHours.toString());
+        }
       } catch (error) {
         console.error("Error loading settings:", error);
         toast({

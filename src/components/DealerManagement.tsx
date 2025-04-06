@@ -9,10 +9,10 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { getAllDealers, addDealer, updateDealer, deleteDealer } from "@/lib/supabase";
-import { Dealer } from "@/lib/types";
+import { UserDealer } from "@/lib/types/supabase";
 
 const DealerManagement = () => {
-  const [dealers, setDealers] = useState<Dealer[]>([]);
+  const [dealers, setDealers] = useState<UserDealer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newDealerEmail, setNewDealerEmail] = useState("");
   const [newDealerPassword, setNewDealerPassword] = useState("");
@@ -20,7 +20,7 @@ const DealerManagement = () => {
   const [newDealerCompany, setNewDealerCompany] = useState("");
   const [isAddingDealer, setIsAddingDealer] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
+  const [selectedDealer, setSelectedDealer] = useState<UserDealer | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const { toast } = useToast();
   
@@ -32,9 +32,21 @@ const DealerManagement = () => {
     try {
       setIsLoading(true);
       const dealersList = await getAllDealers();
+      
+      // Map user_profiles data to the expected Dealer format
+      const formattedDealers = dealersList.map(dealer => ({
+        id: dealer.id,
+        email: dealer.email,
+        name: dealer.full_name || dealer.email,
+        company: dealer.company_name || 'Unknown Company',
+        isAdmin: dealer.role === 'admin',
+        isActive: true, // Default to active if not specified
+        created_at: dealer.created_at
+      }));
+      
       // Sort by name
-      dealersList.sort((a, b) => a.name.localeCompare(b.name));
-      setDealers(dealersList);
+      formattedDealers.sort((a, b) => a.name.localeCompare(b.name));
+      setDealers(formattedDealers);
     } catch (error) {
       console.error("Error loading dealers:", error);
       toast({

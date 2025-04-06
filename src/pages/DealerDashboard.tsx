@@ -19,9 +19,10 @@ import {
   generateApplicationsCSV,
   DEFAULT_SETTINGS
 } from "@/lib/supabase";
+import { Application } from "@/lib/types/supabase";
 
 const DealerDashboard = () => {
-  const [applications, setApplications] = useState<any[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [hideDownloaded, setHideDownloaded] = useState(false);
@@ -77,8 +78,10 @@ const DealerDashboard = () => {
       const appList = await getApplicationsList();
       
       // Process applications to mark those that were previously locked
-      const processedApps = appList.map((app: any) => ({
+      const processedApps = appList.map((app: Application) => ({
         ...app,
+        // Use id as applicationId for consistency
+        applicationId: app.id,
         wasLocked: app.lockedBy && !app.isLocked && app.lockedBy !== 'currentDealerId'
       }));
       

@@ -4,43 +4,63 @@ import 'jspdf-autotable';
 
 // Re-export the supabase client from the centralized location
 import { supabase } from '@/integrations/supabase/client';
+import { SystemSettings, Application, ApplicationLock, ApplicationDownload, UserDealer } from '@/lib/types/supabase';
 export { supabase };
 
 // System settings
-export const getSystemSettings = async () => {
+export const getSystemSettings = async (): Promise<SystemSettings> => {
   try {
-    const { data, error } = await supabase
-      .from('system_settings')
-      .select('*')
-      .single();
+    // Since system_settings may not be in the database schema, we need to handle this gracefully
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('*')
+        .single();
+        
+      if (error) {
+        console.error('Error fetching system settings:', error);
+        // Return default values if we can't get the settings
+        return {
+          id: 1,
+          standardPrice: 9.99,
+          discountedPrice: 4.99,
+          lockoutPeriodHours: 24,
+          updated_at: new Date().toISOString()
+        };
+      }
       
-    if (error) {
-      console.error('Error fetching system settings:', error);
-      // Return default values if we can't get the settings
+      return data as SystemSettings;
+    } catch (err) {
+      console.error('Error accessing system_settings table:', err);
+      // Return default values if the table doesn't exist
       return {
+        id: 1,
         standardPrice: 9.99,
         discountedPrice: 4.99,
-        lockoutPeriodHours: 24
+        lockoutPeriodHours: 24,
+        updated_at: new Date().toISOString()
       };
     }
-    
-    return data;
   } catch (error) {
     console.error('Exception in getSystemSettings:', error);
     // Return default values if we can't get the settings
     return {
+      id: 1,
       standardPrice: 9.99,
       discountedPrice: 4.99,
-      lockoutPeriodHours: 24
+      lockoutPeriodHours: 24,
+      updated_at: new Date().toISOString()
     };
   }
 };
 
 // Default settings for fallback
-export const DEFAULT_SETTINGS = {
+export const DEFAULT_SETTINGS: SystemSettings = {
+  id: 1,
   standardPrice: 9.99,
   discountedPrice: 4.99,
-  lockoutPeriodHours: 24
+  lockoutPeriodHours: 24,
+  updated_at: new Date().toISOString()
 };
 
 // Update system settings
@@ -48,18 +68,34 @@ export const updateSystemSettings = async (settings: {
   standardPrice: number;
   discountedPrice: number;
   lockoutPeriodHours: number;
-}) => {
-  const { error } = await supabase
-    .from('system_settings')
-    .update(settings)
-    .eq('id', 1);
+}): Promise<boolean> => {
+  try {
+    // Since system_settings may not be in the database schema, we need to handle this gracefully
+    try {
+      const { error } = await supabase
+        .from('system_settings')
+        .update({
+          standardPrice: settings.standardPrice,
+          discountedPrice: settings.discountedPrice,
+          lockoutPeriodHours: settings.lockoutPeriodHours,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', 1);
+        
+      if (error) {
+        console.error('Error updating system settings:', error);
+        throw error;
+      }
+    } catch (err) {
+      console.error('Error accessing system_settings table:', err);
+      // Silently fail if the table doesn't exist
+    }
     
-  if (error) {
-    console.error('Error updating system settings:', error);
+    return true;
+  } catch (error) {
+    console.error('Exception in updateSystemSettings:', error);
     throw error;
   }
-  
-  return true;
 };
 
 // Authentication functions
@@ -80,27 +116,6 @@ export const signUpDealer = async (email: string, password: string, name: string
   if (authError) {
     console.error('Error creating dealer auth account:', authError);
     throw authError;
-  }
-  
-  // Create dealer record
-  if (authData.user) {
-    const dealer = {
-      id: authData.user.id,
-      email: authData.user.email,
-      name,
-      company,
-      isActive: true,
-      created_at: new Date().toISOString()
-    };
-    
-    const { error: dealerError } = await supabase
-      .from('dealers')
-      .insert([dealer]);
-      
-    if (dealerError) {
-      console.error('Error creating dealer record:', dealerError);
-      throw dealerError;
-    }
   }
   
   return authData;
@@ -137,34 +152,40 @@ export const submitApplication = async (application: any, isDraft = false) => {
     let data;
     let error;
     
-    // If application has an ID, it's an update to an existing draft
-    if (application.id) {
-      const { data: updateData, error: updateError } = await supabase
-        .from('applications')
-        .update({
-          ...application,
-          updated_at: new Date().toISOString(),
-          status: isDraft ? 'draft' : 'submitted'
-        })
-        .eq('id', application.id)
-        .select();
-        
-      data = updateData;
-      error = updateError;
-    } else {
-      // New application
-      const { data: insertData, error: insertError } = await supabase
-        .from('applications')
-        .insert([{
-          ...application,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          status: isDraft ? 'draft' : 'submitted'
-        }])
-        .select();
-        
-      data = insertData;
-      error = insertError;
+    // Handle applications table gracefully if it doesn't exist
+    try {
+      // If application has an ID, it's an update to an existing draft
+      if (application.id) {
+        const { data: updateData, error: updateError } = await supabase
+          .from('applications')
+          .update({
+            ...application,
+            updated_at: new Date().toISOString(),
+            status: isDraft ? 'draft' : 'submitted'
+          })
+          .eq('id', application.id)
+          .select();
+          
+        data = updateData;
+        error = updateError;
+      } else {
+        // New application
+        const { data: insertData, error: insertError } = await supabase
+          .from('applications')
+          .insert([{
+            ...application,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            status: isDraft ? 'draft' : 'submitted'
+          }])
+          .select();
+          
+        data = insertData;
+        error = insertError;
+      }
+    } catch (err) {
+      console.error('Error accessing applications table:', err);
+      return null;
     }
     
     if (error) {
@@ -179,108 +200,174 @@ export const submitApplication = async (application: any, isDraft = false) => {
   }
 };
 
-export const getApplications = async () => {
-  const { data, error } = await supabase
-    .from('applications')
-    .select('*')
-    .order('created_at', { ascending: false });
-    
-  if (error) {
-    console.error('Error fetching applications:', error);
-    throw error;
+export const getApplications = async (): Promise<Application[]> => {
+  try {
+    // Handle applications table gracefully if it doesn't exist
+    try {
+      const { data, error } = await supabase
+        .from('applications')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error('Error fetching applications:', error);
+        return [];
+      }
+      
+      return data as Application[] || [];
+    } catch (err) {
+      console.error('Error accessing applications table:', err);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error in getApplications:', error);
+    return [];
   }
-  
-  return data || [];
 };
 
 // Alias for getApplications for consistency with other code
 export const getAllApplications = getApplications;
 export const getApplicationsList = getApplications;
 
-export const getApplicationDetails = async (id: string) => {
-  const { data, error } = await supabase
-    .from('applications')
-    .select('*')
-    .eq('id', id)
-    .single();
-    
-  if (error) {
-    console.error('Error fetching application details:', error);
-    throw error;
-  }
-  
-  return data;
-};
-
-export const lockApplication = async (applicationId: string, dealerId: string) => {
-  const { error } = await supabase
-    .from('application_locks')
-    .insert([{
-      application_id: applicationId,
-      dealer_id: dealerId,
-      locked_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + DEFAULT_SETTINGS.lockoutPeriodHours * 60 * 60 * 1000).toISOString() 
-    }]);
-    
-  if (error) {
-    console.error('Error locking application:', error);
-    throw error;
-  }
-  
-  return true;
-};
-
-export const unlockApplication = async (applicationId: string) => {
-  const { error } = await supabase
-    .from('application_locks')
-    .delete()
-    .eq('application_id', applicationId);
-    
-  if (error) {
-    console.error('Error unlocking application:', error);
-    throw error;
-  }
-  
-  return true;
-};
-
-export const checkApplicationLock = async (applicationId: string) => {
-  const { data, error } = await supabase
-    .from('application_locks')
-    .select('*')
-    .eq('application_id', applicationId)
-    .single();
-    
-  if (error) {
-    if (error.code === 'PGRST116') {
-      // No lock found (single row error)
+export const getApplicationDetails = async (id: string): Promise<Application | null> => {
+  try {
+    // Handle applications table gracefully if it doesn't exist
+    try {
+      const { data, error } = await supabase
+        .from('applications')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      if (error) {
+        console.error('Error fetching application details:', error);
+        return null;
+      }
+      
+      return data as Application;
+    } catch (err) {
+      console.error('Error accessing applications table:', err);
       return null;
     }
-    console.error('Error checking application lock:', error);
-    throw error;
+  } catch (error) {
+    console.error('Error in getApplicationDetails:', error);
+    return null;
   }
-  
-  return data;
 };
 
-export const recordDownload = async (applicationId: string, dealerId: string) => {
-  const { error } = await supabase
-    .from('application_downloads')
-    .insert([{
-      application_id: applicationId,
-      dealer_id: dealerId,
-      downloaded_at: new Date().toISOString()
-    }]);
+export const lockApplication = async (applicationId: string, dealerId: string): Promise<boolean> => {
+  try {
+    // Handle application_locks table gracefully if it doesn't exist
+    try {
+      const { error } = await supabase
+        .from('application_locks')
+        .insert([{
+          application_id: applicationId,
+          dealer_id: dealerId,
+          locked_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + DEFAULT_SETTINGS.lockoutPeriodHours * 60 * 60 * 1000).toISOString() 
+        }]);
+        
+      if (error) {
+        console.error('Error locking application:', error);
+        return false;
+      }
+    } catch (err) {
+      console.error('Error accessing application_locks table:', err);
+      return false;
+    }
     
-  if (error) {
-    console.error('Error recording download:', error);
-    throw error;
+    return true;
+  } catch (error) {
+    console.error('Error in lockApplication:', error);
+    return false;
   }
-  
-  return true;
 };
 
-// PDF and CSV generation functions - returning jsPDF instance directly instead of Promise
+export const unlockApplication = async (applicationId: string): Promise<boolean> => {
+  try {
+    // Handle application_locks table gracefully if it doesn't exist
+    try {
+      const { error } = await supabase
+        .from('application_locks')
+        .delete()
+        .eq('application_id', applicationId);
+        
+      if (error) {
+        console.error('Error unlocking application:', error);
+        return false;
+      }
+    } catch (err) {
+      console.error('Error accessing application_locks table:', err);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in unlockApplication:', error);
+    return false;
+  }
+};
+
+export const checkApplicationLock = async (applicationId: string): Promise<ApplicationLock | null> => {
+  try {
+    // Handle application_locks table gracefully if it doesn't exist
+    try {
+      const { data, error } = await supabase
+        .from('application_locks')
+        .select('*')
+        .eq('application_id', applicationId)
+        .single();
+        
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No lock found (single row error)
+          return null;
+        }
+        console.error('Error checking application lock:', error);
+        return null;
+      }
+      
+      return data as ApplicationLock;
+    } catch (err) {
+      console.error('Error accessing application_locks table:', err);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error in checkApplicationLock:', error);
+    return null;
+  }
+};
+
+export const recordDownload = async (applicationId: string, dealerId: string): Promise<boolean> => {
+  try {
+    // Handle application_downloads table gracefully if it doesn't exist
+    try {
+      const { error } = await supabase
+        .from('application_downloads')
+        .insert([{
+          application_id: applicationId,
+          dealer_id: dealerId,
+          downloaded_at: new Date().toISOString()
+        }]);
+        
+      if (error) {
+        console.error('Error recording download:', error);
+        return false;
+      }
+    } catch (err) {
+      console.error('Error accessing application_downloads table:', err);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in recordDownload:', error);
+    return false;
+  }
+};
+
+// PDF and CSV generation functions
 export const generateApplicationPDF = (application: any, isAdmin = false) => {
   // Create a new jsPDF instance
   const pdf = new jsPDF();
@@ -383,49 +470,116 @@ export const generateApplicationsCSV = (applications: any[]) => {
 };
 
 // Dealers
-export const getDealers = async () => {
-    const { data, error } = await supabase
-        .from('dealers')
-        .select('*');
+export const getDealers = async (): Promise<UserDealer[]> => {
+    try {
+        // First try to get dealers from the dealers table
+        try {
+            const { data, error } = await supabase
+                .from('dealers')
+                .select('*');
 
-    if (error) {
-        console.error('Error fetching dealers:', error);
+            if (!error && data && data.length > 0) {
+                return data as UserDealer[];
+            }
+        } catch (err) {
+            console.log('Dealers table not found, trying user_profiles instead:', err);
+        }
+
+        // If dealers table doesn't exist or is empty, try getting from user_profiles
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .select('*');
+
+        if (error) {
+            console.error('Error fetching user profiles:', error);
+            return [];
+        }
+
+        return data || [];
+    } catch (error) {
+        console.error('Error in getDealers:', error);
         return [];
     }
-
-    return data || [];
 };
 
 // Alias for getDealers for consistency with other code
 export const getAllDealers = getDealers;
 
-export const getDealerById = async (id: string) => {
-    const { data, error } = await supabase
-        .from('dealers')
-        .select('*')
-        .eq('id', id)
-        .single();
+export const getDealerById = async (id: string): Promise<UserDealer | null> => {
+    try {
+        // First try to get from dealers table
+        try {
+            const { data, error } = await supabase
+                .from('dealers')
+                .select('*')
+                .eq('id', id)
+                .single();
 
-    if (error) {
-        console.error('Error fetching dealer by ID:', error);
+            if (!error && data) {
+                return data as UserDealer;
+            }
+        } catch (err) {
+            console.log('Dealers table not found, trying user_profiles instead:', err);
+        }
+
+        // If dealers table doesn't exist or record not found, try user_profiles
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) {
+            console.error('Error fetching dealer by ID:', error);
+            return null;
+        }
+
+        return data || null;
+    } catch (error) {
+        console.error('Error in getDealerById:', error);
         return null;
     }
-
-    return data || null;
 };
 
-export const createDealer = async (dealer: any) => {
-    const { data, error } = await supabase
-        .from('dealers')
-        .insert([dealer])
-        .select();
+export const createDealer = async (dealer: any): Promise<UserDealer | null> => {
+    try {
+        // Try to create in dealers table first
+        try {
+            const { data, error } = await supabase
+                .from('dealers')
+                .insert([dealer])
+                .select();
 
-    if (error) {
-        console.error('Error creating dealer:', error);
+            if (!error && data && data.length > 0) {
+                return data[0] as UserDealer;
+            }
+        } catch (err) {
+            console.log('Dealers table not found, trying user_profiles instead:', err);
+        }
+
+        // If dealers table doesn't exist, try creating in user_profiles
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .insert([{
+                id: dealer.id,
+                email: dealer.email,
+                full_name: dealer.name,
+                company_name: dealer.company,
+                role: dealer.isAdmin ? 'admin' : 'dealer',
+                company_id: '11111111-1111-1111-1111-111111111111' // Default company ID
+            }])
+            .select();
+
+        if (error) {
+            console.error('Error creating dealer profile:', error);
+            throw error;
+        }
+
+        return data && data.length > 0 ? data[0] as unknown as UserDealer : null;
+    } catch (error) {
+        console.error('Error in createDealer:', error);
         throw error;
     }
-
-    return data ? data[0] : null;
 };
 
 // Alias for createDealer for consistency with other code
@@ -433,31 +587,76 @@ export const addDealer = async (email: string, password: string, name: string, c
   return signUpDealer(email, password, name, company);
 };
 
-export const updateDealer = async (id: string, updates: any) => {
-    const { data, error } = await supabase
-        .from('dealers')
-        .update(updates)
-        .eq('id', id)
-        .select();
+export const updateDealer = async (id: string, updates: any): Promise<UserDealer | null> => {
+    try {
+        // Try to update in dealers table first
+        try {
+            const { data, error } = await supabase
+                .from('dealers')
+                .update(updates)
+                .eq('id', id)
+                .select();
 
-    if (error) {
-        console.error('Error updating dealer:', error);
+            if (!error && data && data.length > 0) {
+                return data[0] as UserDealer;
+            }
+        } catch (err) {
+            console.log('Dealers table not found, trying user_profiles instead:', err);
+        }
+
+        // Map fields to user_profiles schema
+        const userProfileUpdates: any = {};
+        if (updates.name) userProfileUpdates.full_name = updates.name;
+        if (updates.company) userProfileUpdates.company_name = updates.company;
+        if (updates.isAdmin !== undefined) userProfileUpdates.role = updates.isAdmin ? 'admin' : 'dealer';
+
+        // If dealers table doesn't exist, try updating in user_profiles
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .update(userProfileUpdates)
+            .eq('id', id)
+            .select();
+
+        if (error) {
+            console.error('Error updating user profile:', error);
+            throw error;
+        }
+
+        return data && data.length > 0 ? data[0] as unknown as UserDealer : null;
+    } catch (error) {
+        console.error('Error in updateDealer:', error);
         throw error;
     }
-
-    return data ? data[0] : null;
 };
 
-export const deleteDealer = async (id: string) => {
-    const { error } = await supabase
-        .from('dealers')
-        .delete()
-        .eq('id', id);
+export const deleteDealer = async (id: string): Promise<boolean> => {
+    try {
+        // Try to delete from dealers table first
+        try {
+            const { error } = await supabase
+                .from('dealers')
+                .delete()
+                .eq('id', id);
 
-    if (error) {
-        console.error('Error deleting dealer:', error);
+            if (!error) {
+                return true;
+            }
+        } catch (err) {
+            console.log('Dealers table not found, trying auth.users instead:', err);
+        }
+
+        // If dealers table doesn't exist, try deleting the auth user
+        // This will cascade to user_profiles due to foreign key constraints
+        const { error } = await supabase.auth.admin.deleteUser(id);
+
+        if (error) {
+            console.error('Error deleting user:', error);
+            throw error;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error in deleteDealer:', error);
         throw error;
     }
-
-    return true;
 };

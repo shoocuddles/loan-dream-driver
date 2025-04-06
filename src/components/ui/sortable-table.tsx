@@ -22,7 +22,7 @@ import { ArrowUpDown, ChevronDown, Filter } from 'lucide-react';
 export interface ColumnDef<T> {
   accessorKey: keyof T | string;
   header: string;
-  cell?: (info: { row: T }) => React.ReactNode;
+  cell?: (info: { row: { original: T, getValue: (key: string) => any } }) => React.ReactNode;
   enableSorting?: boolean;
   enableFiltering?: boolean;
 }
@@ -124,6 +124,12 @@ export function SortableTable<T>({
     return result;
   }, [data, filters, sorting]);
 
+  // Create enhanced row objects that include the original data and getValue function
+  const enhancedRows = filteredAndSortedData.map(rowData => ({
+    original: rowData,
+    getValue: (key: string) => rowData[key as keyof typeof rowData]
+  }));
+
   return (
     <div className="w-full">
       <div className="rounded-md border bg-white">
@@ -201,20 +207,20 @@ export function SortableTable<T>({
                   </div>
                 </TableCell>
               </TableRow>
-            ) : filteredAndSortedData.length === 0 ? (
+            ) : enhancedRows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="text-center py-8">
                   {noDataMessage}
                 </TableCell>
               </TableRow>
             ) : (
-              filteredAndSortedData.map((row, rowIndex) => (
+              enhancedRows.map((row, rowIndex) => (
                 <TableRow key={rowIndex} className="border-b hover:bg-gray-50">
                   {columns.map((column) => (
                     <TableCell key={String(column.accessorKey)}>
                       {column.cell
                         ? column.cell({ row })
-                        : String(row[column.accessorKey as keyof typeof row] || '')}
+                        : String(row.getValue(String(column.accessorKey)) || '')}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -224,7 +230,7 @@ export function SortableTable<T>({
         </Table>
       </div>
       <div className="mt-2 text-sm text-gray-500">
-        Showing {filteredAndSortedData.length} of {data.length} records
+        Showing {enhancedRows.length} of {data.length} records
       </div>
     </div>
   );

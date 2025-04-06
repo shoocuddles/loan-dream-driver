@@ -38,8 +38,8 @@ const DealerPurchases = () => {
           payment_amount,
           dealer_id,
           application_id,
-          user_profiles!inner(full_name, email),
-          applications!inner(fullname, vehicletype, status)
+          user_profiles(full_name, email),
+          applications(fullname, vehicletype, status)
         `)
         .order('downloaded_at', { ascending: false });
       
@@ -53,13 +53,13 @@ const DealerPurchases = () => {
       // Transform the data format
       const formattedData: DealerPurchase[] = downloadsData.map(item => ({
         id: item.id,
-        dealerName: item.user_profiles?.full_name || 'Unknown Dealer',
-        dealerEmail: item.user_profiles?.email || 'N/A',
-        clientName: item.applications?.fullname || 'Unknown Client',
-        vehicleType: item.applications?.vehicletype || 'N/A',
+        dealerName: item.user_profiles && item.user_profiles[0] ? item.user_profiles[0].full_name || 'Unknown Dealer' : 'Unknown Dealer',
+        dealerEmail: item.user_profiles && item.user_profiles[0] ? item.user_profiles[0].email || 'N/A' : 'N/A',
+        clientName: item.applications && item.applications[0] ? item.applications[0].fullname || 'Unknown Client' : 'Unknown Client',
+        vehicleType: item.applications && item.applications[0] ? item.applications[0].vehicletype || 'N/A' : 'N/A',
         purchaseDate: new Date(item.downloaded_at).toLocaleString(),
         paymentAmount: item.payment_amount || 0,
-        status: item.applications?.status || 'N/A'
+        status: item.applications && item.applications[0] ? item.applications[0].status || 'N/A' : 'N/A'
       }));
       
       setPurchases(formattedData);
@@ -76,18 +76,22 @@ const DealerPurchases = () => {
     {
       accessorKey: 'dealerName',
       header: 'Dealer',
-      cell: ({ row }) => (
-        <div className="font-medium">
-          <div>{row.getValue('dealerName')}</div>
-          <div className="text-xs text-gray-500">{row.getValue('dealerEmail')}</div>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const dealerName = row.original.dealerName;
+        const dealerEmail = row.original.dealerEmail;
+        return (
+          <div className="font-medium">
+            <div>{dealerName}</div>
+            <div className="text-xs text-gray-500">{dealerEmail}</div>
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'clientName',
       header: 'Client Name',
       cell: ({ row }) => (
-        <div className="font-medium">{row.getValue('clientName')}</div>
+        <div className="font-medium">{row.original.clientName}</div>
       ),
     },
     {
@@ -99,7 +103,7 @@ const DealerPurchases = () => {
       header: 'Status',
       cell: ({ row }) => {
         let badgeVariant = "outline";
-        const status = row.getValue('status') as string;
+        const status = row.original.status;
         
         switch (status.toLowerCase()) {
           case 'submitted':
@@ -128,7 +132,7 @@ const DealerPurchases = () => {
       accessorKey: 'paymentAmount',
       header: 'Payment Amount',
       cell: ({ row }) => {
-        const amount = row.getValue('paymentAmount') as number;
+        const amount = row.original.paymentAmount;
         return (
           <div>${amount.toFixed(2)}</div>
         );

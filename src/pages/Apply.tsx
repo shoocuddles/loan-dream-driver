@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -49,6 +49,7 @@ const Apply = () => {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const finalSubmissionInProgress = useRef(false);
 
   useEffect(() => {
     const savedDraft = localStorage.getItem('applicationDraft');
@@ -65,6 +66,11 @@ const Apply = () => {
 
   const saveProgress = async (data: ApplicationForm, isComplete = false) => {
     try {
+      if (!isComplete && finalSubmissionInProgress.current) {
+        console.log("Draft save skipped because final submission is in progress");
+        return true;
+      }
+
       setError(null);
       setIsSavingProgress(true);
       
@@ -84,11 +90,11 @@ const Apply = () => {
         let result = null;
         if (draftId) {
           console.log('Updating existing draft with ID:', draftId);
-          result = await submitApplication({ ...applicationData, id: draftId }, isComplete);
+          result = await submitApplication({ ...applicationData, id: draftId }, !isComplete);
           console.log('Update application result:', result);
         } else {
           console.log('Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
-          result = await submitApplication(applicationData, isComplete);
+          result = await submitApplication(applicationData, !isComplete);
           console.log('Create application result:', result);
         }
         
@@ -159,6 +165,7 @@ const Apply = () => {
     setCurrentStep(currentStep + 1);
     window.scrollTo(0, 0);
     
+    console.log("nextStep called, saving progress and advancing to step", currentStep + 1);
     saveProgress(formData)
       .catch(err => {
         console.error("Background save failed:", err);
@@ -180,6 +187,8 @@ const Apply = () => {
       
       setIsSubmitting(true);
       setError(null);
+      
+      finalSubmissionInProgress.current = true;
       
       localStorage.setItem('applicationDraft', JSON.stringify(formData));
       console.log("Saved to localStorage");
@@ -203,7 +212,7 @@ const Apply = () => {
           
           setTimeout(() => {
             navigate("/");
-          }, 1000);
+          }, 2000);
         } else {
           console.error("Failed to submit application - saveProgress returned false");
           throw new Error("Failed to submit application to server");
@@ -224,6 +233,7 @@ const Apply = () => {
         });
         
         setIsSubmitting(false);
+        finalSubmissionInProgress.current = false;
       }
     } catch (error) {
       console.error("Unhandled error in handleSubmit:", error);
@@ -241,6 +251,7 @@ const Apply = () => {
       });
       
       setIsSubmitting(false);
+      finalSubmissionInProgress.current = false;
     }
   };
 

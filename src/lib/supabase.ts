@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -123,13 +124,15 @@ export const signOutDealer = async () => {
 };
 
 // Applications
-export const submitApplication = async (application: any, isComplete = false) => {
+export const submitApplication = async (application: any, isDraft = true) => {
   try {
     let data;
     let error;
     
-    console.log(`submitApplication called with isDraft=${!isComplete}, application:`, 
+    console.log(`submitApplication called with isDraft=${isDraft}, application:`, 
       application.id ? `ID: ${application.id}` : 'New application');
+    
+    const isComplete = !isDraft;
     
     // Map application fields to match our database schema
     const applicationData = {

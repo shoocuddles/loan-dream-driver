@@ -230,6 +230,8 @@ export const testSupabaseConnection = async () => {
       data
     };
   } catch (err) {
+    // Fix: Define start here since it's not available in this scope
+    const start = Date.now();
     const elapsed = Date.now() - start;
     console.error(`❌ Unexpected Supabase connection error after ${elapsed}ms:`, err);
     return {
@@ -239,3 +241,4 @@ export const testSupabaseConnection = async () => {
     };
   }
 };
+

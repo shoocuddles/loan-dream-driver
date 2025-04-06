@@ -92,7 +92,7 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     const applicationData = mapApplicationToDbFormat(application, isDraft);
     
     console.log('📦 Application data prepared for submission:', 
-      isDraft ? 'Draft save' : 'FINAL SUBMISSION');
+      isDraft ? 'Draft save' : 'FINAL SUBMISSION', applicationData);
     
     // Add retry logic for better reliability
     let retryCount = 0;
@@ -150,9 +150,13 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           // Update existing application
           console.log(`🔄 Updating application with ID: ${application.applicationId} (Attempt ${retryCount + 1})`);
           
+          // Remove user_id if it's being updated - RLS will handle this
+          const updateData = { ...applicationData };
+          delete updateData.user_id; // Remove user_id to avoid RLS issues
+          
           const { data, error } = await supabase
             .from('applications')
-            .update(getSafeUpdateValue(applicationData))
+            .update(getSafeUpdateValue(updateData))
             .eq('id', getSafeParamValue(application.applicationId))
             .select();
           
@@ -191,7 +195,13 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           console.log('➕ Creating new application', isDraft ? '(DRAFT)' : '(COMPLETE)');
           
           // Make sure we're using an array for insert
-          const insertData = { ...applicationData, created_at: new Date().toISOString() };
+          const insertData = { 
+            ...applicationData, 
+            created_at: new Date().toISOString(),
+            // Remove user_id for anonymous submissions to avoid RLS issues
+            user_id: null
+          };
+          
           const { data, error } = await supabase
             .from('applications')
             .insert(getSafeInsertValue([insertData]))
@@ -247,15 +257,25 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
       try {
         console.log("🔄 Trying direct API method as fallback");
         
+        // For direct API, also remove user_id for anonymous submissions
+        const apiData = { ...applicationData };
+        if (!application.applicationId) {
+          // For new applications, set user_id to null explicitly
+          apiData.user_id = null;
+        } else {
+          // For updates, remove user_id field completely
+          delete apiData.user_id;
+        }
+        
         if (application.applicationId) {
           // Update using direct API
           result = await directUpdateApplication(
             application.applicationId,
-            applicationData
+            apiData
           );
         } else {
           // Insert using direct API
-          result = await directInsertApplication(applicationData);
+          result = await directInsertApplication(apiData);
           result = Array.isArray(result) ? result[0] : result; 
         }
         

@@ -107,7 +107,7 @@ export const testSupabaseConnection = async (retries = 2): Promise<{connected: b
     console.log('🔍 Testing Supabase connection...');
     startTime = Date.now();
     
-    // UPDATED: Reduce timeout from 5000ms to 3000ms and add proper error handling
+    // Try anonymous connection explicitly
     const timeoutPromise = new Promise<{data: null, error: any}>((_, reject) => {
       setTimeout(() => {
         reject({ error: { message: "Connection timeout after 3 seconds" } });

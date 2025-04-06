@@ -71,24 +71,30 @@ const Apply = () => {
       setError(null);
       setIsSavingProgress(true);
       
-      // Save to localStorage as a backup
+      // Save to localStorage as a backup first (this should always succeed)
       localStorage.setItem('applicationDraft', JSON.stringify(data));
       
-      // Try to save to Supabase with draft status
+      // Now attempt to save to the server
       try {
         // Convert the form data to the expected application structure
         const applicationData = {
           ...data,
           isComplete,
-          // Add any additional fields or transformations needed
         };
         
-        const result = draftId 
-          ? await submitApplication({ ...applicationData, id: draftId }, true) 
-          : await submitApplication(applicationData, true);
+        // If we have a draft ID, update it; otherwise create a new one
+        let result = null;
+        if (draftId) {
+          console.log('Updating existing draft with ID:', draftId);
+          result = await submitApplication({ ...applicationData, id: draftId }, true);
+        } else {
+          console.log('Creating new draft application');
+          result = await submitApplication(applicationData, true);
+        }
         
         // Save the draft ID if we get one back
         if (result && result.id && !draftId) {
+          console.log('Setting draft ID:', result.id);
           setDraftId(result.id);
           localStorage.setItem('applicationDraftId', result.id);
         }
@@ -96,7 +102,7 @@ const Apply = () => {
         setIsSavingProgress(false);
         return true;
       } catch (supabaseError) {
-        console.error("Supabase error during save progress:", supabaseError);
+        console.error("Detailed Supabase error during save progress:", supabaseError);
         
         // Set detailed error message for debugging
         if (supabaseError instanceof Error) {
@@ -117,7 +123,7 @@ const Apply = () => {
         return true;
       }
     } catch (error) {
-      console.error("Error saving application progress:", error);
+      console.error("Detailed error saving application progress:", error);
       
       // Set detailed error message
       if (error instanceof Error) {
@@ -139,21 +145,22 @@ const Apply = () => {
     }
   };
 
-  const nextStep = async () => {
-    // Save progress before moving to next step
-    const saved = await saveProgress(formData);
+  const nextStep = () => {
+    console.log("nextStep called, saving progress and advancing to step", currentStep + 1);
     
-    // Even if saving fails, we'll still allow the user to proceed
-    if (saved) {
-      setCurrentStep(currentStep + 1);
-      window.scrollTo(0, 0);
-    } else {
-      toast({
-        title: "Navigation Error",
-        description: "There was a problem moving to the next step. Please try again.",
-        variant: "destructive",
+    // First, save to localStorage immediately to ensure we don't lose data
+    localStorage.setItem('applicationDraft', JSON.stringify(formData));
+    
+    // Increment the step immediately to give user feedback
+    setCurrentStep(currentStep + 1);
+    window.scrollTo(0, 0);
+    
+    // Then attempt to save to server in the background
+    saveProgress(formData)
+      .catch(err => {
+        console.error("Background save failed:", err);
+        // We already advanced the step, so no need to handle this error further
       });
-    }
   };
 
   const prevStep = () => {

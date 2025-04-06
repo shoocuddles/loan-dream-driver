@@ -47,18 +47,16 @@ const ApplicationFormStep1 = ({ formData, updateFormData, nextStep }: Applicatio
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    try {
-      if (validateForm()) {
-        // Just call nextStep directly - don't wrap in another async operation
-        nextStep();
-      }
-    } catch (error) {
-      console.error("Error in form submission:", error);
-    } finally {
+    // Simplify the logic - don't wrap in async/try-catch blocks
+    if (validateForm()) {
+      // Call nextStep directly
+      nextStep();
+    } else {
+      // If validation fails, stop the loading state
       setIsSubmitting(false);
     }
   };

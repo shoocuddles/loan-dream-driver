@@ -16,12 +16,29 @@ export const rpcCall = async <T = any>(
   functionName: string,
   params?: Record<string, any>
 ): Promise<{ data: T | null; error: any }> => {
-  // Use type assertion to allow any string for functionName
-  const response = await supabase.rpc(functionName as any, params);
+  console.log(`Calling Supabase RPC function: ${functionName}`, params ? 'with params' : 'without params');
   
-  // Return in the expected format
-  return {
-    data: response.data as T | null,
-    error: response.error
-  };
+  try {
+    // Use type assertion to allow any string for functionName
+    const response = await supabase.rpc(functionName as any, params);
+    
+    // Log the response
+    if (response.error) {
+      console.error(`Supabase RPC error in ${functionName}:`, response.error);
+    } else {
+      console.log(`Supabase RPC success for ${functionName}:`, response.data ? 'Data received' : 'No data');
+    }
+    
+    // Return in the expected format
+    return {
+      data: response.data as T | null,
+      error: response.error
+    };
+  } catch (err) {
+    console.error(`Unexpected error in Supabase RPC call to ${functionName}:`, err);
+    return {
+      data: null,
+      error: err
+    };
+  }
 };

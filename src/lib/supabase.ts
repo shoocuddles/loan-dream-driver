@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -153,27 +154,27 @@ export const submitApplication = async (application: any, isDraft = true) => {
       // If application has an ID, it's an update to an existing draft
       if (application.id) {
         console.log('Updating application with ID:', application.id, isComplete ? '(COMPLETE)' : '(draft)');
-        const { data: updateData, error: updateError } = await rpcCall('update_application', {
+        const response = await rpcCall('update_application', {
           p_application_id: application.id,
           p_application_data: applicationData
         });
           
-        console.log('Update application response:', updateError ? 'ERROR' : 'SUCCESS', updateData);
-        data = updateData;
-        error = updateError;
+        console.log('Update application response:', response.error ? 'ERROR' : 'SUCCESS', response.data);
+        data = response.data;
+        error = response.error;
       } else {
         // New application
         console.log('Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
-        const { data: insertData, error: insertError } = await rpcCall('create_application', {
+        const response = await rpcCall('create_application', {
           p_application_data: {
             ...applicationData,
             created_at: new Date().toISOString(),
           }
         });
           
-        console.log('Create application response:', insertError ? 'ERROR' : 'SUCCESS', insertData);
-        data = insertData;
-        error = insertError;
+        console.log('Create application response:', response.error ? 'ERROR' : 'SUCCESS', response.data);
+        data = response.data;
+        error = response.error;
       }
     } catch (err) {
       console.error('Error with application function:', err);

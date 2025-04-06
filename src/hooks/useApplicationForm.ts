@@ -87,61 +87,80 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
           draftId ? `with ID: ${draftId}` : 'new application');
         
         let result = null;
-        if (draftId) {
-          console.log('Updating existing draft with ID:', draftId);
-          result = await submitApplication({ ...applicationData, id: draftId }, !isComplete);
-          console.log('Update application result:', result);
+        try {
+          if (draftId) {
+            console.log('Updating existing draft with ID:', draftId);
+            result = await submitApplication({ ...applicationData, id: draftId }, !isComplete);
+            console.log('Update application result:', result);
+          } else {
+            console.log('Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
+            result = await submitApplication(applicationData, !isComplete);
+            console.log('Create application result:', result);
+          }
+          
+          if (result && result.id && !draftId) {
+            console.log('Setting draft ID:', result.id);
+            setDraftId(result.id);
+            localStorage.setItem('applicationDraftId', result.id);
+          }
+          
+          setIsSavingProgress(false);
+          
+          if (isComplete) {
+            console.log('✅ Application marked as complete successfully');
+            applicationSubmitted.current = true;
+          }
+          
+          return true;
+        } catch (supabaseError) {
+          console.error("Detailed Supabase error during save progress:", supabaseError);
+          
+          if (supabaseError instanceof Error) {
+            setError(`Supabase error details: ${supabaseError.message}`);
+          } else {
+            setError(`Unknown Supabase error: ${JSON.stringify(supabaseError)}`);
+          }
+          
+          if (!isComplete) {
+            toast({
+              title: "Local Save Only",
+              description: "Your progress has been saved locally. We'll try to sync with our servers later.",
+              variant: "default",
+            });
+            
+            setIsSavingProgress(false);
+            return true;
+          } else {
+            toast({
+              title: "Submission Error",
+              description: "There was a problem submitting your application to our servers.",
+              variant: "destructive",
+            });
+            
+            setIsSavingProgress(false);
+            return false;
+          }
+        }
+      } catch (error) {
+        console.error("Detailed error saving application progress:", error);
+        
+        if (error instanceof Error) {
+          setError(`Error details: ${error.message}`);
         } else {
-          console.log('Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
-          result = await submitApplication(applicationData, !isComplete);
-          console.log('Create application result:', result);
+          setError(`Unknown error: ${JSON.stringify(error)}`);
         }
         
-        if (result && result.id && !draftId) {
-          console.log('Setting draft ID:', result.id);
-          setDraftId(result.id);
-          localStorage.setItem('applicationDraftId', result.id);
-        }
+        toast({
+          title: "Warning",
+          description: "We've encountered an issue saving your progress. You can continue, but please don't close your browser.",
+          variant: "destructive",
+        });
         
         setIsSavingProgress(false);
-        
-        if (isComplete) {
-          console.log('Application marked as complete successfully');
-          applicationSubmitted.current = true;
-        }
-        
-        return true;
-      } catch (supabaseError) {
-        console.error("Detailed Supabase error during save progress:", supabaseError);
-        
-        if (supabaseError instanceof Error) {
-          setError(`Supabase error details: ${supabaseError.message}`);
-        } else {
-          setError(`Unknown Supabase error: ${JSON.stringify(supabaseError)}`);
-        }
-        
-        if (!isComplete) {
-          toast({
-            title: "Local Save Only",
-            description: "Your progress has been saved locally. We'll try to sync with our servers later.",
-            variant: "default",
-          });
-          
-          setIsSavingProgress(false);
-          return true;
-        } else {
-          toast({
-            title: "Submission Error",
-            description: "There was a problem submitting your application to our servers.",
-            variant: "destructive",
-          });
-          
-          setIsSavingProgress(false);
-          return false;
-        }
+        return !isComplete;
       }
     } catch (error) {
-      console.error("Detailed error saving application progress:", error);
+      console.error("Unhandled error in saveProgress:", error);
       
       if (error instanceof Error) {
         setError(`Error details: ${error.message}`);

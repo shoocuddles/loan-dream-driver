@@ -139,8 +139,7 @@ export function SortableTable<T>({
               {columns.map((column) => (
                 <TableHead key={String(column.accessorKey)} className="font-medium text-gray-900">
                   <div className="flex flex-col">
-                    <div className="flex items-center gap-1">
-                      {/* Display column header with icons in one row */}
+                    <div className="flex items-center justify-between">
                       <span>{column.header}</span>
                       
                       <div className="flex items-center">

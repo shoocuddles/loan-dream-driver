@@ -80,7 +80,9 @@ const DealerDashboard = () => {
       // Process applications to mark those that were previously locked
       const processedApps = appList.map((app: Application) => ({
         ...app,
-        // Ensure applicationId is set for compatibility with existing code
+        // Ensure id is set for compatibility with existing code
+        id: app.id,
+        // Added for compatibility with existing code
         applicationId: app.id,
         wasLocked: app.lockedBy && !app.isLocked && app.lockedBy !== 'currentDealerId'
       }));
@@ -132,12 +134,14 @@ const DealerDashboard = () => {
       const newDownloads = [];
       
       for (const app of validApps) {
+        if (!app) continue;
+        
         // Check if the application is already downloaded
         if (!downloadedApps.includes(app.id)) {
           // Check lock status and pricing
           const lockStatus = await checkApplicationLock(app.id);
           
-          if (lockStatus && (lockStatus as ApplicationLock).isLocked) {
+          if (lockStatus && lockStatus.isLocked) {
             // Skip this application if it's locked by someone else
             toast({
               title: "Application Locked",
@@ -195,6 +199,7 @@ const DealerDashboard = () => {
       if (format === 'pdf') {
         // For multiple PDFs, create one and then combine
         for (const app of validApps) {
+          if (!app) continue;
           const pdf = generateApplicationPDF(app);
           pdf.save(`ontario-loans-application-${app.id}.pdf`);
         }
@@ -241,7 +246,7 @@ const DealerDashboard = () => {
       // Check if the application is locked
       const lockStatus = await checkApplicationLock(applicationId);
       
-      if (lockStatus && (lockStatus as ApplicationLock).isLocked) {
+      if (lockStatus && lockStatus.isLocked) {
         const canDownload = false; // Simplified logic
         if (!canDownload) {
           toast({

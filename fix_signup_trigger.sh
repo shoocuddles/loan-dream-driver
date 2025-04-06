@@ -31,7 +31,7 @@ begin
   
   -- Extract values safely
   raw_company_id := meta ->> 'company_id';
-  role_value := meta ->> 'role';
+  role_value := coalesce(meta ->> 'role', 'dealer');
   
   -- Attempt to cast company_id to UUID
   begin
@@ -40,11 +40,6 @@ begin
     raise notice 'Invalid company_id: %', raw_company_id;
     valid_company_id := '11111111-1111-1111-1111-111111111111'::uuid;
   end;
-  
-  -- Default role if missing
-  if role_value is null then
-    role_value := 'dealer';
-  end if;
   
   -- Insert profile
   insert into public.user_profiles (
@@ -57,10 +52,10 @@ begin
   ) values (
     new.id,
     new.email,
-    meta ->> 'full_name',
+    coalesce(meta ->> 'full_name', ''),
     role_value::public.user_role,
     valid_company_id,
-    meta ->> 'company_name'
+    coalesce(meta ->> 'company_name', '')
   );
 
   return new;
@@ -218,7 +213,8 @@ begin
     'application_id', p_application_id,
     'dealer_id', '00000000-0000-0000-0000-000000000000'::uuid,
     'locked_at', now(),
-    'expires_at', now() + interval '24 hours'
+    'expires_at', now() + interval '24 hours',
+    'isLocked', true
   );
   
   return lock_data;
@@ -286,3 +282,4 @@ echo "📡 Running Supabase DB Push..."
 supabase db push
 
 echo "🎉 Done. Your signup flow should now be fixed!"
+

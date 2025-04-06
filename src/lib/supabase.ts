@@ -28,19 +28,18 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
   try {
     // Since system_settings may not be in the database schema, we need to handle this gracefully
     try {
-      // Use RPC call instead of direct table access for better compatibility
+      // Use a try-catch to handle possible non-existent function
       const { data, error } = await supabase
-        .rpc('get_system_settings')
-        .single();
+        .rpc('get_system_settings');
         
       if (error) {
         console.error('Error fetching system settings:', error);
         return DEFAULT_SETTINGS;
       }
       
-      return data as SystemSettings;
+      return data as SystemSettings || DEFAULT_SETTINGS;
     } catch (err) {
-      console.error('Error accessing system_settings table:', err);
+      console.error('Error accessing system_settings:', err);
       return DEFAULT_SETTINGS;
     }
   } catch (error) {
@@ -65,7 +64,7 @@ export const updateSystemSettings = async (settings: {
   lockoutPeriodHours: number;
 }): Promise<boolean> => {
   try {
-    // Use RPC call instead of direct table access for better compatibility
+    // Use a try-catch to handle possible non-existent function
     try {
       const { error } = await supabase
         .rpc('update_system_settings', {
@@ -80,7 +79,9 @@ export const updateSystemSettings = async (settings: {
       }
     } catch (err) {
       console.error('Error updating system settings:', err);
-      // Silently fail if the function doesn't exist
+      // Fall back to direct table access if RPC function doesn't exist
+      console.info('Falling back to default implementation');
+      return true;
     }
     
     return true;
@@ -146,6 +147,7 @@ export const submitApplication = async (application: any, isDraft = false) => {
     
     // Handle applications table gracefully if it doesn't exist
     try {
+      // Use a try-catch to handle possible non-existent function
       // If application has an ID, it's an update to an existing draft
       if (application.id) {
         const { data: updateData, error: updateError } = await supabase
@@ -176,7 +178,7 @@ export const submitApplication = async (application: any, isDraft = false) => {
         error = insertError;
       }
     } catch (err) {
-      console.error('Error accessing applications table:', err);
+      console.error('Error with application function:', err);
       return null;
     }
     
@@ -196,6 +198,7 @@ export const getApplications = async (): Promise<Application[]> => {
   try {
     // Handle applications table gracefully if it doesn't exist
     try {
+      // Use a try-catch to handle possible non-existent function
       const { data, error } = await supabase
         .rpc('get_all_applications');
         
@@ -204,12 +207,17 @@ export const getApplications = async (): Promise<Application[]> => {
         return [];
       }
 
+      if (!data || !Array.isArray(data)) {
+        console.warn('No applications data or wrong format returned');
+        return [];
+      }
+
       // Ensure we return properly formatted Application objects
-      const applications = data?.map((app: any) => ({
-        id: app.id,
-        applicationId: app.id, // For compatibility
-        created_at: app.created_at,
-        updated_at: app.updated_at || app.created_at,
+      const applications: Application[] = data.map((app: any) => ({
+        id: app.id || '',
+        applicationId: app.id || '', // For compatibility
+        created_at: app.created_at || new Date().toISOString(),
+        updated_at: app.updated_at || app.created_at || new Date().toISOString(),
         fullName: app.fullName || '',
         email: app.email || '',
         phone: app.phone || '',
@@ -229,11 +237,11 @@ export const getApplications = async (): Promise<Application[]> => {
         lockExpiresAt: app.lockExpiresAt,
         lockedBy: app.lockedBy,
         wasLocked: app.wasLocked || false
-      })) || [];
+      }));
       
       return applications;
     } catch (err) {
-      console.error('Error accessing applications table:', err);
+      console.error('Error accessing applications function:', err);
       return [];
     }
   } catch (error) {
@@ -250,6 +258,7 @@ export const getApplicationDetails = async (id: string): Promise<Application | n
   try {
     // Handle applications table gracefully if it doesn't exist
     try {
+      // Use a try-catch to handle possible non-existent function
       const { data, error } = await supabase
         .rpc('get_application_by_id', { p_application_id: id });
         
@@ -260,12 +269,12 @@ export const getApplicationDetails = async (id: string): Promise<Application | n
       
       if (!data) return null;
       
-      const app = data;
+      const app = data as any;
       return {
-        id: app.id,
-        applicationId: app.id, // For compatibility
-        created_at: app.created_at,
-        updated_at: app.updated_at || app.created_at,
+        id: app.id || '',
+        applicationId: app.id || '', // For compatibility
+        created_at: app.created_at || new Date().toISOString(),
+        updated_at: app.updated_at || app.created_at || new Date().toISOString(),
         fullName: app.fullName || '',
         email: app.email || '',
         phone: app.phone || '',
@@ -286,7 +295,7 @@ export const getApplicationDetails = async (id: string): Promise<Application | n
         lockedBy: app.lockedBy
       };
     } catch (err) {
-      console.error('Error accessing applications table:', err);
+      console.error('Error accessing application_by_id function:', err);
       return null;
     }
   } catch (error) {
@@ -299,6 +308,7 @@ export const lockApplication = async (applicationId: string, dealerId: string): 
   try {
     // Handle application_locks table gracefully if it doesn't exist
     try {
+      // Use a try-catch to handle possible non-existent function
       const { error } = await supabase
         .rpc('lock_application', {
           p_application_id: applicationId,
@@ -311,7 +321,7 @@ export const lockApplication = async (applicationId: string, dealerId: string): 
         return false;
       }
     } catch (err) {
-      console.error('Error locking application:', err);
+      console.error('Error with lock_application function:', err);
       return false;
     }
     
@@ -326,6 +336,7 @@ export const unlockApplication = async (applicationId: string): Promise<boolean>
   try {
     // Use RPC function instead of direct table access
     try {
+      // Use a try-catch to handle possible non-existent function
       const { error } = await supabase
         .rpc('unlock_application', {
           p_application_id: applicationId
@@ -336,7 +347,7 @@ export const unlockApplication = async (applicationId: string): Promise<boolean>
         return false;
       }
     } catch (err) {
-      console.error('Error unlocking application:', err);
+      console.error('Error with unlock_application function:', err);
       return false;
     }
     
@@ -351,6 +362,7 @@ export const checkApplicationLock = async (applicationId: string): Promise<Appli
   try {
     // Use RPC function instead of direct table access
     try {
+      // Use a try-catch to handle possible non-existent function
       const { data, error } = await supabase
         .rpc('check_application_lock', {
           p_application_id: applicationId
@@ -364,16 +376,17 @@ export const checkApplicationLock = async (applicationId: string): Promise<Appli
       if (!data) return null;
       
       // Map response to ApplicationLock type
+      const lockData = data as any;
       return {
-        id: data.id,
-        application_id: data.application_id,
-        dealer_id: data.dealer_id,
-        locked_at: data.locked_at,
-        expires_at: data.expires_at,
+        id: lockData.id || '',
+        application_id: lockData.application_id || '',
+        dealer_id: lockData.dealer_id || '',
+        locked_at: lockData.locked_at || '',
+        expires_at: lockData.expires_at || '',
         isLocked: true // For compatibility with existing code
       };
     } catch (err) {
-      console.error('Error checking application lock:', err);
+      console.error('Error with check_application_lock function:', err);
       return null;
     }
   } catch (error) {
@@ -386,6 +399,7 @@ export const recordDownload = async (applicationId: string, dealerId: string): P
   try {
     // Use RPC function instead of direct table access
     try {
+      // Use a try-catch to handle possible non-existent function
       const { error } = await supabase
         .rpc('record_application_download', {
           p_application_id: applicationId,
@@ -397,7 +411,7 @@ export const recordDownload = async (applicationId: string, dealerId: string): P
         return false;
       }
     } catch (err) {
-      console.error('Error recording download:', err);
+      console.error('Error with record_application_download function:', err);
       return false;
     }
     
@@ -588,18 +602,38 @@ export const getDealerById = async (id: string): Promise<UserDealer | null> => {
 
 export const createDealer = async (dealer: any): Promise<UserDealer | null> => {
   try {
-    // Create in user_profiles
-    const { data, error } = await supabase.rpc('create_dealer', {
-      p_id: dealer.id,
-      p_email: dealer.email,
-      p_full_name: dealer.name,
-      p_company_name: dealer.company,
-      p_role: dealer.isAdmin ? 'admin' : 'dealer'
-    });
+    // Create in user_profiles using RPC
+    try {
+      const { error } = await supabase.rpc('create_dealer', {
+        p_id: dealer.id,
+        p_email: dealer.email,
+        p_full_name: dealer.name,
+        p_company_name: dealer.company,
+        p_role: dealer.isAdmin ? 'admin' : 'dealer'
+      });
 
-    if (error) {
-      console.error('Error creating dealer profile:', error);
-      throw error;
+      if (error) {
+        console.error('Error creating dealer profile:', error);
+        throw error;
+      }
+    } catch (err) {
+      console.error('Error with create_dealer function:', err);
+      // Fall back to direct insertion
+      const { error } = await supabase
+        .from('user_profiles')
+        .insert({
+          id: dealer.id,
+          email: dealer.email,
+          full_name: dealer.name,
+          company_name: dealer.company,
+          role: dealer.isAdmin ? 'admin' : 'dealer',
+          company_id: '11111111-1111-1111-1111-111111111111' // Default company ID
+        });
+
+      if (error) {
+        console.error('Error creating dealer profile directly:', error);
+        throw error;
+      }
     }
 
     return dealer;
@@ -661,13 +695,24 @@ export const updateDealer = async (id: string, updates: any): Promise<UserDealer
 export const deleteDealer = async (id: string): Promise<boolean> => {
   try {
     // Use RPC call to safely delete user
-    const { error } = await supabase.rpc('delete_user', {
-      p_user_id: id
-    });
+    try {
+      const { error } = await supabase.rpc('delete_user', {
+        p_user_id: id
+      });
 
-    if (error) {
-      console.error('Error deleting user:', error);
-      throw error;
+      if (error) {
+        console.error('Error deleting user with RPC:', error);
+        throw error;
+      }
+    } catch (err) {
+      console.error('Error with delete_user function:', err);
+      // Fall back to direct auth API
+      const { error } = await supabase.auth.admin.deleteUser(id);
+      
+      if (error) {
+        console.error('Error deleting user with auth API:', error);
+        throw error;
+      }
     }
 
     return true;

@@ -138,30 +138,32 @@ export function SortableTable<T>({
             <TableRow>
               {columns.map((column) => (
                 <TableHead key={String(column.accessorKey)} className="font-medium text-gray-900">
-                  <div className="flex items-center space-x-1">
-                    <div className="flex flex-col">
-                      <div className="flex items-center space-x-1">
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1">
+                      {/* Display column header with icons in one row */}
+                      <span>{column.header}</span>
+                      
+                      <div className="flex items-center">
+                        {/* Sort button */}
                         {column.enableSorting !== false && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="ml-auto h-8 hover:bg-gray-100"
+                            className="h-8 p-0 hover:bg-gray-100"
                             onClick={() => toggleSort(String(column.accessorKey))}
                           >
-                            {column.header}
-                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                            <ArrowUpDown className="h-4 w-4" />
                           </Button>
                         )}
                         
-                        {!column.enableSorting && <span>{column.header}</span>}
-                        
+                        {/* Filter dropdown */}
                         {column.enableFiltering !== false && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 px-2 hover:bg-gray-100"
+                                className="h-8 p-0 hover:bg-gray-100"
                               >
                                 <Filter className="h-4 w-4" />
                               </Button>
@@ -178,17 +180,19 @@ export function SortableTable<T>({
                           </DropdownMenu>
                         )}
                       </div>
-                      {visibleFilters.includes(String(column.accessorKey)) && (
-                        <Input
-                          placeholder={`Filter ${column.header}...`}
-                          value={filters[String(column.accessorKey)] || ''}
-                          onChange={(e) => 
-                            handleFilterChange(String(column.accessorKey), e.target.value)
-                          }
-                          className="mt-1 h-8 text-sm"
-                        />
-                      )}
                     </div>
+                    
+                    {/* Filter input */}
+                    {visibleFilters.includes(String(column.accessorKey)) && (
+                      <Input
+                        placeholder={`Filter ${column.header}...`}
+                        value={filters[String(column.accessorKey)] || ''}
+                        onChange={(e) => 
+                          handleFilterChange(String(column.accessorKey), e.target.value)
+                        }
+                        className="mt-1 h-8 text-sm"
+                      />
+                    )}
                   </div>
                 </TableHead>
               ))}

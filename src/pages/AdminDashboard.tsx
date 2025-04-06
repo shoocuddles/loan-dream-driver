@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -175,14 +174,14 @@ const AdminDashboard = () => {
       accessorKey: 'submissionDate',
       header: 'Date',
       cell: ({ row }) => {
-        const date = new Date(row.submissionDate);
+        const date = new Date(row.original.submissionDate);
         return date.toLocaleDateString();
       }
     },
     {
       accessorKey: 'fullName',
       header: 'Client Name',
-      cell: ({ row }) => <div className="font-medium">{row.fullName}</div>
+      cell: ({ row }) => <div className="font-medium">{row.original.fullName}</div>
     },
     {
       accessorKey: 'email',
@@ -200,21 +199,21 @@ const AdminDashboard = () => {
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => {
-        if (row.isLocked) {
+        if (row.original.isLocked) {
           return (
             <div>
               <Badge variant="destructive" className="px-2 py-1 text-xs">
                 Locked
               </Badge>
-              {row.lockExpiresAt && (
+              {row.original.lockExpiresAt && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Until: {new Date(row.lockExpiresAt).toLocaleTimeString()}
+                  Until: {new Date(row.original.lockExpiresAt).toLocaleTimeString()}
                 </p>
               )}
             </div>
           );
         }
-        return <Badge variant="outline">{row.status}</Badge>;
+        return <Badge variant="outline">{row.original.status}</Badge>;
       }
     },
     {
@@ -222,7 +221,7 @@ const AdminDashboard = () => {
       header: 'Actions',
       enableSorting: false,
       cell: ({ row }) => {
-        const app = row as unknown as ApplicationItem;
+        const app = row.original;
         return (
           <div className="flex justify-center items-center space-x-2">
             <Button

@@ -407,3 +407,186 @@ export const checkSupabaseConnection = async (): Promise<boolean> => {
     return false;
   }
 };
+
+// Add dealer pausing/resuming functions to the bottom of the file
+export const pauseDealer = async (
+  dealerId: string,
+  isPermanent: boolean,
+  pinCode: string
+): Promise<{success: boolean; message?: string}> => {
+  try {
+    console.log(`Pausing dealer ${dealerId}`, {isPermanent, pinCode});
+    
+    const { data, error } = await rpcCall<{success: boolean; message?: string}>(
+      'pause_dealer',
+      {
+        p_dealer_id: dealerId,
+        p_is_permanent: isPermanent,
+        p_pin_code: pinCode
+      }
+    );
+    
+    if (error) {
+      console.error("Error pausing dealer:", error);
+      throw error;
+    }
+    
+    return data || { success: false, message: "Unknown error occurred" };
+  } catch (error: any) {
+    console.error("Error pausing dealer:", error);
+    return { 
+      success: false, 
+      message: error.message || "Failed to pause dealer" 
+    };
+  }
+};
+
+export const resumeDealerByAdmin = async (
+  dealerId: string
+): Promise<{success: boolean; message?: string}> => {
+  try {
+    console.log(`Admin resuming dealer ${dealerId}`);
+    
+    const { data, error } = await rpcCall<{success: boolean; message?: string}>(
+      'resume_dealer_by_admin',
+      {
+        p_dealer_id: dealerId
+      }
+    );
+    
+    if (error) {
+      console.error("Error resuming dealer:", error);
+      throw error;
+    }
+    
+    return data || { success: false, message: "Unknown error occurred" };
+  } catch (error: any) {
+    console.error("Error resuming dealer:", error);
+    return { 
+      success: false, 
+      message: error.message || "Failed to resume dealer" 
+    };
+  }
+};
+
+export const resumeDealerWithPin = async (
+  dealerId: string,
+  pinCode: string
+): Promise<{success: boolean; message?: string}> => {
+  try {
+    console.log(`Resuming dealer ${dealerId} with PIN`);
+    
+    const { data, error } = await rpcCall<{success: boolean; message?: string}>(
+      'resume_dealer_with_pin',
+      {
+        p_dealer_id: dealerId,
+        p_pin_code: pinCode
+      }
+    );
+    
+    if (error) {
+      console.error("Error resuming dealer with PIN:", error);
+      throw error;
+    }
+    
+    return data || { success: false, message: "Unknown error occurred" };
+  } catch (error: any) {
+    console.error("Error resuming dealer with PIN:", error);
+    return { 
+      success: false, 
+      message: error.message || "Failed to resume dealer with PIN" 
+    };
+  }
+};
+
+export const sendDealerPinEmail = async (
+  dealerId: string
+): Promise<{success: boolean; message?: string}> => {
+  try {
+    console.log(`Sending PIN email to dealer ${dealerId}`);
+    
+    const { data, error } = await rpcCall<{success: boolean; message?: string; pin?: string; email?: string}>(
+      'send_dealer_pin_email',
+      {
+        p_dealer_id: dealerId
+      }
+    );
+    
+    if (error) {
+      console.error("Error sending PIN email:", error);
+      throw error;
+    }
+    
+    // In a real implementation, the pin would be sent via email and not returned
+    // For testing purposes, we log the PIN
+    if (data?.pin) {
+      console.log(`PIN for dealer ${dealerId}: ${data.pin} would be sent to ${data.email}`);
+    }
+    
+    return { 
+      success: data?.success || false, 
+      message: data?.message || "Unknown error occurred" 
+    };
+  } catch (error: any) {
+    console.error("Error sending PIN email:", error);
+    return { 
+      success: false, 
+      message: error.message || "Failed to send PIN email" 
+    };
+  }
+};
+
+export const isDealerPaused = async (
+  dealerId: string
+): Promise<{isPaused: boolean; isPermanent?: boolean; pauseId?: string; pausedAt?: string}> => {
+  try {
+    console.log(`Checking if dealer ${dealerId} is paused`);
+    
+    const { data, error } = await rpcCall<{
+      isPaused: boolean; 
+      isPermanent?: boolean; 
+      pauseId?: string; 
+      pausedAt?: string;
+    }>(
+      'is_dealer_paused',
+      {
+        p_dealer_id: dealerId
+      }
+    );
+    
+    if (error) {
+      console.error("Error checking if dealer is paused:", error);
+      throw error;
+    }
+    
+    return data || { isPaused: false };
+  } catch (error: any) {
+    console.error("Error checking if dealer is paused:", error);
+    return { isPaused: false };
+  }
+};
+
+export const getDefaultPin = async (
+  dealerId: string
+): Promise<string> => {
+  try {
+    console.log(`Getting default PIN for dealer ${dealerId}`);
+    
+    const { data, error } = await rpcCall<string>(
+      'get_default_pin',
+      {
+        p_dealer_id: dealerId
+      }
+    );
+    
+    if (error) {
+      console.error("Error getting default PIN:", error);
+      throw error;
+    }
+    
+    return data || '0000';
+  } catch (error: any) {
+    console.error("Error getting default PIN:", error);
+    return '0000';
+  }
+};

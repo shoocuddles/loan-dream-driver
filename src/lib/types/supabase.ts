@@ -1,4 +1,3 @@
-
 export type SystemSettings = {
   id: number;
   standardPrice: number;
@@ -111,4 +110,24 @@ export interface UserProfile {
   role: 'dealer' | 'admin';
   company_id: string;
   created_at: string;
+}
+
+export type DealerPause = {
+  id: string;
+  dealerId: string;
+  isPermanent: boolean;
+  pinCode: string;
+  pausedAt: string;
+  pausedBy: string;
+  resumedAt?: string;
+  resumedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PauseStatus = {
+  isPaused: boolean;
+  isPermanent?: boolean;
+  pauseId?: string;
+  pausedAt?: string;
 }

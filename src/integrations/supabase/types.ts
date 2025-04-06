@@ -231,6 +231,45 @@ export type Database = {
           },
         ]
       }
+      dealer_pauses: {
+        Row: {
+          created_at: string
+          dealer_id: string
+          id: string
+          is_permanent: boolean
+          paused_at: string
+          paused_by: string
+          pin_code: string
+          resumed_at: string | null
+          resumed_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dealer_id: string
+          id?: string
+          is_permanent?: boolean
+          paused_at?: string
+          paused_by: string
+          pin_code: string
+          resumed_at?: string | null
+          resumed_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dealer_id?: string
+          id?: string
+          is_permanent?: boolean
+          paused_at?: string
+          paused_by?: string
+          pin_code?: string
+          resumed_at?: string | null
+          resumed_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           company_id: string
@@ -426,6 +465,12 @@ export type Database = {
         }
         Returns: Json
       }
+      get_default_pin: {
+        Args: {
+          p_dealer_id: string
+        }
+        Returns: string
+      }
       get_user_company: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -448,6 +493,12 @@ export type Database = {
         }
         Returns: Json
       }
+      is_dealer_paused: {
+        Args: {
+          p_dealer_id: string
+        }
+        Returns: Json
+      }
       list_companies_with_pricing: {
         Args: Record<PropertyKey, never>
         Returns: Json
@@ -462,12 +513,41 @@ export type Database = {
         }
         Returns: Json
       }
+      pause_dealer: {
+        Args: {
+          p_dealer_id: string
+          p_is_permanent: boolean
+          p_pin_code: string
+          p_admin_id?: string
+        }
+        Returns: Json
+      }
       record_application_download: {
         Args: {
           p_application_id: string
           p_dealer_id: string
           p_payment_id?: string
           p_payment_amount?: number
+        }
+        Returns: Json
+      }
+      resume_dealer_by_admin: {
+        Args: {
+          p_dealer_id: string
+          p_admin_id?: string
+        }
+        Returns: Json
+      }
+      resume_dealer_with_pin: {
+        Args: {
+          p_dealer_id: string
+          p_pin_code: string
+        }
+        Returns: Json
+      }
+      send_dealer_pin_email: {
+        Args: {
+          p_dealer_id: string
         }
         Returns: Json
       }

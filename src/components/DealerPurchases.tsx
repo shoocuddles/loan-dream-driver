@@ -48,6 +48,8 @@ const DealerPurchases = () => {
         throw downloadsError;
       }
       
+      console.log('Downloaded data:', downloadsData);
+      
       // Transform the data format
       const formattedData: DealerPurchase[] = downloadsData.map(item => ({
         id: item.id,
@@ -76,8 +78,8 @@ const DealerPurchases = () => {
       header: 'Dealer',
       cell: ({ row }) => (
         <div className="font-medium">
-          <div>{row.original.dealerName}</div>
-          <div className="text-xs text-gray-500">{row.original.dealerEmail}</div>
+          <div>{row.getValue('dealerName')}</div>
+          <div className="text-xs text-gray-500">{row.getValue('dealerEmail')}</div>
         </div>
       ),
     },
@@ -85,7 +87,7 @@ const DealerPurchases = () => {
       accessorKey: 'clientName',
       header: 'Client Name',
       cell: ({ row }) => (
-        <div className="font-medium">{row.original.clientName}</div>
+        <div className="font-medium">{row.getValue('clientName')}</div>
       ),
     },
     {
@@ -97,8 +99,9 @@ const DealerPurchases = () => {
       header: 'Status',
       cell: ({ row }) => {
         let badgeVariant = "outline";
+        const status = row.getValue('status') as string;
         
-        switch (row.original.status.toLowerCase()) {
+        switch (status.toLowerCase()) {
           case 'submitted':
             badgeVariant = "default";
             break;
@@ -113,7 +116,7 @@ const DealerPurchases = () => {
         }
         
         return (
-          <Badge variant={badgeVariant as any}>{row.original.status}</Badge>
+          <Badge variant={badgeVariant as any}>{status}</Badge>
         );
       },
     },
@@ -124,9 +127,12 @@ const DealerPurchases = () => {
     {
       accessorKey: 'paymentAmount',
       header: 'Payment Amount',
-      cell: ({ row }) => (
-        <div>${row.original.paymentAmount.toFixed(2)}</div>
-      ),
+      cell: ({ row }) => {
+        const amount = row.getValue('paymentAmount') as number;
+        return (
+          <div>${amount.toFixed(2)}</div>
+        );
+      },
     },
   ];
 

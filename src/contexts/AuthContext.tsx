@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -148,6 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log("Starting signUp with:", { email, password: '****', userData });
     
+      // Simplify the metadata structure to match what the trigger expects
       const { data, error } = await supabase.auth.signUp({
         email,
         password,

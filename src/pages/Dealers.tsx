@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -7,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/use-auth";
 
 const Dealers = () => {
   const [loginEmail, setLoginEmail] = useState("");
@@ -67,14 +68,13 @@ const Dealers = () => {
     try {
       setIsProcessing(true);
       
+      // Pass user data in a simplified format that matches what the backend expects
       console.log("📨 Sending metadata to signUp:", {
         fullName: dealerName,
         role: "dealer",
-        company_id: "11111111-1111-1111-1111-111111111111",
         companyName: company
       });
       
-      // Pass user data with correct metadata structure - simplified structure
       await signUp(signupEmail, signupPassword, {
         fullName: dealerName,
         role: 'dealer',

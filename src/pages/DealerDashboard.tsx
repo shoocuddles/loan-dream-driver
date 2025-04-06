@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -31,7 +32,7 @@ const DealerDashboard = () => {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionInProgress, setActionInProgress] = useState('');
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -61,18 +62,18 @@ const DealerDashboard = () => {
   };
 
   const handleLockApplication = async (application: Application) => {
-    if (!currentUser || !application) return;
+    if (!user || !application) return;
 
     try {
       setActionInProgress(application.id);
-      const success = await lockApplication(application.id, currentUser.id);
+      const success = await lockApplication(application.id, user.id);
 
       if (success) {
         // Update the applications list to show the application as locked
         setApplications(prevApplications =>
           prevApplications.map(app =>
             app.id === application.id
-              ? { ...app, isLocked: true, lockedBy: currentUser.id }
+              ? { ...app, isLocked: true, lockedBy: user.id }
               : app
           )
         );
@@ -113,8 +114,8 @@ const DealerDashboard = () => {
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Record the download
-      if (currentUser) {
-        const success = await recordDownload(application.id, currentUser.id);
+      if (user) {
+        const success = await recordDownload(application.id, user.id);
         if (success) {
           toast({
             title: "Application Downloaded",
@@ -224,7 +225,7 @@ const DealerDashboard = () => {
         >
           {actionInProgress === application.id ? 'Processing...' : 'Download'}
         </Button>
-        {application.isLocked && application.lockedBy === currentUser?.id && (
+        {application.isLocked && application.lockedBy === user?.id && (
           <Button
             size="sm"
             variant="outline"
@@ -308,7 +309,7 @@ interface LockStatusProps {
 const LockStatus: React.FC<LockStatusProps> = ({ application }) => {
   const [lock, setLock] = useState<ApplicationLock | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [actionInProgress, setActionInProgress] = useState('');
 
@@ -335,18 +336,18 @@ const LockStatus: React.FC<LockStatusProps> = ({ application }) => {
   }, [application.id, toast]);
 
   const handleLockApplication = async () => {
-    if (!currentUser || !application) return;
+    if (!user || !application) return;
 
     try {
       setActionInProgress(application.id);
-      const success = await lockApplication(application.id, currentUser.id);
+      const success = await lockApplication(application.id, user.id);
 
       if (success) {
         // Optimistically update the lock status
         setLock({
           id: 'temp', // Temporary ID, will be replaced on refresh
           application_id: application.id,
-          dealer_id: currentUser.id,
+          dealer_id: user.id,
           locked_at: new Date().toISOString(),
           expires_at: new Date(Date.now() + DEFAULT_SETTINGS.lockoutPeriodHours * 60 * 60 * 1000).toISOString(),
           isLocked: true
@@ -420,8 +421,8 @@ const LockStatus: React.FC<LockStatusProps> = ({ application }) => {
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Record the download
-      if (currentUser) {
-        const success = await recordDownload(application.id, currentUser.id);
+      if (user) {
+        const success = await recordDownload(application.id, user.id);
         if (success) {
           toast({
             title: "Application Downloaded",
@@ -489,7 +490,7 @@ const LockStatus: React.FC<LockStatusProps> = ({ application }) => {
       >
         {actionInProgress === application.id ? 'Processing...' : <><Download className="mr-2 h-4 w-4" /> Download</>}
       </Button>
-      {lock && lock.dealer_id === currentUser?.id && (
+      {lock && lock.dealer_id === user?.id && (
         <Button
           size="sm"
           variant="outline"

@@ -351,6 +351,12 @@ export type Database = {
           status: string
         }[]
       }
+      can_create_profile_for_user: {
+        Args: {
+          user_id: string
+        }
+        Returns: boolean
+      }
       create_application: {
         Args: {
           p_application_data: Json

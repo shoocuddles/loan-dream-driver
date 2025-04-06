@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';

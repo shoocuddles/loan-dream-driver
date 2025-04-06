@@ -16,7 +16,9 @@ const options = {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    storageKey: 'supabase.auth.token',
+    storage: window.localStorage
   },
   global: {
     headers: {
@@ -28,10 +30,11 @@ const options = {
     params: {
       eventsPerSecond: 1
     }
-  }
+  },
+  persistSession: true,  // Legacy prop for backward compatibility
 };
 
-// Create the Supabase client without the problematic db.schema property
+// Create the Supabase client 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, options);
 
 // Log supabase version info
@@ -107,7 +110,7 @@ export const testSupabaseConnection = async (retries = 2): Promise<{connected: b
     console.log('🔍 Testing Supabase connection...');
     startTime = Date.now();
     
-    // Try anonymous connection explicitly
+    // Try with a simple query first that doesn't require multiple rows
     const timeoutPromise = new Promise<{data: null, error: any}>((_, reject) => {
       setTimeout(() => {
         reject({ error: { message: "Connection timeout after 3 seconds" } });
@@ -116,18 +119,27 @@ export const testSupabaseConnection = async (retries = 2): Promise<{connected: b
     
     // Race between the actual query and the timeout
     const result = await Promise.race([
-      supabase.from('applications').select('count').limit(1),
+      supabase.from('applications').select('count').limit(1).single(),
       timeoutPromise
     ]);
     
     const elapsed = Date.now() - startTime;
     
     if ('error' in result && result.error) {
+      // If it's a "no rows returned" error, that's still a successful connection
+      if (result.error.code === 'PGRST116') {
+        console.log(`✅ Supabase connection successful (${elapsed}ms) - no data found but connection works`);
+        return {
+          connected: true,
+          latency: elapsed
+        };
+      }
+      
       console.error(`❌ Supabase connection test failed after ${elapsed}ms:`, result.error);
       
       if (retries > 0) {
         console.log(`Retrying connection test (${retries} attempts left)...`);
-        await new Promise(resolve => setTimeout(resolve, 500)); // Reduced from 1000ms to 500ms
+        await new Promise(resolve => setTimeout(resolve, 500));
         return testSupabaseConnection(retries - 1);
       }
       
@@ -150,7 +162,7 @@ export const testSupabaseConnection = async (retries = 2): Promise<{connected: b
     
     if (retries > 0) {
       console.log(`Retrying connection test (${retries} attempts left)...`);
-      await new Promise(resolve => setTimeout(resolve, 500)); // Reduced from 1000ms to 500ms
+      await new Promise(resolve => setTimeout(resolve, 500));
       return testSupabaseConnection(retries - 1);
     }
     
@@ -162,7 +174,7 @@ export const testSupabaseConnection = async (retries = 2): Promise<{connected: b
   }
 };
 
-// Add connection heartbeat at regular intervals to keep connection alive (simplified)
+// Add connection heartbeat at regular intervals to keep connection alive
 let connectionIsActive = false;
 
 const startConnectionHeartbeat = () => {
@@ -173,7 +185,7 @@ const startConnectionHeartbeat = () => {
   
   // Using fetch instead of supabase client for more reliability
   const heartbeatInterval = setInterval(() => {
-    fetch(`${SUPABASE_URL}/rest/v1/applications?count=exact`, {
+    fetch(`${SUPABASE_URL}/rest/v1/applications?count=exact&limit=1`, {
       method: 'HEAD',
       headers: {
         'apikey': SUPABASE_PUBLISHABLE_KEY,
@@ -182,46 +194,57 @@ const startConnectionHeartbeat = () => {
     }).catch(err => {
       console.warn('💔 Supabase heartbeat error:', err);
     });
-  }, 60000); // Every minute
+  }, 30000); // Every 30 seconds
   
   window.addEventListener('beforeunload', () => {
     clearInterval(heartbeatInterval);
   });
 };
 
-// Only start heartbeat in production to avoid excessive requests during development
-if (import.meta.env.PROD) {
-  // Add a small delay before starting the heartbeat
-  setTimeout(() => startConnectionHeartbeat(), 5000);
-}
+// Start heartbeat with a small delay after page load
+setTimeout(() => startConnectionHeartbeat(), 5000);
 
-// Add debugging info to Application page to show endpoint and connection status
-export const getSupabaseConnectionInfo = () => {
-  return {
-    url: SUPABASE_URL,
-    tables: {
-      applications: `${SUPABASE_URL}/rest/v1/applications`
-    },
-    isConnected: true
-  };
-};
-
-// Check and report connection status on page load
-window.addEventListener('DOMContentLoaded', () => {
-  // Initialize connection check on page load with a small delay
-  setTimeout(() => {
-    testSupabaseConnection()
-      .then(status => {
-        if (!status.connected) {
-          console.warn('⚠️ Initial connection check failed. Some features may not work properly.');
-          toast.warning("Database connection issues detected. Some features may not work properly.");
-        }
-      })
-      .catch(err => {
-        console.error('⚠️ Error during initial connection check:', err);
+// Function to diagnose connection issues
+export const diagnoseConnectionIssues = async (): Promise<string> => {
+  try {
+    // First check general internet connectivity
+    const hasNetwork = await checkNetworkConnectivity();
+    
+    if (!hasNetwork) {
+      return "No network connectivity detected. Please check your internet connection.";
+    }
+    
+    // Try a direct connection to Supabase API
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/`, { 
+        method: 'HEAD',
+        headers: {
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+        },
+        signal: controller.signal
       });
-  }, 2000); // Increased delay to allow page to load first
-});
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok || response.status === 400) {
+        return "Supabase API is reachable but authentication may have issues. Try refreshing the page or signing in again.";
+      } else {
+        return `Supabase API returned status ${response.status}. Service may be experiencing issues.`;
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return "Connection to Supabase timed out. The service might be experiencing high load or network issues.";
+      }
+      return "Could not connect to Supabase API. Please try again later.";
+    }
+  } catch (err) {
+    console.error('Error during connection diagnosis:', err);
+    return "An error occurred while diagnosing the connection. Please check your internet connection and try again.";
+  }
+};
 
 // Expose function to check for network connectivity issues
 export const checkNetworkConnectivity = async (): Promise<boolean> => {
@@ -245,13 +268,30 @@ export const checkNetworkConnectivity = async (): Promise<boolean> => {
   }
 };
 
-// Function to diagnose connection issues
-export const diagnoseConnectionIssues = async (): Promise<string> => {
-  const hasNetwork = await checkNetworkConnectivity();
-  
-  if (!hasNetwork) {
-    return "No network connectivity detected. Please check your internet connection.";
-  }
-  
-  return "Network connection appears to be working, but database connection failed. This may be a temporary issue.";
+// Check and report connection status on page load
+window.addEventListener('DOMContentLoaded', () => {
+  // Initialize connection check on page load with a small delay
+  setTimeout(() => {
+    testSupabaseConnection()
+      .then(status => {
+        if (!status.connected) {
+          console.warn('⚠️ Initial connection check failed. Some features may not work properly.');
+          toast.warning("Database connection issues detected. Some features may not work properly.");
+        }
+      })
+      .catch(err => {
+        console.error('⚠️ Error during initial connection check:', err);
+      });
+  }, 2000);
+});
+
+// Get connection info for debugging
+export const getSupabaseConnectionInfo = () => {
+  return {
+    url: SUPABASE_URL,
+    tables: {
+      applications: `${SUPABASE_URL}/rest/v1/applications`
+    },
+    isConnected: true
+  };
 };

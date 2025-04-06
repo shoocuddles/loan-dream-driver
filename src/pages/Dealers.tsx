@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/hooks/use-auth";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const Dealers = () => {
   const [loginEmail, setLoginEmail] = useState("");
@@ -18,36 +20,30 @@ const Dealers = () => {
   const [dealerName, setDealerName] = useState("");
   const [company, setCompany] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const { toast } = useToast();
+  const [errorMsg, setErrorMsg] = useState("");
   const navigate = useNavigate();
   const { signIn, signUp } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg("");
     
     if (!loginEmail || !loginPassword) {
-      toast({
-        title: "Missing Fields",
-        description: "Please enter both email and password.",
-        variant: "destructive",
-      });
+      setErrorMsg("Please enter both email and password.");
+      toast.error("Please enter both email and password.");
       return;
     }
     
     try {
       setIsProcessing(true);
       
-      // Special case for admin login - for backward compatibility
-      if (loginEmail === "6352910@gmail.com" && loginPassword === "Ian123") {
-        localStorage.setItem('isAdmin', 'true');
-        navigate('/admin-dashboard');
-        return;
-      }
-      
+      // This calls the enhanced signIn function in AuthContext
       await signIn(loginEmail, loginPassword);
-    } catch (error) {
+      
+      // No need to navigate here - AuthContext will handle navigation based on role
+    } catch (error: any) {
       console.error("Login error:", error);
-      // Error is already handled in the signIn function
+      setErrorMsg(error.message || "Login failed. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -55,25 +51,16 @@ const Dealers = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg("");
     
     if (!signupEmail || !signupPassword || !dealerName || !company) {
-      toast({
-        title: "Missing Fields",
-        description: "Please fill in all fields to create your account.",
-        variant: "destructive",
-      });
+      setErrorMsg("Please fill in all fields to create your account.");
+      toast.error("Please fill in all fields to create your account.");
       return;
     }
     
     try {
       setIsProcessing(true);
-      
-      // Pass user data in a simplified format that matches what the backend expects
-      console.log("📨 Sending metadata to signUp:", {
-        fullName: dealerName,
-        role: "dealer",
-        companyName: company
-      });
       
       await signUp(signupEmail, signupPassword, {
         fullName: dealerName,
@@ -86,8 +73,11 @@ const Dealers = () => {
       setSignupPassword("");
       setDealerName("");
       setCompany("");
+      
+      // No need to navigate here - AuthContext will handle navigation
     } catch (error: any) {
       console.error("Detailed signup error:", error);
+      setErrorMsg(error.message || "Signup failed. Please try again.");
       
       // Additional debug logging for signup errors
       console.error("🔍 [DEALERS] Additional signup error context:", {
@@ -120,6 +110,12 @@ const Dealers = () => {
           )}
           
           <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
+            {errorMsg && (
+              <div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded">
+                {errorMsg}
+              </div>
+            )}
+            
             <Tabs defaultValue="login">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="login">Login</TabsTrigger>
@@ -135,6 +131,7 @@ const Dealers = () => {
                       type="email"
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
+                      disabled={isProcessing}
                     />
                   </div>
                   
@@ -145,6 +142,7 @@ const Dealers = () => {
                       type="password"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
+                      disabled={isProcessing}
                     />
                   </div>
                   
@@ -159,7 +157,14 @@ const Dealers = () => {
                     className="w-full bg-ontario-blue hover:bg-ontario-blue/90"
                     disabled={isProcessing}
                   >
-                    {isProcessing ? "Logging in..." : "Login"}
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Logging in...
+                      </>
+                    ) : (
+                      "Login"
+                    )}
                   </Button>
                 </form>
               </TabsContent>
@@ -172,6 +177,7 @@ const Dealers = () => {
                       id="dealerName"
                       value={dealerName}
                       onChange={(e) => setDealerName(e.target.value)}
+                      disabled={isProcessing}
                     />
                   </div>
                   
@@ -181,6 +187,7 @@ const Dealers = () => {
                       id="company"
                       value={company}
                       onChange={(e) => setCompany(e.target.value)}
+                      disabled={isProcessing}
                     />
                   </div>
                   
@@ -191,6 +198,7 @@ const Dealers = () => {
                       type="email"
                       value={signupEmail}
                       onChange={(e) => setSignupEmail(e.target.value)}
+                      disabled={isProcessing}
                     />
                   </div>
                   
@@ -201,6 +209,7 @@ const Dealers = () => {
                       type="password"
                       value={signupPassword}
                       onChange={(e) => setSignupPassword(e.target.value)}
+                      disabled={isProcessing}
                     />
                   </div>
                   
@@ -209,7 +218,14 @@ const Dealers = () => {
                     className="w-full bg-ontario-blue hover:bg-ontario-blue/90"
                     disabled={isProcessing}
                   >
-                    {isProcessing ? "Creating Account..." : "Create Account"}
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating Account...
+                      </>
+                    ) : (
+                      "Create Account"
+                    )}
                   </Button>
                 </form>
               </TabsContent>

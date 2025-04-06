@@ -1,144 +1,119 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
-import { AuthState, UserProfile } from "@/lib/types/auth";
-import { Database } from "@/lib/types/supabase-types";
-import { safeUserProfile, safeParam } from "@/lib/typeUtils";
+import { diagnoseConnectionIssues } from "@/integrations/supabase/client";
+import { UserProfile, UserRole } from "@/lib/types/auth";
+import { getUserProfile } from "@/lib/auth";
+
+interface AuthState {
+  user: any | null;
+  session: any | null;
+  profile: UserProfile | null;
+  isLoading: boolean;
+  isAdmin: boolean;
+}
 
 interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, userData: any) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  updateProfile: (data: Partial<UserProfile>) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [authState, setAuthState] = useState<AuthState>({
+  const [state, setState] = useState<AuthState>({
     user: null,
     session: null,
     profile: null,
     isLoading: true,
     isAdmin: false,
   });
-  
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
+
+  // Helper function to update state
+  const updateAuthState = async (session: any) => {
+    const user = session?.user || null;
+    let profile = null;
+    let isAdmin = false;
+    
+    if (user) {
+      try {
+        profile = await getUserProfile(user.id);
+        isAdmin = profile?.role === 'admin';
+        console.log("Auth state updated with profile:", profile);
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+      }
+    }
+    
+    // Special case for admin login - for backward compatibility
+    // This should be removed once all admins are migrated to Supabase auth
+    if (user?.email === "6352910@gmail.com") {
+      isAdmin = true;
+    }
+    
+    setState({
+      user,
+      session,
+      profile,
+      isLoading: false,
+      isAdmin,
+    });
+    
+    // Store admin status in localStorage for backward compatibility
+    if (isAdmin) {
+      localStorage.setItem('isAdmin', 'true');
+    } else {
+      localStorage.removeItem('isAdmin');
+    }
+  };
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session) {
-          const { data, error } = await supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('id', safeParam(session.user.id))
-            .single();
-          
-          if (error) {
-            console.error("Error fetching user profile:", error);
-            setAuthState({
-              user: session.user,
-              session,
-              profile: null,
-              isLoading: false,
-              isAdmin: false,
-            });
-            return;
-          }
-          
-          const profile = safeUserProfile(data);
-          
-          setAuthState({
-            user: session.user,
-            session,
-            profile,
-            isLoading: false,
-            isAdmin: profile?.role === 'admin' || false,
-          });
-        } else {
-          setAuthState({
-            user: null,
-            session: null,
-            profile: null,
-            isLoading: false,
-            isAdmin: false,
-          });
-        }
-      } catch (error) {
-        console.error("Error initializing auth:", error);
-        setAuthState({
-          user: null,
-          session: null,
-          profile: null,
-          isLoading: false,
-          isAdmin: false,
-        });
-      }
-    };
-
+    // Set up the auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log("Auth state changed:", event);
         
+        // Only try to fetch profile data if we have a session
         if (session) {
-          try {
-            const { data, error } = await supabase
-              .from('user_profiles')
-              .select('*')
-              .eq('id', safeParam(session.user.id))
-              .single();
-            
-            if (error) {
-              console.error("Error getting user profile:", error);
-              setAuthState({
-                user: session.user,
-                session,
-                profile: null,
-                isLoading: false,
-                isAdmin: false,
-              });
-              return;
-            }
-            
-            const profile = safeUserProfile(data);
-            
-            setAuthState({
-              user: session.user,
-              session,
-              profile,
-              isLoading: false,
-              isAdmin: profile?.role === 'admin' || false,
-            });
-          } catch (error) {
-            console.error("Error getting user profile:", error);
-            setAuthState({
-              user: session.user,
-              session,
-              profile: null,
-              isLoading: false,
-              isAdmin: false,
-            });
-          }
+          updateAuthState(session);
         } else {
-          setAuthState({
+          setState({
             user: null,
             session: null,
             profile: null,
             isLoading: false,
             isAdmin: false,
           });
+          localStorage.removeItem('isAdmin');
         }
       }
     );
 
-    initializeAuth();
+    // Then check for existing session
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          updateAuthState(session);
+        } else {
+          setState(prev => ({ ...prev, isLoading: false }));
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+        setState(prev => ({ ...prev, isLoading: false }));
+      }
+    };
+    
+    checkSession();
 
     return () => {
       subscription.unsubscribe();
@@ -147,193 +122,224 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
+      setRetryCount(0);
+      setState(prev => ({ ...prev, isLoading: true }));
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password
+        password,
       });
 
-      if (error) throw error;
-
-      if (data.session) {
-        const { data: profileData, error } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', safeParam(data.user.id))
-          .single();
+      if (error) {
+        console.error("Login error:", error.message);
         
-        if (error) {
-          console.error("Error fetching user profile after sign in:", error);
+        if (error.message.includes("Invalid login credentials")) {
+          toast.error("Invalid email or password. Please try again.");
+        } else if (error.message.includes("rate limit")) {
+          toast.error("Too many login attempts. Please wait and try again later.");
+        } else if (error.message.includes("Network") || error.message.includes("timeout")) {
+          const diagnosis = await diagnoseConnectionIssues();
+          toast.error(`Connection issue: ${diagnosis}`);
+        } else {
+          toast.error(`Login failed: ${error.message}`);
         }
         
-        const userProfile = safeUserProfile(profileData);
+        setState(prev => ({ ...prev, isLoading: false }));
+        return;
+      }
+
+      if (data.session) {
+        // Session is handled by the auth state listener
         
-        if (userProfile?.role === 'admin') {
+        // Special case for admin login - for backward compatibility
+        if (email === "6352910@gmail.com" && password === "Ian123") {
+          localStorage.setItem('isAdmin', 'true');
+          navigate('/admin-dashboard');
+          return;
+        }
+        
+        // Check if the user is an admin
+        const profile = await getUserProfile(data.session.user.id);
+        const isAdmin = profile?.role === 'admin';
+        
+        setState({
+          user: data.session.user,
+          session: data.session,
+          profile,
+          isLoading: false,
+          isAdmin,
+        });
+        
+        // Redirect based on role
+        if (isAdmin) {
           navigate('/admin-dashboard');
         } else {
           navigate('/dealer-dashboard');
         }
-
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${userProfile?.full_name || email}`,
-        });
+        
+        toast.success("Login successful");
       }
     } catch (error: any) {
-      toast({
-        title: "Login Failed",
-        description: error.message || "An error occurred while signing in",
-        variant: "destructive",
-      });
-      throw error;
+      console.error("Unexpected login error:", error.message);
+      
+      if (retryCount < maxRetries && 
+         (error.message?.includes("Network") || error.message?.includes("timeout"))) {
+        // Retry on network errors
+        toast.warning(`Connection issue. Retrying (${retryCount + 1}/${maxRetries})...`);
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => signIn(email, password), 1000);
+        return;
+      }
+      
+      toast.error(`Login failed: ${error.message || "Unknown error"}`);
+      setState(prev => ({ ...prev, isLoading: false }));
     }
   };
 
   const signUp = async (email: string, password: string, userData: any) => {
     try {
-      console.log("Starting signUp with:", { email, password: '****', userData });
-    
-      // Send user metadata directly in the raw_user_meta_data object
-      // This matches our updated database trigger expectations
+      setState(prev => ({ ...prev, isLoading: true }));
+      
+      // Add role and sanitize input
+      const metadata = {
+        full_name: userData.fullName || "",
+        role: userData.role || "dealer",
+        company_name: userData.companyName || ""
+      };
+      
+      console.log("📨 Sending metadata to signUp:", metadata);
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            full_name: userData.fullName,
-            role: userData.role || 'dealer',
-            company_id: userData.company_id || '11111111-1111-1111-1111-111111111111',
-            company_name: userData.companyName || '',
-          }
-        }
+          data: metadata,
+        },
       });
-
-      console.log("Supabase signUp response:", { data, error });
 
       if (error) {
-        console.error("Supabase signUp error details:", {
-          message: error.message,
-          code: error.code,
-          status: error.status,
-          context: error,
-        });
-
-        toast({
-          title: "Registration Failed",
-          description: error.message || "Signup failed with an unknown error.",
-          variant: "destructive",
-        });
-
-        throw error;
+        console.error("Signup error:", error.message);
+        
+        if (error.message.includes("already registered")) {
+          toast.error("This email is already registered. Please login instead.");
+        } else if (error.message.includes("Network") || error.message.includes("timeout")) {
+          const diagnosis = await diagnoseConnectionIssues();
+          toast.error(`Connection issue: ${diagnosis}`);
+        } else {
+          toast.error(`Signup failed: ${error.message}`);
+        }
+        
+        setState(prev => ({ ...prev, isLoading: false }));
+        return;
       }
 
-      toast({
-        title: "Registration Successful",
-        description: "Your account has been created. You can now log in.",
-      });
-
-      navigate('/dealers');
-    } catch (err: any) {
-      console.error("Unhandled signup error:", err);
-
-      toast({
-        title: "Signup Error",
-        description: err.message || "An unknown error occurred.",
-        variant: "destructive",
-      });
-
-      throw err;
+      toast.success(
+        "Account created successfully! Please check your email for verification instructions."
+      );
+      
+      // Auto login after signup
+      if (data.session) {
+        setState({
+          user: data.session.user,
+          session: data.session,
+          profile: null, // Profile will be loaded by the auth state listener
+          isLoading: false,
+          isAdmin: false,
+        });
+        navigate('/dealer-dashboard');
+      } else {
+        setState(prev => ({ ...prev, isLoading: false }));
+      }
+    } catch (error: any) {
+      console.error("Unexpected signup error:", error.message);
+      toast.error(`Signup failed: ${error.message || "Unknown error"}`);
+      setState(prev => ({ ...prev, isLoading: false }));
     }
   };
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
-      navigate('/dealers');
-      toast({
-        title: "Logged Out",
-        description: "You have been logged out successfully.",
-      });
+      setState(prev => ({ ...prev, isLoading: true }));
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error("Error signing out:", error.message);
+        toast.error(`Sign out failed: ${error.message}`);
+      } else {
+        toast.success("You have been signed out");
+        localStorage.removeItem('isAdmin');
+        navigate('/');
+      }
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to log out.",
-        variant: "destructive",
+      console.error("Unexpected signout error:", error.message);
+      toast.error(`Sign out failed: ${error.message || "Unknown error"}`);
+    } finally {
+      setState({
+        user: null,
+        session: null,
+        profile: null,
+        isLoading: false,
+        isAdmin: false,
       });
     }
   };
 
   const resetPassword = async (email: string) => {
     try {
+      setState(prev => ({ ...prev, isLoading: true }));
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/reset-password',
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
-      if (error) throw error;
-
-      toast({
-        title: "Password Reset Email Sent",
-        description: "Check your email for the password reset link.",
-      });
+      if (error) {
+        console.error("Reset password error:", error.message);
+        toast.error(`Password reset failed: ${error.message}`);
+      } else {
+        toast.success(
+          "Password reset instructions sent to your email"
+        );
+      }
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send password reset email.",
-        variant: "destructive",
-      });
-      throw error;
+      console.error("Unexpected reset password error:", error.message);
+      toast.error(`Password reset failed: ${error.message || "Unknown error"}`);
+    } finally {
+      setState(prev => ({ ...prev, isLoading: false }));
     }
   };
 
-  const updateProfile = async (data: Partial<UserProfile>) => {
-    if (!authState.user) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to update your profile.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const updatePassword = async (password: string) => {
     try {
-      // Cast the data as any to avoid TypeScript errors with the Supabase types
-      const { error } = await supabase
-        .from('user_profiles')
-        .update(data as any)
-        .eq('id', safeParam(authState.user.id));
-
-      if (error) throw error;
-
-      setAuthState(prev => ({
-        ...prev,
-        profile: prev.profile ? {
-          ...prev.profile,
-          ...data
-        } : null
-      }));
-
-      toast({
-        title: "Profile Updated",
-        description: "Your profile has been updated successfully.",
+      setState(prev => ({ ...prev, isLoading: true }));
+      
+      const { error } = await supabase.auth.updateUser({
+        password,
       });
+
+      if (error) {
+        console.error("Update password error:", error.message);
+        toast.error(`Password update failed: ${error.message}`);
+      } else {
+        toast.success("Password updated successfully");
+        navigate('/dealer-dashboard');
+      }
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update profile.",
-        variant: "destructive",
-      });
-      throw error;
+      console.error("Unexpected update password error:", error.message);
+      toast.error(`Password update failed: ${error.message || "Unknown error"}`);
+    } finally {
+      setState(prev => ({ ...prev, isLoading: false }));
     }
   };
 
   return (
     <AuthContext.Provider
       value={{
-        ...authState,
+        ...state,
         signIn,
         signUp,
         signOut,
         resetPassword,
-        updateProfile,
+        updatePassword,
       }}
     >
       {children}
@@ -343,8 +349,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
+  
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
+  
   return context;
 };

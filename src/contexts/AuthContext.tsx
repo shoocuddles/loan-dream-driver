@@ -144,60 +144,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-const signUp = async (email: string, password: string, userData: any) => {
-  try {
-    console.log("Starting signUp with:", { email, password: '****', userData });
+  const signUp = async (email: string, password: string, userData: any) => {
+    try {
+      console.log("Starting signUp with:", { email, password: '****', userData });
     
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: userData.fullName,
-          role: userData.role || 'dealer',
-          company_id: userData.company_id || '11111111-1111-1111-1111-111111111111',
-          company_name: userData.companyName || '',
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: userData.fullName,
+            role: userData.role || 'dealer',
+            company_id: userData.company_id || '11111111-1111-1111-1111-111111111111',
+            company_name: userData.companyName || '',
+          }
         }
-      }
-    });
-
-    console.log("Supabase signUp response:", { data, error });
-
-    if (error) {
-      console.error("Supabase signUp error details:", {
-        message: error.message,
-        code: error.code,
-        status: error.status,
-        context: error,
       });
 
+      console.log("Supabase signUp response:", { data, error });
+
+      if (error) {
+        console.error("Supabase signUp error details:", {
+          message: error.message,
+          code: error.code,
+          status: error.status,
+          context: error,
+        });
+
+        toast({
+          title: "Registration Failed",
+          description: error.message || "Signup failed with an unknown error.",
+          variant: "destructive",
+        });
+
+        throw error;
+      }
+
       toast({
-        title: "Registration Failed",
-        description: error.message || "Signup failed with an unknown error.",
+        title: "Registration Successful",
+        description: "Your account has been created. You can now log in.",
+      });
+
+      navigate('/dealers');
+    } catch (err: any) {
+      console.error("Unhandled signup error:", err);
+
+      toast({
+        title: "Signup Error",
+        description: err.message || "An unknown error occurred.",
         variant: "destructive",
       });
 
-      throw error;
+      throw err;
     }
-
-    toast({
-      title: "Registration Successful",
-      description: "Your account has been created. You can now log in.",
-    });
-
-    navigate('/dealers');
-  } catch (err: any) {
-    console.error("Unhandled signup error:", err);
-
-    toast({
-      title: "Signup Error",
-      description: err.message || "An unknown error occurred.",
-      variant: "destructive",
-    });
-
-    throw err;
-  }
-};
+  };
 
   const signOut = async () => {
     try {

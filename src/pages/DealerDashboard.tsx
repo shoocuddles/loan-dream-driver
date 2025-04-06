@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useAuth } from '@/hooks/use-auth';
@@ -6,7 +5,6 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ApplicationItem, DownloadedApplication, LockType } from '@/lib/types/dealer-dashboard';
-import { generateApplicationPDF } from '@/lib/supabase';
 import DealerDashboardLayout from '@/components/DealerDashboardLayout';
 import ApplicationTable from '@/components/ApplicationTable';
 import DownloadedApplications from '@/components/DownloadedApplications';
@@ -22,6 +20,24 @@ import {
   recordDownload,
   fetchLockoutPeriods,
 } from '@/lib/dealerService';
+
+const generateApplicationPDF = (application: { 
+  id: string; 
+  fullName: string; 
+  created_at: string;
+  status: string;
+}) => {
+  console.log('Generating PDF for application:', application);
+  
+  const text = `
+    Application ID: ${application.id}
+    Name: ${application.fullName}
+    Date: ${new Date(application.created_at).toLocaleDateString()}
+    Status: ${application.status}
+  `;
+  
+  return new Blob([text], { type: 'application/pdf' });
+};
 
 const DealerDashboard = () => {
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
@@ -105,7 +121,6 @@ const DealerDashboard = () => {
       setProcessingId(applicationId);
 
       if (lockType !== 'temporary') {
-        // For paid locks, set up pending action for payment
         setPendingAction({
           type: 'lock',
           applicationIds: [applicationId],
@@ -115,7 +130,6 @@ const DealerDashboard = () => {
         return;
       }
 
-      // For temporary locks, proceed immediately
       const success = await lockApplication(applicationId, lockType);
 
       if (success) {
@@ -157,11 +171,9 @@ const DealerDashboard = () => {
     try {
       setProcessingId(applicationId);
       
-      // Check if the application is already downloaded by this dealer
       const isDownloaded = downloadedApps.some(app => app.applicationId === applicationId);
       
       if (!isDownloaded) {
-        // If not downloaded, set up pending action for payment
         setPendingAction({
           type: 'download',
           applicationIds: [applicationId]
@@ -170,7 +182,6 @@ const DealerDashboard = () => {
         return;
       }
       
-      // For already downloaded applications, download directly
       const application = applications.find(app => app.applicationId === applicationId) || 
                           downloadedApps.find(app => app.applicationId === applicationId);
       
@@ -179,11 +190,14 @@ const DealerDashboard = () => {
         return;
       }
       
-      // Generate and download PDF
+      const dateField = 'submissionDate' in application 
+        ? application.submissionDate 
+        : (application as DownloadedApplication).downloadDate;
+        
       const pdfBlob = generateApplicationPDF({
         id: application.applicationId,
         fullName: application.fullName,
-        created_at: application.submissionDate || new Date().toISOString(),
+        created_at: dateField,
         status: 'submitted'
       });
       
@@ -207,20 +221,17 @@ const DealerDashboard = () => {
   const handleBulkDownload = async () => {
     if (!user || selectedApplications.length === 0) return;
 
-    // Check if all selected applications are already downloaded
     const notDownloaded = selectedApplications.filter(
       id => !downloadedApps.some(app => app.applicationId === id)
     );
 
     if (notDownloaded.length > 0) {
-      // If any not downloaded, set up pending action for payment
       setPendingAction({
         type: 'download',
         applicationIds: selectedApplications
       });
       setShowPaymentDialog(true);
     } else {
-      // If all already downloaded, download all PDFs
       try {
         for (const appId of selectedApplications) {
           const application = applications.find(app => app.applicationId === appId) || 
@@ -228,10 +239,14 @@ const DealerDashboard = () => {
           
           if (!application) continue;
           
+          const dateField = 'submissionDate' in application 
+            ? application.submissionDate 
+            : (application as DownloadedApplication).downloadDate;
+            
           const pdfBlob = generateApplicationPDF({
             id: application.applicationId,
             fullName: application.fullName,
-            created_at: application.submissionDate || new Date().toISOString(),
+            created_at: dateField,
             status: 'submitted'
           });
           
@@ -271,31 +286,25 @@ const DealerDashboard = () => {
       setShowPaymentDialog(false);
       
       if (pendingAction.type === 'download') {
-        // Simulate payment processing (this would integrate with Stripe)
         toast.success("Payment processed successfully");
         
-        // Record downloads for each application
         for (const appId of pendingAction.applicationIds) {
           await recordDownload(appId);
         }
         
         toast.success(`${pendingAction.applicationIds.length} application(s) purchased`);
         
-        // Clear selection and reload data
         setSelectedApplications([]);
         await loadData();
       } else if (pendingAction.type === 'lock' && pendingAction.lockType) {
-        // Simulate payment processing for locks
         toast.success("Payment processed successfully");
         
-        // Create locks for each application
         for (const appId of pendingAction.applicationIds) {
           await lockApplication(appId, pendingAction.lockType);
         }
         
         toast.success(`${pendingAction.applicationIds.length} application(s) locked`);
         
-        // Clear selection and reload data
         setSelectedApplications([]);
         await loadData();
       }
@@ -317,7 +326,6 @@ const DealerDashboard = () => {
 
   const handleSelectAll = (select: boolean) => {
     if (select) {
-      // Only select applications that aren't locked by others
       const selectableApps = applications
         .filter(app => !app.lockInfo?.isLocked || app.lockInfo?.isOwnLock)
         .map(app => app.applicationId);
@@ -327,30 +335,25 @@ const DealerDashboard = () => {
     }
   };
 
-  // Find appropriate price for the payment dialog
   const calculateTotalPrice = () => {
     if (!pendingAction) return 0;
     
     let total = 0;
     
-    // For downloads
     if (pendingAction.type === 'download') {
       for (const appId of pendingAction.applicationIds) {
         const app = applications.find(a => a.applicationId === appId);
         if (!app) continue;
         
-        // If already downloaded, it's free
         if (downloadedApps.some(d => d.applicationId === appId)) {
           continue;
         }
         
-        // If previously locked by someone else but not downloaded by current user
         const wasLocked = app.lockInfo?.isLocked && !app.lockInfo?.isOwnLock;
         total += wasLocked ? (app.discountedPrice || 5.99) : (app.standardPrice || 10.99);
       }
     }
     
-    // For locks
     if (pendingAction.type === 'lock' && pendingAction.lockType) {
       const option = lockOptions.find(o => o.type === pendingAction.lockType);
       if (option) {

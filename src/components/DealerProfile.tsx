@@ -11,10 +11,14 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
 const DealerProfile = () => {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<UserProfile>>({
+  const [formData, setFormData] = useState<{
+    full_name: string;
+    phone: string;
+    company_name: string;
+  }>({
     full_name: '',
     phone: '',
     company_name: ''
@@ -25,7 +29,8 @@ const DealerProfile = () => {
       setFormData({
         full_name: profile.full_name || '',
         phone: profile.phone || '',
-        company_name: profile.company_name || ''
+        // Use undefined check for company_name
+        company_name: (profile as any).company_name || ''
       });
     }
   }, [profile]);
@@ -57,8 +62,11 @@ const DealerProfile = () => {
       
       toast.success('Profile updated successfully!');
       
-      // Refresh the profile data in the auth context
-      await refreshProfile();
+      // Refresh profile data by forcing a page reload
+      // This is a simpler approach than implementing a refresh function
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error: any) {
       console.error('Error updating profile:', error.message);
       toast.error(`Failed to update profile: ${error.message}`);

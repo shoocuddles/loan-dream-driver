@@ -9,13 +9,14 @@ export interface LockInfo {
   isOwnLock?: boolean;
 }
 
-export interface ApplicationItem extends Partial<Application> {
+// Removed extending Partial<Application> since it causes type conflicts
+export interface ApplicationItem {
   id: string;
   applicationId: string;
   fullName: string;
   city?: string;
   submissionDate: string;
-  status: string;
+  status: string; // Changed from specific union type to string
   lockInfo?: LockInfo;
   isDownloaded?: boolean;
   standardPrice?: number;
@@ -33,7 +34,7 @@ export interface DownloadedApplication {
   province?: string;
   postalCode?: string;
   vehicleType?: string;
-  downloadDate: string;
+  downloadDate: string; // This field is used instead of submissionDate
   paymentAmount?: number;
 }
 

@@ -57,6 +57,15 @@ const ApplicationDetails = ({
   const isLocked = isApplicationItem(application) && application.lockInfo?.isLocked;
   const isOwnLock = isApplicationItem(application) && application.lockInfo?.isOwnLock;
   
+  // Get the date to display (submission date or download date)
+  const getDisplayDate = () => {
+    if (isApplicationItem(application)) {
+      return application.submissionDate;
+    } else {
+      return (application as DownloadedApplication).downloadDate;
+    }
+  };
+  
   const renderContactInfo = () => {
     if (!isDownloaded) {
       return (
@@ -180,7 +189,7 @@ const ApplicationDetails = ({
           <div>
             <h3 className="text-lg font-semibold mb-2">{application.fullName}</h3>
             <p className="text-sm text-gray-500">
-              Submitted on {format(new Date(application.submissionDate || (application as DownloadedApplication).downloadDate), 'MMMM d, yyyy')}
+              Submitted on {format(new Date(getDisplayDate()), 'MMMM d, yyyy')}
             </p>
           </div>
           

@@ -9,7 +9,6 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ApplicationItem, LockType } from '@/lib/types/dealer-dashboard';
 import { formatDistanceToNow } from 'date-fns';
-import { toast } from 'sonner';
 
 type LockOption = {
   id: number;
@@ -126,7 +125,8 @@ const ApplicationTable = ({
             <TableHead className="w-[50px]">
               <Checkbox 
                 checked={allSelected}
-                indeterminate={someSelected}
+                // Remove the indeterminate prop and handle visual state through CSS
+                className={someSelected ? "data-[state=checked]:bg-primary/50" : ""}
                 onCheckedChange={(checked) => selectAll(!!checked)}
                 aria-label="Select all applications"
               />

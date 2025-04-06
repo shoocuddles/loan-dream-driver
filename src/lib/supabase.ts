@@ -75,13 +75,28 @@ export const addDealer = async (dealer: Partial<UserDealer>): Promise<boolean> =
   }
 };
 
-export const updateDealer = async (dealer: Partial<UserDealer>): Promise<boolean> => {
+export const updateDealer = async (dealer: Partial<UserDealer>): Promise<UserDealer | null> => {
   try {
     console.log("Updating dealer:", dealer);
-    return true;
+    // Return the updated dealer object for UI updates
+    // This is a mock implementation that would usually update the database
+    // and return the updated record
+    if (dealer.id) {
+      return {
+        id: dealer.id,
+        email: dealer.email || 'email@example.com',
+        name: dealer.name || 'Unknown Name',
+        company: dealer.company || 'Unknown Company',
+        isActive: true,
+        isAdmin: dealer.isAdmin || false,
+        passwordHash: '',
+        created_at: new Date().toISOString()
+      };
+    }
+    return null;
   } catch (error: any) {
     console.error("Error updating dealer:", error.message);
-    return false;
+    return null;
   }
 };
 

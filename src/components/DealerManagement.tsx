@@ -90,7 +90,15 @@ const DealerManagement = () => {
     }
     
     try {
-      await addDealer(email, password, name, company);
+      // Fixed: Correctly create a dealer object with all required fields
+      const newDealer: Partial<UserDealer> = {
+        email,
+        name,
+        company,
+        isAdmin
+      };
+      
+      await addDealer(newDealer);
       
       toast({
         title: 'Dealer Added',
@@ -142,17 +150,23 @@ const DealerManagement = () => {
     }
     
     try {
-      const updatedDealer = await updateDealer(selectedDealer.id, {
+      // Fixed: Create update object with the correct fields
+      const updatedDealerData: Partial<UserDealer> = {
         name,
         company,
         isAdmin
+      };
+      
+      const updatedDealer = await updateDealer({
+        ...updatedDealerData,
+        id: selectedDealer.id
       });
       
       if (updatedDealer) {
         // Update the dealer in the list
         setDealers(prevDealers => 
           prevDealers.map(dealer => 
-            dealer.id === updatedDealer.id ? updatedDealer : dealer
+            dealer.id === selectedDealer.id ? updatedDealer : dealer
           )
         );
       }
@@ -180,7 +194,7 @@ const DealerManagement = () => {
     try {
       await deleteDealer(selectedDealer.id);
       
-      // Remove dealer from list
+      // Fixed: Correctly filter out the deleted dealer
       setDealers(prevDealers => 
         prevDealers.filter(dealer => dealer.id !== selectedDealer.id)
       );

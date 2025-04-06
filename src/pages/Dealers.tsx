@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -37,10 +36,7 @@ const Dealers = () => {
     try {
       setIsProcessing(true);
       
-      // This calls the enhanced signIn function in AuthContext
       await signIn(loginEmail, loginPassword);
-      
-      // No need to navigate here - AuthContext will handle navigation based on role
     } catch (error: any) {
       console.error("Login error:", error);
       setErrorMsg(error.message || "Login failed. Please try again.");
@@ -68,26 +64,22 @@ const Dealers = () => {
         companyName: company
       });
       
-      // Send proper user metadata directly - this matches what the trigger expects
       await signUp(signupEmail, signupPassword, {
         full_name: dealerName,
         role: 'dealer',
         company_name: company,
-        // Don't include company_id as we'll generate it server-side in the trigger
       });
       
-      // Clear form fields
       setSignupEmail("");
       setSignupPassword("");
       setDealerName("");
       setCompany("");
       
-      // No need to navigate here - AuthContext will handle navigation
+      setIsProcessing(false);
     } catch (error: any) {
       console.error("Detailed signup error:", error);
       setErrorMsg(error.message || "Signup failed. Please try again.");
       
-      // Additional debug logging for signup errors
       console.error("🔍 [DEALERS] Additional signup error context:", {
         formState: {
           email: signupEmail,
@@ -95,8 +87,6 @@ const Dealers = () => {
           company
         }
       });
-    } finally {
-      setIsProcessing(false);
     }
   };
 

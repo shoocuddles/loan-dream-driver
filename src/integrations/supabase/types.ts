@@ -343,6 +343,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      backfill_missing_user_profiles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          user_id: string
+          user_email: string
+          status: string
+        }[]
+      }
       create_application: {
         Args: {
           p_application_data: Json

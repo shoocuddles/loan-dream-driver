@@ -1,4 +1,5 @@
 
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -8,6 +9,7 @@ import ApplicationFormStep3 from "@/components/ApplicationFormStep3";
 import ApplicationFormStep4 from "@/components/ApplicationFormStep4";
 import ApplicationHeader from "@/components/ApplicationHeader";
 import { useApplicationForm } from "@/hooks/useApplicationForm";
+import { checkSupabaseConnection, detectFirebaseDependencies } from "@/lib/supabaseUtils";
 
 const Apply = () => {
   const navigate = useNavigate();
@@ -24,6 +26,15 @@ const Apply = () => {
     prevStep,
     handleSubmit
   } = useApplicationForm(() => navigate("/"));
+
+  // Run diagnostic checks on component mount
+  useEffect(() => {
+    // Check Supabase connection on mount
+    checkSupabaseConnection();
+    
+    // Check for Firebase dependencies
+    detectFirebaseDependencies();
+  }, []);
 
   const renderStep = () => {
     switch (currentStep) {

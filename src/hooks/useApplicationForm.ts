@@ -1,8 +1,9 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { ApplicationForm } from "@/lib/types";
 import { submitApplication } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
+import { useApplicationDraft } from "./useApplicationDraft";
 
 const initialFormState: ApplicationForm = {
   // Step 1: Personal Info
@@ -37,157 +38,13 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<ApplicationForm>(initialFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSavingProgress, setIsSavingProgress] = useState(false);
-  const [draftId, setDraftId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const finalSubmissionInProgress = useRef(false);
   const applicationSubmitted = useRef(false);
-
-  // Load saved draft data on initial load
-  useEffect(() => {
-    const savedDraft = localStorage.getItem('applicationDraft');
-    const savedDraftId = localStorage.getItem('applicationDraftId');
-    
-    if (savedDraft) {
-      try {
-        setFormData(JSON.parse(savedDraft));
-      } catch (err) {
-        console.error("❌ Error parsing saved draft:", err);
-      }
-    }
-    
-    if (savedDraftId) {
-      setDraftId(savedDraftId);
-    }
-  }, []);
-
-  const saveProgress = async (data: ApplicationForm, isComplete = false) => {
-    try {
-      if (!isComplete && applicationSubmitted.current) {
-        console.log("⚠️ Draft save blocked: Application already submitted successfully");
-        return true;
-      }
-
-      if (!isComplete && finalSubmissionInProgress.current) {
-        console.log("Draft save skipped because final submission is in progress");
-        return true;
-      }
-
-      setError(null);
-      setIsSavingProgress(true);
-      
-      localStorage.setItem('applicationDraft', JSON.stringify(data));
-      console.log('📂 Saved application data to localStorage');
-      
-      try {
-        const applicationData = {
-          ...data,
-          isComplete,
-          status: isComplete ? 'submitted' : 'draft'
-        };
-        
-        console.log('🔄 Preparing to submit application data:', 
-          isComplete ? 'FINAL SUBMISSION' : 'Draft save', 
-          draftId ? `with ID: ${draftId}` : 'new application');
-        
-        let result = null;
-        try {
-          if (draftId) {
-            console.log('🔄 Updating existing draft with ID:', draftId);
-            result = await submitApplication({ ...applicationData, id: draftId }, !isComplete);
-            console.log('🔄 Update application result:', result);
-          } else {
-            console.log('➕ Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
-            result = await submitApplication(applicationData, !isComplete);
-            console.log('➕ Create application result:', result);
-          }
-          
-          if (result && result.id && !draftId) {
-            console.log('🔑 Setting draft ID:', result.id);
-            setDraftId(result.id);
-            localStorage.setItem('applicationDraftId', result.id);
-          }
-          
-          setIsSavingProgress(false);
-          
-          if (isComplete) {
-            console.log('✅ Application marked as complete successfully');
-            applicationSubmitted.current = true;
-            
-            toast({
-              title: "Application Submitted!",
-              description: "Thank you for applying. We've received your submission.",
-              variant: "default",
-            });
-          }
-          
-          return true;
-        } catch (supabaseError: any) {
-          console.error("❌ Detailed Supabase error during save progress:", supabaseError);
-          
-          if (supabaseError.message) {
-            console.error(`❌ Error message: ${supabaseError.message}`);
-          }
-          
-          if (supabaseError.details) {
-            console.error(`❌ Error details: ${supabaseError.details}`);
-          }
-          
-          const errorMessage = supabaseError?.message || 'Unknown error occurred';
-          setError(`Supabase error details: ${errorMessage}`);
-          
-          if (!isComplete) {
-            toast({
-              title: "Local Save Only",
-              description: "Your progress has been saved locally. We'll try to sync with our servers later.",
-              variant: "default",
-            });
-            
-            setIsSavingProgress(false);
-            return true;
-          } else {
-            toast({
-              title: "Submission Error",
-              description: "There was a problem submitting your application to our servers.",
-              variant: "destructive",
-            });
-            
-            setIsSavingProgress(false);
-            return false;
-          }
-        }
-      } catch (error: any) {
-        console.error("❌ Detailed error saving application progress:", error);
-        
-        const errorMessage = error?.message || 'Unknown error occurred';
-        setError(`Error details: ${errorMessage}`);
-        
-        toast({
-          title: "Warning",
-          description: "We've encountered an issue saving your progress. You can continue, but please don't close your browser.",
-          variant: "destructive",
-        });
-        
-        setIsSavingProgress(false);
-        return !isComplete;
-      }
-    } catch (error: any) {
-      console.error("❌ Unhandled error in saveProgress:", error);
-      
-      const errorMessage = error?.message || 'Unknown error occurred';
-      setError(`Error details: ${errorMessage}`);
-      
-      toast({
-        title: "Warning",
-        description: "We've encountered an issue saving your progress. You can continue, but please don't close your browser.",
-        variant: "destructive",
-      });
-      
-      setIsSavingProgress(false);
-      return !isComplete;
-    }
-  };
+  
+  // Use our new separated draft functionality
+  const { draftId, isSavingProgress, saveDraft, clearDraft } = useApplicationDraft(initialFormState);
 
   const nextStep = () => {
     localStorage.setItem('applicationDraft', JSON.stringify(formData));
@@ -200,10 +57,16 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
     }
     
     console.log("nextStep called, saving progress and advancing to step", currentStep + 1);
-    saveProgress(formData)
-      .catch(err => {
-        console.error("❌ Background save failed:", err);
-      });
+    
+    // Only save if we're not already submitting the final form
+    if (!finalSubmissionInProgress.current) {
+      saveDraft(formData)
+        .catch(err => {
+          console.error("❌ Background save failed:", err);
+        });
+    } else {
+      console.log("Draft save skipped because final submission is in progress");
+    }
   };
 
   const prevStep = () => {
@@ -234,15 +97,16 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
       
       try {
         console.log("Submitting to server with complete flag");
-        const success = await saveProgress(formData, true);
         
-        if (success) {
+        // Use the submitApplication function from lib/supabase
+        const result = await submitApplication(formData, false);
+        
+        if (result) {
           console.log("✅ Application submitted successfully");
           applicationSubmitted.current = true;
           
-          localStorage.removeItem('applicationDraft');
-          localStorage.removeItem('applicationDraftId');
-          setDraftId(null);
+          // Clean up local storage
+          clearDraft();
           
           toast({
             title: "Application Submitted!",
@@ -254,7 +118,7 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
             onSuccessfulSubmit();
           }, 2000);
         } else {
-          console.error("❌ Failed to submit application - saveProgress returned false");
+          console.error("❌ Failed to submit application - submitApplication returned falsy value");
           throw new Error("Failed to submit application to server");
         }
       } catch (submitError: any) {

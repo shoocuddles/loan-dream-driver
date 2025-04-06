@@ -88,6 +88,7 @@ const PricingSettings = () => {
         return;
       }
       
+      // Log the values being saved for debugging
       console.log("Saving system settings:", {
         standardPrice: standard,
         discountedPrice: discounted,
@@ -109,10 +110,12 @@ const PricingSettings = () => {
           description: "Pricing settings have been updated successfully.",
         });
         
-        // Reload settings after a short delay to ensure DB has updated
-        setTimeout(() => {
-          loadSettings();
-        }, 500);
+        // Force reload settings without delay - the previous timeout might be causing issues
+        await loadSettings();
+        
+        // Double-check that the values are now correct
+        const verifySettings = await getSystemSettings();
+        console.log("Verified settings after save:", verifySettings);
       } else {
         toast({
           title: "Error",

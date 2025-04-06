@@ -365,18 +365,21 @@ export const updateSystemSettings = async (settings: Partial<SystemSettings>): P
       dbSettings.temporary_lock_minutes = settings.lockoutPeriodHours * 60;
     }
     
+    console.log("Database settings to update:", dbSettings);
+    
     // Update system settings in Supabase
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('system_settings')
       .update(dbSettings)
-      .eq('id', 1);
+      .eq('id', 1)
+      .select();
     
     if (error) {
       console.error("Error updating system settings:", error.message);
       throw error;
     }
     
-    console.log("System settings updated successfully");
+    console.log("System settings updated successfully:", data);
     return true;
   } catch (error: any) {
     console.error("Error updating system settings:", error.message);

@@ -89,7 +89,9 @@ const ApplicationFormStep4 = ({
           <Label htmlFor="employmentStatus">Employment Status</Label>
           <Select 
             value={formData.employmentStatus} 
-            onValueChange={(value: string) => updateFormData({ employmentStatus: value })}
+            onValueChange={(value: "Employed" | "Unemployed" | "Self-Employed" | "Student" | "Retired" | "Disability" | "") => {
+              updateFormData({ employmentStatus: value });
+            }}
           >
             <SelectTrigger className={errors.employmentStatus ? "border-red-500" : ""}>
               <SelectValue placeholder="Select your employment status" />

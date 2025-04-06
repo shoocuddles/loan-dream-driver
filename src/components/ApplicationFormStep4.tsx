@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ApplicationForm } from "@/lib/types";
@@ -7,10 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle2, Loader2, Info } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle2, Loader2, Info, Wifi, WifiOff } from "lucide-react";
 import { getSupabaseConnectionInfo, testSupabaseConnection } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { testDirectConnection } from "@/lib/directApiClient";
 
 interface ApplicationFormStep4Props {
   formData: ApplicationForm;
@@ -30,27 +32,67 @@ const ApplicationFormStep4 = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<{connected: boolean, latency?: number}>({connected: false});
+  const [connectionStatus, setConnectionStatus] = useState<{
+    connected: boolean, 
+    latency?: number, 
+    directApiConnected?: boolean
+  }>({connected: false});
+  const [networkConnectivity, setNetworkConnectivity] = useState<boolean | null>(null);
   const submissionAttempted = useRef(false);
   const submissionSuccessful = useRef(false);
   const connectionInfo = getSupabaseConnectionInfo();
 
-  // Test Supabase connection when debug panel is opened
+  // Test both connection methods when debug panel is opened
   useEffect(() => {
     if (showDebugInfo) {
-      testSupabaseConnection()
-        .then(status => {
-          setConnectionStatus(status);
-          if (!status.connected) {
-            toast.error("Database connection unavailable. Please try again later.");
-          }
-        })
-        .catch(() => {
-          setConnectionStatus({connected: false});
-          toast.error("Failed to check database connection.");
-        });
+      checkConnectivity();
     }
   }, [showDebugInfo]);
+
+  // Check network connectivity
+  const checkConnectivity = async () => {
+    try {
+      // Check basic internet connectivity
+      const networkConnected = await fetch('https://www.google.com/favicon.ico', { 
+        mode: 'no-cors',
+        cache: 'no-cache',
+        method: 'HEAD',
+        signal: AbortSignal.timeout(3000)
+      })
+      .then(() => true)
+      .catch(() => false);
+      
+      setNetworkConnectivity(networkConnected);
+      
+      // If no network, don't bother checking Supabase
+      if (!networkConnected) {
+        setConnectionStatus({connected: false});
+        toast.error("No internet connection detected");
+        return;
+      }
+      
+      // Test Supabase connection
+      const supabaseStatus = await testSupabaseConnection();
+      
+      // Also test direct API connection as backup
+      const directApiConnected = await testDirectConnection();
+      
+      setConnectionStatus({
+        ...supabaseStatus,
+        directApiConnected
+      });
+      
+      if (!supabaseStatus.connected && !directApiConnected) {
+        toast.error("Database connection unavailable. Please try again later.");
+      } else if (!supabaseStatus.connected && directApiConnected) {
+        toast.info("Using backup connection method");
+      }
+    } catch (error) {
+      console.error("Failed to check connectivity:", error);
+      setConnectionStatus({connected: false});
+      toast.error("Failed to check database connection.");
+    }
+  };
 
   const validateForm = () => {
     console.log("Validating form in Step 4");
@@ -74,21 +116,11 @@ const ApplicationFormStep4 = ({
     if (validateForm()) {
       console.log("Form validation passed, calling onSubmit()");
       
-      // First, check connection status
-      testSupabaseConnection().then(status => {
-        console.log("Supabase connection status before submission:", status);
-        
-        if (!status.connected) {
-          toast.error("Unable to connect to the database. Please check your internet connection and try again.");
-        } else {
-          // Proceed with submission when connected
-          onSubmit();
-        }
-      }).catch(error => {
-        console.error("Connection check failed:", error);
-        toast.error("Connection check failed. Attempting submission anyway...");
-        onSubmit();
-      });
+      // Simplified: Just submit and let the applicationService handle connectivity issues
+      onSubmit();
+      
+      // After submission starts, check connectivity to show proper UI
+      checkConnectivity();
     } else {
       console.log("Form validation failed");
       toast.error("Please fix the errors before submitting.");
@@ -237,15 +269,34 @@ const ApplicationFormStep4 = ({
         </div>
       </div>
       
-      {/* Submission Details Toggle */}
-      <div className="flex justify-center">
-        <button 
-          type="button"
-          onClick={() => setShowDebugInfo(!showDebugInfo)}
-          className="text-xs text-gray-500 hover:text-gray-700 underline"
-        >
-          {showDebugInfo ? "Hide Submission Details" : "Show Submission Details"}
-        </button>
+      {/* Network Status Indicator */}
+      <div className="flex justify-center mb-4">
+        <div className="flex items-center space-x-2 text-sm text-gray-500">
+          {networkConnectivity === true ? (
+            <Wifi className="h-4 w-4 text-green-500" />
+          ) : networkConnectivity === false ? (
+            <WifiOff className="h-4 w-4 text-red-500" />
+          ) : (
+            <div className="w-4 h-4"></div>
+          )}
+          <span>
+            {networkConnectivity === true 
+              ? "Connected to network" 
+              : networkConnectivity === false 
+                ? "Network connection issues" 
+                : ""}
+          </span>
+          {connectionStatus.directApiConnected && !connectionStatus.connected && (
+            <span className="ml-2 text-amber-600">(Using backup connection)</span>
+          )}
+          <button 
+            type="button"
+            onClick={() => setShowDebugInfo(!showDebugInfo)}
+            className="ml-4 text-xs text-gray-500 hover:text-gray-700 underline"
+          >
+            {showDebugInfo ? "Hide Details" : "Show Details"}
+          </button>
+        </div>
       </div>
       
       {/* Extended Submission Details Panel */}
@@ -265,6 +316,14 @@ const ApplicationFormStep4 = ({
                   {connectionStatus.connected ? ` Connected (${connectionStatus.latency}ms)` : " Not connected"}
                 </span>
               </p>
+              <p><span className="font-semibold">Backup API:</span> 
+                <span className={connectionStatus.directApiConnected ? "text-green-500" : "text-red-500"}>
+                  {connectionStatus.directApiConnected ? " Available" : " Not available"}
+                </span>
+              </p>
+              {!connectionStatus.connected && connectionStatus.directApiConnected && (
+                <p className="text-amber-600 font-semibold">Using backup connection method</p>
+              )}
               <p><span className="font-semibold">Request Body Sample:</span></p>
               <pre className="text-xs bg-gray-100 p-2 mt-2 rounded overflow-auto max-h-32">
                 {JSON.stringify({
@@ -274,8 +333,31 @@ const ApplicationFormStep4 = ({
                   iscomplete: true
                 }, null, 2)}
               </pre>
-              <p className="mt-2 text-xs text-gray-500">Check browser console for complete data details</p>
+              <div className="mt-4 flex justify-center">
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  size="sm"
+                  onClick={checkConnectivity}
+                  className="text-xs"
+                >
+                  Test Connection
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-gray-500 text-center">Check browser console for complete data details</p>
             </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {/* If network connectivity is an issue, show alert */}
+      {networkConnectivity === false && (
+        <Alert variant="destructive" className="mt-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Network Connection Issue</AlertTitle>
+          <AlertDescription>
+            It appears you're offline or having connection issues. Your application will be saved locally
+            and submitted automatically when your connection is restored.
           </AlertDescription>
         </Alert>
       )}
@@ -300,7 +382,12 @@ const ApplicationFormStep4 = ({
             <div className="h-full bg-ontario-blue animate-pulse rounded-full"></div>
           </div>
           <p className="text-center text-sm text-gray-500 mt-2">
-            Sending to {connectionInfo.url}...
+            {connectionStatus.directApiConnected && !connectionStatus.connected
+              ? "Sending via backup connection..."
+              : `Sending to ${connectionInfo.url}...`}
+          </p>
+          <p className="text-center text-xs text-gray-400 mt-1">
+            Your application will be saved even if your connection is interrupted
           </p>
         </div>
       )}

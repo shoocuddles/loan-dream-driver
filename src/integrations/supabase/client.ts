@@ -31,7 +31,7 @@ const options = {
   }
 };
 
-// Fix: Remove the db.schema property from options since it's causing type errors
+// Create the Supabase client without the problematic db.schema property
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, options);
 
 // Log supabase version info
@@ -107,7 +107,7 @@ export const testSupabaseConnection = async (retries = 2): Promise<{connected: b
     console.log('🔍 Testing Supabase connection...');
     startTime = Date.now();
     
-    // IMPORTANT FIX: Reduce timeout from 5000ms to 3000ms to prevent long hanging requests
+    // UPDATED: Reduce timeout from 5000ms to 3000ms and add proper error handling
     const timeoutPromise = new Promise<{data: null, error: any}>((_, reject) => {
       setTimeout(() => {
         reject({ error: { message: "Connection timeout after 3 seconds" } });
@@ -162,7 +162,7 @@ export const testSupabaseConnection = async (retries = 2): Promise<{connected: b
   }
 };
 
-// Add connection heartbeat at regular intervals to keep connection alive
+// Add connection heartbeat at regular intervals to keep connection alive (simplified)
 let connectionIsActive = false;
 
 const startConnectionHeartbeat = () => {
@@ -171,17 +171,18 @@ const startConnectionHeartbeat = () => {
   connectionIsActive = true;
   console.log('🔄 Starting Supabase connection heartbeat');
   
+  // Using fetch instead of supabase client for more reliability
   const heartbeatInterval = setInterval(() => {
-    testSupabaseConnection(1)
-      .then(status => {
-        if (!status.connected) {
-          console.warn('💔 Supabase connection heartbeat failed');
-        }
-      })
-      .catch(err => {
-        console.error('💔 Supabase connection heartbeat error:', err);
-      });
-  }, 60000); // Increased from 30000ms to 60000ms (1 minute) to reduce network load
+    fetch(`${SUPABASE_URL}/rest/v1/applications?count=exact`, {
+      method: 'HEAD',
+      headers: {
+        'apikey': SUPABASE_PUBLISHABLE_KEY,
+        'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
+      }
+    }).catch(err => {
+      console.warn('💔 Supabase heartbeat error:', err);
+    });
+  }, 60000); // Every minute
   
   window.addEventListener('beforeunload', () => {
     clearInterval(heartbeatInterval);
@@ -193,54 +194,6 @@ if (import.meta.env.PROD) {
   // Add a small delay before starting the heartbeat
   setTimeout(() => startConnectionHeartbeat(), 5000);
 }
-
-// Enhance supabase insert and update operations with better logging
-const enhanceSupabaseInsert = () => {
-  const originalFrom = supabase.from.bind(supabase);
-  
-  supabase.from = function(table: string) {
-    if (!table || table === "") {
-      console.error("❌ Supabase: Invalid table name provided (empty string)");
-      return originalFrom("applications");
-    }
-    
-    const builder = originalFrom(table);
-    const originalInsertFn = builder.insert;
-    
-    builder.insert = function(...args) {
-      console.log(`📝 Supabase: INSERT into "${table}" with data:`, args[0]);
-      console.log(`🌐 INSERT endpoint: ${SUPABASE_URL}/rest/v1/${table}`);
-      
-      const insertResult = originalInsertFn.apply(this, args);
-      
-      const originalThen = insertResult.then;
-      insertResult.then = function(onFulfilled, onRejected) {
-        return originalThen.call(this, (result) => {
-          if (result.error) {
-            console.error(`❌ Supabase: INSERT failed for "${table}":`, result.error);
-            console.error(`❌ Error message: ${result.error.message}`);
-            if (result.error.details) {
-              console.error(`❌ Error details:`, result.error.details);
-            }
-            if (result.error.code) {
-              console.error(`❌ Error code:`, result.error.code);
-            }
-          } else {
-            console.log(`✅ Supabase: INSERT successful for "${table}"`, result.data);
-          }
-          return onFulfilled ? onFulfilled(result) : result;
-        }, onRejected);
-      };
-      
-      return insertResult;
-    };
-    
-    return builder;
-  } as typeof supabase.from;
-};
-
-// Initialize the enhanced methods
-enhanceSupabaseInsert();
 
 // Add debugging info to Application page to show endpoint and connection status
 export const getSupabaseConnectionInfo = () => {

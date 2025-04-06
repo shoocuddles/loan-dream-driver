@@ -1,3 +1,4 @@
+
 import { ApplicationForm } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -9,6 +10,7 @@ import {
   getSafeParamValue,
   isSupabaseError
 } from "./applicationUtils";
+import { directInsertApplication, directUpdateApplication, testDirectConnection } from "./directApiClient";
 
 type ApplicationInsertData = Database['public']['Tables']['applications']['Insert'];
 type ApplicationUpdateData = Database['public']['Tables']['applications']['Update'];
@@ -95,14 +97,18 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     // Add retry logic for better reliability
     let retryCount = 0;
     const maxRetries = 3;
-    let result;
+    let result = null;
+    let usingDirectApi = false;
     
-    while (retryCount < maxRetries) {
+    // First, try the regular Supabase client
+    while (retryCount < maxRetries && !result) {
       try {
-        // Force a new connection attempt before sending data with a shorter timeout
+        console.log(`🔄 Attempt ${retryCount + 1}/${maxRetries} to submit application`);
+        
+        // First test the connection - use a shorter timeout for faster fallback
         const connectionCheck = await Promise.race([
           supabase.from('applications').select('count').limit(1).single(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 3000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 2500))
         ]);
         
         const checkError = connectionCheck && typeof connectionCheck === 'object' && 'error' in connectionCheck ? 
@@ -116,6 +122,17 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
             
           console.warn(`⚠️ Connection issue detected (attempt ${retryCount + 1}/${maxRetries}): ${errorMessage}`);
           
+          // Try with direct API next if we already attempted with Supabase client
+          if (retryCount === 1) {
+            console.log("🔄 Switching to direct API method");
+            const directApiWorks = await testDirectConnection();
+            
+            if (directApiWorks) {
+              usingDirectApi = true;
+              break; // Exit this loop and use direct API
+            }
+          }
+          
           // If this is the last retry, store for offline recovery
           if (retryCount === maxRetries - 1) {
             storeForOfflineRecovery(application, isDraft);
@@ -123,11 +140,12 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           }
           
           // Wait before retrying with exponential backoff (but shorter times)
-          await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
+          await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(1.5, retryCount)));
           retryCount++;
           continue;
         }
         
+        // Connection is working, proceed with save/update
         if (application.applicationId) {
           // Update existing application
           console.log(`🔄 Updating application with ID: ${application.applicationId} (Attempt ${retryCount + 1})`);
@@ -141,17 +159,16 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           if (error) {
             console.error('❌ Supabase update error:', error);
             
-            // If this is the last retry, store for offline recovery
-            if (retryCount === maxRetries - 1) {
-              storeForOfflineRecovery(application, isDraft);
-              throw error;
+            // Try one more time and then move to direct API
+            if (retryCount === 0) {
+              retryCount++;
+              await new Promise(resolve => setTimeout(resolve, 500));
+              continue;
+            } else {
+              // Try direct API
+              usingDirectApi = true;
+              break;
             }
-            
-            // Otherwise, retry
-            retryCount++;
-            // Wait before retrying with shorter exponential backoff
-            await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
-            continue;
           }
           
           result = data?.[0];
@@ -183,18 +200,16 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           if (error) {
             console.error('❌ Error creating application in Supabase:', error);
             
-            // If this is the last retry, store for offline recovery
-            if (retryCount === maxRetries - 1) {
-              storeForOfflineRecovery(application, isDraft);
-              toast.error("Connection error. Your application has been saved offline.");
-              throw error;
+            // Try one more time and then move to direct API
+            if (retryCount === 0) {
+              retryCount++;
+              await new Promise(resolve => setTimeout(resolve, 500));
+              continue;
+            } else {
+              // Try direct API
+              usingDirectApi = true;
+              break;
             }
-            
-            // Otherwise, retry
-            retryCount++;
-            // Wait before retrying with exponential backoff
-            await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
-            continue;
           }
           
           // Log exact response for debugging
@@ -206,8 +221,8 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
             toast.success(isDraft ? "Draft saved" : "Application submitted successfully!");
           } else {
             console.error('❌ No result received after successful insert');
-            storeForOfflineRecovery(application, isDraft);
-            throw new Error('No result received from Supabase insert operation');
+            usingDirectApi = true;
+            break;
           }
           
           // Success, break out of retry loop
@@ -216,17 +231,47 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
       } catch (innerError) {
         console.error(`❌ Error during submission attempt ${retryCount + 1}:`, innerError);
         
-        // If this is the last retry, save offline and rethrow
-        if (retryCount === maxRetries - 1) {
-          storeForOfflineRecovery(application, isDraft);
-          throw innerError;
+        // Try direct API next time
+        if (retryCount === 0) {
+          retryCount++;
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          usingDirectApi = true;
+          break;
+        }
+      }
+    }
+    
+    // If using supabase client failed, try direct API as fallback
+    if (usingDirectApi) {
+      try {
+        console.log("🔄 Trying direct API method as fallback");
+        
+        if (application.applicationId) {
+          // Update using direct API
+          result = await directUpdateApplication(
+            application.applicationId,
+            applicationData
+          );
+        } else {
+          // Insert using direct API
+          result = await directInsertApplication(applicationData);
+          result = Array.isArray(result) ? result[0] : result; 
         }
         
-        // Otherwise, retry
-        retryCount++;
-        
-        // Wait before retrying (shorter exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
+        if (result) {
+          if (isDraft) {
+            toast.success("Draft saved successfully");
+          } else {
+            toast.success("Application submitted successfully!");
+          }
+          console.log("✅ Application saved using direct API:", result);
+        }
+      } catch (directApiError) {
+        console.error("❌ Direct API fallback failed:", directApiError);
+        storeForOfflineRecovery(application, isDraft);
+        toast.error("Submission failed. Your application has been saved locally and will be submitted when connection is restored.");
+        throw directApiError;
       }
     }
     

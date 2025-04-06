@@ -211,7 +211,10 @@ export const testSupabaseConnection = async () => {
   try {
     console.log('🔍 Testing Supabase connection...');
     const start = Date.now();
-    const { data, error } = await supabase.from('applications').select('count(*)').limit(1);
+    
+    // FIX: Use a simpler query instead of count(*) which is causing the parsing error
+    const { data, error } = await supabase.from('applications').select('id').limit(1);
+    
     const elapsed = Date.now() - start;
     
     if (error) {
@@ -230,7 +233,6 @@ export const testSupabaseConnection = async () => {
       data
     };
   } catch (err) {
-    // Fix: Define start here since it's not available in this scope
     const start = Date.now();
     const elapsed = Date.now() - start;
     console.error(`❌ Unexpected Supabase connection error after ${elapsed}ms:`, err);
@@ -241,4 +243,3 @@ export const testSupabaseConnection = async () => {
     };
   }
 };
-

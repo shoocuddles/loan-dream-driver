@@ -9,6 +9,90 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      applications: {
+        Row: {
+          additionalnotes: string | null
+          amountowed: string | null
+          city: string | null
+          created_at: string | null
+          currentpayment: string | null
+          currentvehicle: string | null
+          email: string | null
+          employmentstatus: string | null
+          fullname: string
+          hasexistingloan: boolean | null
+          id: string
+          iscomplete: boolean | null
+          mileage: string | null
+          monthlyincome: string | null
+          phonenumber: string | null
+          postalcode: string | null
+          preferredmakemodel: string | null
+          province: string | null
+          requiredfeatures: string | null
+          status: string | null
+          streetaddress: string | null
+          unwantedcolors: string | null
+          updated_at: string | null
+          user_id: string | null
+          vehicletype: string | null
+        }
+        Insert: {
+          additionalnotes?: string | null
+          amountowed?: string | null
+          city?: string | null
+          created_at?: string | null
+          currentpayment?: string | null
+          currentvehicle?: string | null
+          email?: string | null
+          employmentstatus?: string | null
+          fullname: string
+          hasexistingloan?: boolean | null
+          id?: string
+          iscomplete?: boolean | null
+          mileage?: string | null
+          monthlyincome?: string | null
+          phonenumber?: string | null
+          postalcode?: string | null
+          preferredmakemodel?: string | null
+          province?: string | null
+          requiredfeatures?: string | null
+          status?: string | null
+          streetaddress?: string | null
+          unwantedcolors?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          vehicletype?: string | null
+        }
+        Update: {
+          additionalnotes?: string | null
+          amountowed?: string | null
+          city?: string | null
+          created_at?: string | null
+          currentpayment?: string | null
+          currentvehicle?: string | null
+          email?: string | null
+          employmentstatus?: string | null
+          fullname?: string
+          hasexistingloan?: boolean | null
+          id?: string
+          iscomplete?: boolean | null
+          mileage?: string | null
+          monthlyincome?: string | null
+          phonenumber?: string | null
+          postalcode?: string | null
+          preferredmakemodel?: string | null
+          province?: string | null
+          requiredfeatures?: string | null
+          status?: string | null
+          streetaddress?: string | null
+          unwantedcolors?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          vehicletype?: string | null
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           created_at: string
@@ -120,6 +204,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_application: {
+        Args: {
+          p_application_data: Json
+        }
+        Returns: Json
+      }
+      get_all_applications: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      get_application_by_id: {
+        Args: {
+          p_application_id: string
+        }
+        Returns: Json
+      }
       get_user_company: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -127,6 +227,13 @@ export type Database = {
       get_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      update_application: {
+        Args: {
+          p_application_id: string
+          p_application_data: Json
+        }
+        Returns: Json
       }
     }
     Enums: {

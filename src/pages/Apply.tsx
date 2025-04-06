@@ -72,12 +72,13 @@ const Apply = () => {
       // Save to localStorage as a backup
       localStorage.setItem('applicationDraft', JSON.stringify(data));
       
-      // Try to save to Supabase with draft status, but don't block progress if it fails
+      // Try to save to Supabase with draft status
       try {
-        // Save to Supabase with draft status
+        // Convert the form data to the expected application structure
         const applicationData = {
           ...data,
-          isComplete
+          isComplete,
+          // Add any additional fields or transformations needed
         };
         
         const result = draftId 
@@ -89,6 +90,8 @@ const Apply = () => {
           setDraftId(result.id);
           localStorage.setItem('applicationDraftId', result.id);
         }
+        
+        return true;
       } catch (supabaseError) {
         console.error("Supabase error during save progress:", supabaseError);
         
@@ -105,10 +108,10 @@ const Apply = () => {
           description: "Your progress has been saved locally. We'll try to sync with our servers later.",
           variant: "default",
         });
+        
+        // Return true to allow the user to continue
+        return true;
       }
-      
-      // Always return true since localStorage saved successfully
-      return true;
     } catch (error) {
       console.error("Error saving application progress:", error);
       

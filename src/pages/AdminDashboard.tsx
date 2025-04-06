@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -42,7 +43,13 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       const allApps = await getAllApplications();
-      setApplications(allApps);
+      // Format application data for display
+      const formattedApps = allApps.map(app => ({
+        ...app,
+        applicationId: app.id, // Ensure ID is mapped correctly
+        submissionDate: app.created_at // Map dates correctly
+      }));
+      setApplications(formattedApps);
     } catch (error) {
       console.error("Error loading applications:", error);
       toast({

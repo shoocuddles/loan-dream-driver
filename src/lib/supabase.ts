@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -132,33 +133,39 @@ export const submitApplication = async (application: any, isDraft = false) => {
     let data;
     let error;
     
-    // Handle applications table gracefully if it doesn't exist
+    // Map application fields to match our database schema
+    const applicationData = {
+      ...application,
+      // Convert form field names to match database field names
+      fullName: application.fullName,
+      phoneNumber: application.phoneNumber,
+      email: application.email,
+      streetAddress: application.streetAddress,
+      city: application.city,
+      province: application.province,
+      postalCode: application.postalCode,
+      updated_at: new Date().toISOString(),
+      status: isDraft ? 'draft' : 'submitted'
+    };
+    
     try {
       // If application has an ID, it's an update to an existing draft
       if (application.id) {
-        // Use type assertion to handle RPC function that's not in TypeScript definitions
-        const { data: updateData, error: updateError } = await (supabase as any)
+        const { data: updateData, error: updateError } = await supabase
           .rpc('update_application', {
             p_application_id: application.id,
-            p_application_data: {
-              ...application,
-              updated_at: new Date().toISOString(),
-              status: isDraft ? 'draft' : 'submitted'
-            }
+            p_application_data: applicationData
           });
           
         data = updateData;
         error = updateError;
       } else {
         // New application
-        // Use type assertion to handle RPC function that's not in TypeScript definitions
-        const { data: insertData, error: insertError } = await (supabase as any)
+        const { data: insertData, error: insertError } = await supabase
           .rpc('create_application', {
             p_application_data: {
-              ...application,
+              ...applicationData,
               created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              status: isDraft ? 'draft' : 'submitted'
             }
           });
           
@@ -167,7 +174,7 @@ export const submitApplication = async (application: any, isDraft = false) => {
       }
     } catch (err) {
       console.error('Error with application function:', err);
-      return null;
+      throw err;
     }
     
     if (error) {

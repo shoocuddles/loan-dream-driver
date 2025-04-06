@@ -35,7 +35,6 @@ const Dealers = () => {
     
     try {
       setIsProcessing(true);
-      
       await signIn(loginEmail, loginPassword);
     } catch (error: any) {
       console.error("Login error:", error);

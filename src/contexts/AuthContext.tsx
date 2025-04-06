@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -186,10 +187,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setState(prev => ({ ...prev, isLoading: true }));
       
+      // Ensure userData is formatted correctly - put everything at the top level
+      // of the data object, not nested under user_metadata
       const metadata = {
-        full_name: userData.fullName || userData.full_name || "",
+        full_name: userData.full_name || userData.fullName || "",
         role: userData.role || "dealer",
-        company_name: userData.companyName || userData.company_name || ""
+        company_name: userData.company_name || userData.companyName || ""
       };
       
       console.log("📨 Sending metadata to signUp:", metadata);
@@ -198,7 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email,
         password,
         options: {
-          data: metadata,
+          data: metadata, // Send metadata directly here
         },
       });
 

@@ -1,7 +1,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { ApplicationForm } from "@/lib/types";
-import { submitApplication } from "@/lib/supabase";
+import { submitApplicationToSupabase } from "@/lib/applicationService";
 import { useToast } from "@/components/ui/use-toast";
 import { useApplicationDraft } from "./useApplicationDraft";
 
@@ -105,9 +105,9 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
         const applicationToSubmit = draftId ? { ...formData, applicationId: draftId } : formData;
         console.log("Final application data:", applicationToSubmit);
         
-        // Important: Make sure to await the result
-        const result = await submitApplication(applicationToSubmit, false);
-        console.log("📊 submitApplication result received:", result);
+        // Important: We're now directly calling submitApplicationToSupabase
+        const result = await submitApplicationToSupabase(applicationToSubmit, false);
+        console.log("📊 submitApplicationToSupabase result received:", result);
         
         if (result) {
           console.log("✅ Application submitted successfully:", result);
@@ -128,7 +128,7 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
             onSuccessfulSubmit();
           }, 2000);
         } else {
-          console.error("❌ Failed to submit application - submitApplication returned falsy value");
+          console.error("❌ Failed to submit application - submitApplicationToSupabase returned falsy value");
           setError("Failed to submit application. Please try again.");
           
           toast({

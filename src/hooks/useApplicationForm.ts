@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { ApplicationForm } from "@/lib/types";
 import { submitApplication } from "@/lib/supabase";
@@ -49,7 +50,11 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
     const savedDraftId = localStorage.getItem('applicationDraftId');
     
     if (savedDraft) {
-      setFormData(JSON.parse(savedDraft));
+      try {
+        setFormData(JSON.parse(savedDraft));
+      } catch (err) {
+        console.error("❌ Error parsing saved draft:", err);
+      }
     }
     
     if (savedDraftId) {
@@ -120,6 +125,19 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
           return true;
         } catch (supabaseError: any) {
           console.error("❌ Detailed Supabase error during save progress:", supabaseError);
+          
+          // More detailed error logging
+          if (supabaseError.status) {
+            console.error(`❌ HTTP Status: ${supabaseError.status}`);
+          }
+          
+          if (supabaseError.message) {
+            console.error(`❌ Error message: ${supabaseError.message}`);
+          }
+          
+          if (supabaseError.details) {
+            console.error(`❌ Error details: ${supabaseError.details}`);
+          }
           
           const errorMessage = supabaseError?.message || 'Unknown error occurred';
           setError(`Supabase error details: ${errorMessage}`);
@@ -246,6 +264,15 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
         }
       } catch (submitError: any) {
         console.error("❌ Error during final submission:", submitError);
+        
+        // Additional diagnostic information
+        if (submitError.code) {
+          console.error(`❌ Error code: ${submitError.code}`);
+        }
+        
+        if (submitError.stack) {
+          console.error("❌ Stack trace:", submitError.stack);
+        }
         
         const errorMessage = submitError?.message || 'Unknown error';
         setError(`Submission error details: ${errorMessage}`);

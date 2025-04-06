@@ -163,6 +163,10 @@ export const submitApplication = async (application: any, isDraft = true) => {
         console.log('🔄 Update application response:', response.error ? '❌ ERROR' : '✅ SUCCESS', response.data);
         data = response.data;
         error = response.error;
+        
+        if (response.error) {
+          console.error('📋 Update application ERROR DETAILS:', response.error);
+        }
       } else {
         // New application
         console.log('➕ Creating new application', isComplete ? '(COMPLETE)' : '(draft)', applicationData);
@@ -177,9 +181,33 @@ export const submitApplication = async (application: any, isDraft = true) => {
         data = response.data;
         error = response.error;
         
+        if (response.error) {
+          console.error('📋 Create application ERROR DETAILS:', response.error);
+        }
+        
         // Check for no data and no error condition
         if (!data && !error) {
           console.warn("⚠️ RPC call returned no data and no error. Check Supabase logs and client setup.");
+          // Try to use the Supabase client directly to help diagnose issues
+          console.log("🔄 Attempting direct table insertion as fallback...");
+          try {
+            const { data: directData, error: directError } = await supabase
+              .from('applications')
+              .insert([{
+                ...applicationData,
+                created_at: new Date().toISOString(),
+              }])
+              .select();
+            
+            if (directError) {
+              console.error("❌ Direct insertion failed:", directError);
+            } else {
+              console.log("✅ Direct insertion succeeded:", directData);
+              data = directData;
+            }
+          } catch (directErr) {
+            console.error("❌❌ Direct insertion exception:", directErr);
+          }
         }
       }
     } catch (err) {

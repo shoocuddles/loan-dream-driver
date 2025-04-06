@@ -30,6 +30,8 @@ export const rpcCall = async <T = any>(
     // Log the response
     if (response.error) {
       console.error(`❌ Supabase RPC error in ${functionName}:`, response.error);
+      console.error(`❌ Status code: ${response.error.status}, Message: ${response.error.message}`);
+      console.error(`❌ Error details:`, response.error.details);
     } else {
       console.log(`✅ Supabase RPC success for ${functionName}:`, response.data ? 'Data received' : 'No data');
       if (import.meta.env.DEV) {

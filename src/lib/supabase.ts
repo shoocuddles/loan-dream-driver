@@ -128,6 +128,9 @@ export const submitApplication = async (application: any, isDraft = false) => {
     let data;
     let error;
     
+    console.log(`submitApplication called with isDraft=${isDraft}, application:`, 
+      application.id ? `ID: ${application.id}` : 'New application');
+    
     // Map application fields to match our database schema
     const applicationData = {
       ...application,
@@ -146,15 +149,18 @@ export const submitApplication = async (application: any, isDraft = false) => {
     try {
       // If application has an ID, it's an update to an existing draft
       if (application.id) {
+        console.log('Updating application with ID:', application.id);
         const { data: updateData, error: updateError } = await rpcCall('update_application', {
           p_application_id: application.id,
           p_application_data: applicationData
         });
           
+        console.log('Update application response:', updateError ? 'ERROR' : 'SUCCESS', updateData);
         data = updateData;
         error = updateError;
       } else {
         // New application
+        console.log('Creating new application');
         const { data: insertData, error: insertError } = await rpcCall('create_application', {
           p_application_data: {
             ...applicationData,
@@ -162,6 +168,7 @@ export const submitApplication = async (application: any, isDraft = false) => {
           }
         });
           
+        console.log('Create application response:', insertError ? 'ERROR' : 'SUCCESS', insertData);
         data = insertData;
         error = insertError;
       }
@@ -175,7 +182,9 @@ export const submitApplication = async (application: any, isDraft = false) => {
       throw error;
     }
     
-    return data && data[0] ? data[0] : null;
+    const resultData = data && data[0] ? data[0] : null;
+    console.log('Application submission result:', resultData ? 'SUCCESS' : 'NULL RESULT', resultData);
+    return resultData;
   } catch (error) {
     console.error('Exception in submitApplication:', error);
     throw error;

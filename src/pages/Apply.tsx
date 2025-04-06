@@ -80,16 +80,23 @@ const Apply = () => {
         const applicationData = {
           ...data,
           isComplete,
+          status: isComplete ? 'submitted' : 'draft' // Set the status explicitly
         };
+        
+        console.log('Preparing to submit application data:', 
+          isComplete ? 'FINAL SUBMISSION' : 'Draft save', 
+          draftId ? `with ID: ${draftId}` : 'new application');
         
         // If we have a draft ID, update it; otherwise create a new one
         let result = null;
         if (draftId) {
           console.log('Updating existing draft with ID:', draftId);
-          result = await submitApplication({ ...applicationData, id: draftId }, true);
+          result = await submitApplication({ ...applicationData, id: draftId }, isComplete);
+          console.log('Update application result:', result);
         } else {
-          console.log('Creating new draft application');
-          result = await submitApplication(applicationData, true);
+          console.log('Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
+          result = await submitApplication(applicationData, isComplete);
+          console.log('Create application result:', result);
         }
         
         // Save the draft ID if we get one back
@@ -100,6 +107,11 @@ const Apply = () => {
         }
         
         setIsSavingProgress(false);
+        
+        if (isComplete) {
+          console.log('Application marked as complete successfully');
+        }
+        
         return true;
       } catch (supabaseError) {
         console.error("Detailed Supabase error during save progress:", supabaseError);
@@ -111,16 +123,29 @@ const Apply = () => {
           setError(`Unknown Supabase error: ${JSON.stringify(supabaseError)}`);
         }
         
-        // Since we already saved to localStorage, we can continue without blocking
-        toast({
-          title: "Local Save Only",
-          description: "Your progress has been saved locally. We'll try to sync with our servers later.",
-          variant: "default",
-        });
-        
-        // Return true to allow the user to continue
-        setIsSavingProgress(false);
-        return true;
+        // For non-final submissions, we can continue with localStorage backup
+        if (!isComplete) {
+          // Since we already saved to localStorage, we can continue without blocking
+          toast({
+            title: "Local Save Only",
+            description: "Your progress has been saved locally. We'll try to sync with our servers later.",
+            variant: "default",
+          });
+          
+          // Return true to allow the user to continue
+          setIsSavingProgress(false);
+          return true;
+        } else {
+          // For final submission, we need to fail if the server save fails
+          toast({
+            title: "Submission Error",
+            description: "There was a problem submitting your application to our servers.",
+            variant: "destructive",
+          });
+          
+          setIsSavingProgress(false);
+          return false;
+        }
       }
     } catch (error) {
       console.error("Detailed error saving application progress:", error);
@@ -132,7 +157,7 @@ const Apply = () => {
         setError(`Unknown error: ${JSON.stringify(error)}`);
       }
       
-      // If everything fails, show a toast but still allow progress
+      // If everything fails, show a toast but still allow progress for non-final submissions
       toast({
         title: "Warning",
         description: "We've encountered an issue saving your progress. You can continue, but please don't close your browser.",
@@ -140,8 +165,8 @@ const Apply = () => {
       });
       
       setIsSavingProgress(false);
-      // Return true to allow user to continue anyway
-      return true;
+      // Return true to allow user to continue anyway for non-final submissions
+      return !isComplete;
     }
   };
 
@@ -202,11 +227,14 @@ const Apply = () => {
             variant: "default",
           });
           
-          // Redirect to homepage
-          console.log("Redirecting to home page");
-          navigate("/");
+          // Redirect to homepage after a short delay to ensure the toast is visible
+          console.log("Redirecting to home page in 1 second");
+          setTimeout(() => {
+            navigate("/");
+          }, 1000);
         } else {
-          throw new Error("Failed to submit application");
+          console.error("Failed to submit application - saveProgress returned false");
+          throw new Error("Failed to submit application to server");
         }
       } catch (submitError) {
         console.error("Error during final submission:", submitError);
@@ -223,6 +251,8 @@ const Apply = () => {
           description: "There was a problem submitting your application. See details below.",
           variant: "destructive",
         });
+        
+        setIsSubmitting(false);
       }
     } catch (error) {
       console.error("Unhandled error in handleSubmit:", error);
@@ -239,7 +269,7 @@ const Apply = () => {
         description: "There was a problem submitting your application. See details below.",
         variant: "destructive",
       });
-    } finally {
+      
       setIsSubmitting(false);
     }
   };

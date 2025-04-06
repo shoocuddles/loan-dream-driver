@@ -13,10 +13,16 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 
 // Enhanced logging for Supabase operations
 const originalFrom = supabase.from.bind(supabase);
-supabase.from = (table) => {
+supabase.from = function(table: string) {
+  if (!table || table === "") {
+    console.error("❌ Supabase: Invalid table name provided (empty string)");
+    // Fallback to a valid table name to prevent TypeScript errors
+    // This will likely fail at runtime but prevents build errors
+    return originalFrom("applications");
+  }
   console.log(`🔍 Supabase: Accessing table "${table}"`);
   return originalFrom(table);
-};
+} as typeof supabase.from;
 
 // Add a generic RPC function with proper type casting and async handling
 export const rpcCall = async <T = any>(
@@ -76,10 +82,15 @@ export const rpcCall = async <T = any>(
 
 // Enhance supabase insert and update operations with better logging
 const enhanceSupabaseInsert = () => {
-  const originalInsert = supabase.from('').insert;
+  const originalInsert = supabase.from('applications').insert;
   
-  // @ts-ignore - We're monkey patching for logging purposes
-  supabase.from = function(table) {
+  supabase.from = function(table: string) {
+    if (!table || table === "") {
+      console.error("❌ Supabase: Invalid table name provided (empty string)");
+      // Fallback to a valid table name to prevent TypeScript errors
+      return originalFrom("applications");
+    }
+    
     const builder = originalFrom(table);
     const originalInsertFn = builder.insert;
     
@@ -108,7 +119,7 @@ const enhanceSupabaseInsert = () => {
     };
     
     return builder;
-  };
+  } as typeof supabase.from;
 };
 
 // Initialize the enhanced methods

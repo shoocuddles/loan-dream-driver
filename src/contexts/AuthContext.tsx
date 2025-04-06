@@ -149,7 +149,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log("Starting signUp with:", { email, password: '****', userData });
     
-      // Simplify the metadata structure to match what the trigger expects
+      // Send user metadata directly in the raw_user_meta_data object
+      // This matches our updated database trigger expectations
       const { data, error } = await supabase.auth.signUp({
         email,
         password,

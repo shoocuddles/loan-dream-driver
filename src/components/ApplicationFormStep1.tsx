@@ -53,7 +53,8 @@ const ApplicationFormStep1 = ({ formData, updateFormData, nextStep }: Applicatio
     
     try {
       if (validateForm()) {
-        await nextStep();
+        // Just call nextStep directly - don't wrap in another async operation
+        nextStep();
       }
     } catch (error) {
       console.error("Error in form submission:", error);

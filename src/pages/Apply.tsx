@@ -45,6 +45,7 @@ const Apply = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<ApplicationForm>(initialFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingProgress, setIsSavingProgress] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -68,6 +69,7 @@ const Apply = () => {
     try {
       // Reset any previous errors
       setError(null);
+      setIsSavingProgress(true);
       
       // Save to localStorage as a backup
       localStorage.setItem('applicationDraft', JSON.stringify(data));
@@ -91,6 +93,7 @@ const Apply = () => {
           localStorage.setItem('applicationDraftId', result.id);
         }
         
+        setIsSavingProgress(false);
         return true;
       } catch (supabaseError) {
         console.error("Supabase error during save progress:", supabaseError);
@@ -110,6 +113,7 @@ const Apply = () => {
         });
         
         // Return true to allow the user to continue
+        setIsSavingProgress(false);
         return true;
       }
     } catch (error) {
@@ -129,18 +133,27 @@ const Apply = () => {
         variant: "destructive",
       });
       
+      setIsSavingProgress(false);
       // Return true to allow user to continue anyway
       return true;
     }
   };
 
   const nextStep = async () => {
-    // Save progress when moving to next step
+    // Save progress before moving to next step
     const saved = await saveProgress(formData);
     
     // Even if saving fails, we'll still allow the user to proceed
-    setCurrentStep(currentStep + 1);
-    window.scrollTo(0, 0);
+    if (saved) {
+      setCurrentStep(currentStep + 1);
+      window.scrollTo(0, 0);
+    } else {
+      toast({
+        title: "Navigation Error",
+        description: "There was a problem moving to the next step. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const prevStep = () => {
@@ -264,6 +277,14 @@ const Apply = () => {
                 <div className="mt-4 px-4 py-2 bg-green-50 border border-green-200 rounded-md">
                   <p className="text-sm text-green-700">
                     Your progress is being saved automatically. You can return to complete your application later.
+                  </p>
+                </div>
+              )}
+              
+              {isSavingProgress && (
+                <div className="mt-4 px-4 py-2 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-700">
+                    Saving your progress...
                   </p>
                 </div>
               )}

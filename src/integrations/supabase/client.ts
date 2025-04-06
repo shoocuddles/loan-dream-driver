@@ -30,8 +30,22 @@ export const rpcCall = async <T = any>(
     // Log the response
     if (response.error) {
       console.error(`❌ Supabase RPC error in ${functionName}:`, response.error);
-      console.error(`❌ Status code: ${response.error.status}, Message: ${response.error.message}`);
-      console.error(`❌ Error details:`, response.error.details);
+      
+      // Error details for PostgrestError - use optional chaining to safely access properties
+      console.error(`❌ Message: ${response.error.message}`);
+      
+      // Only log additional details if they exist
+      if (response.error.details) {
+        console.error(`❌ Error details:`, response.error.details);
+      }
+      
+      if (response.error.hint) {
+        console.error(`❌ Error hint:`, response.error.hint);
+      }
+      
+      if (response.error.code) {
+        console.error(`❌ Error code:`, response.error.code);
+      }
     } else {
       console.log(`✅ Supabase RPC success for ${functionName}:`, response.data ? 'Data received' : 'No data');
       if (import.meta.env.DEV) {

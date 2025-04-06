@@ -14,6 +14,7 @@ interface ApplicationFormStep1Props {
 
 const ApplicationFormStep1 = ({ formData, updateFormData, nextStep }: ApplicationFormStep1Props) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -48,8 +49,16 @@ const ApplicationFormStep1 = ({ formData, updateFormData, nextStep }: Applicatio
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      nextStep();
+    setIsSubmitting(true);
+    
+    try {
+      if (validateForm()) {
+        await nextStep();
+      }
+    } catch (error) {
+      console.error("Error in form submission:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -148,7 +157,13 @@ const ApplicationFormStep1 = ({ formData, updateFormData, nextStep }: Applicatio
       </div>
       
       <div className="pt-4">
-        <Button type="submit" className="w-full bg-ontario-blue hover:bg-ontario-blue/90">Continue to Vehicle Details</Button>
+        <Button 
+          type="submit" 
+          className="w-full bg-ontario-blue hover:bg-ontario-blue/90"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? "Processing..." : "Continue to Vehicle Details"}
+        </Button>
       </div>
     </form>
   );

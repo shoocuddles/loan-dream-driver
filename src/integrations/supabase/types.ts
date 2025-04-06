@@ -196,6 +196,41 @@ export type Database = {
         }
         Relationships: []
       }
+      company_pricing: {
+        Row: {
+          company_id: string
+          created_at: string
+          discounted_price: number
+          id: string
+          standard_price: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          discounted_price?: number
+          id?: string
+          standard_price?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          discounted_price?: number
+          id?: string
+          standard_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_pricing_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           company_id: string
@@ -379,6 +414,12 @@ export type Database = {
         }
         Returns: Json
       }
+      get_company_pricing: {
+        Args: {
+          p_company_id: string
+        }
+        Returns: Json
+      }
       get_dealer_downloads: {
         Args: {
           p_dealer_id: string
@@ -405,6 +446,10 @@ export type Database = {
           p_application_id: string
           p_current_dealer_id?: string
         }
+        Returns: Json
+      }
+      list_companies_with_pricing: {
+        Args: Record<PropertyKey, never>
         Returns: Json
       }
       lock_application: {
@@ -437,6 +482,14 @@ export type Database = {
         Args: {
           p_application_id: string
           p_application_data: Json
+        }
+        Returns: Json
+      }
+      update_company_pricing: {
+        Args: {
+          p_company_id: string
+          p_standard_price: number
+          p_discounted_price: number
         }
         Returns: Json
       }

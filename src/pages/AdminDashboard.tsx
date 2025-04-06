@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -8,6 +9,7 @@ import Footer from "@/components/Footer";
 import AdminHeader from "@/components/AdminHeader";
 import PricingSettings from "@/components/PricingSettings";
 import AdminPasswordChange from "@/components/AdminPasswordChange";
+import CompanyPricingSettings from "@/components/CompanyPricingSettings";
 import DealerManagement from "@/components/DealerManagement";
 import DealerPurchases from "@/components/DealerPurchases";
 import { SortableTable, ColumnDef } from "@/components/ui/sortable-table";
@@ -274,6 +276,7 @@ const AdminDashboard = () => {
               <TabsTrigger value="purchases">Dealer Purchases</TabsTrigger>
               <TabsTrigger value="dealers">Dealer Management</TabsTrigger>
               <TabsTrigger value="settings">System Settings</TabsTrigger>
+              <TabsTrigger value="company-pricing">Company Pricing</TabsTrigger>
             </TabsList>
             
             <TabsContent value="applications">
@@ -302,6 +305,10 @@ const AdminDashboard = () => {
                 <PricingSettings />
                 <AdminPasswordChange />
               </div>
+            </TabsContent>
+
+            <TabsContent value="company-pricing">
+              <CompanyPricingSettings />
             </TabsContent>
           </Tabs>
         </div>

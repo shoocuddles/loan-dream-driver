@@ -113,9 +113,13 @@ const PricingSettings = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Pricing Settings</CardTitle>
+        <CardTitle>Default Pricing Settings</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="px-3 py-2 bg-blue-50 text-blue-700 text-sm mb-4 rounded-md">
+          These are the default pricing settings that will apply to all companies unless they have custom pricing configured.
+        </div>
+        
         <div className="space-y-2">
           <Label htmlFor="standardPrice">Standard Download Price</Label>
           <div className="relative">

@@ -111,7 +111,10 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
         console.log(`🔍 Connection check before submission: ${checkError ? 'Failed' : 'Success'}`);
         
         if (checkError) {
-          console.warn(`⚠️ Connection issue detected (attempt ${retryCount + 1}/${maxRetries}): ${checkError.message || 'Unknown error'}`);
+          const errorMessage = typeof checkError === 'object' && checkError !== null && 'message' in checkError ? 
+            String(checkError.message) : 'Unknown error';
+            
+          console.warn(`⚠️ Connection issue detected (attempt ${retryCount + 1}/${maxRetries}): ${errorMessage}`);
           
           // If this is the last retry, store for offline recovery
           if (retryCount === maxRetries - 1) {

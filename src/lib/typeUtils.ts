@@ -3,8 +3,17 @@
  * Utility functions for handling Supabase typings and error checking
  */
 
-import { SelectQueryError } from '@supabase/supabase-js';
 import { UserProfile, Company } from './types/auth';
+
+/**
+ * Custom type definition for Supabase query errors
+ */
+export type SelectQueryError = {
+  error: true;
+  message?: string;
+  details?: string;
+  code?: string;
+};
 
 /**
  * Helper to safely cast Supabase query response to UserProfile
@@ -69,6 +78,6 @@ export function safeParam(value: any): string {
 /**
  * Type guard to check if a value is a SelectQueryError
  */
-export function isQueryError(value: any): value is SelectQueryError<string> {
+export function isQueryError(value: any): value is SelectQueryError {
   return value && (value as any).error === true;
 }

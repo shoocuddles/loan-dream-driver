@@ -123,12 +123,12 @@ export const signOutDealer = async () => {
 };
 
 // Applications
-export const submitApplication = async (application: any, isDraft = false) => {
+export const submitApplication = async (application: any, isComplete = false) => {
   try {
     let data;
     let error;
     
-    console.log(`submitApplication called with isDraft=${isDraft}, application:`, 
+    console.log(`submitApplication called with isDraft=${!isComplete}, application:`, 
       application.id ? `ID: ${application.id}` : 'New application');
     
     // Map application fields to match our database schema
@@ -143,13 +143,14 @@ export const submitApplication = async (application: any, isDraft = false) => {
       province: application.province,
       postalCode: application.postalCode,
       updated_at: new Date().toISOString(),
-      status: isDraft ? 'draft' : 'submitted'
+      status: isComplete ? 'submitted' : 'draft',
+      isComplete: isComplete
     };
     
     try {
       // If application has an ID, it's an update to an existing draft
       if (application.id) {
-        console.log('Updating application with ID:', application.id);
+        console.log('Updating application with ID:', application.id, isComplete ? '(COMPLETE)' : '(draft)');
         const { data: updateData, error: updateError } = await rpcCall('update_application', {
           p_application_id: application.id,
           p_application_data: applicationData
@@ -160,7 +161,7 @@ export const submitApplication = async (application: any, isDraft = false) => {
         error = updateError;
       } else {
         // New application
-        console.log('Creating new application');
+        console.log('Creating new application', isComplete ? '(COMPLETE)' : '(draft)');
         const { data: insertData, error: insertError } = await rpcCall('create_application', {
           p_application_data: {
             ...applicationData,

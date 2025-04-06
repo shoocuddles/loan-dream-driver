@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -51,7 +50,6 @@ const Apply = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Load draft from localStorage if exists
   useEffect(() => {
     const savedDraft = localStorage.getItem('applicationDraft');
     const savedDraftId = localStorage.getItem('applicationDraftId');
@@ -67,27 +65,22 @@ const Apply = () => {
 
   const saveProgress = async (data: ApplicationForm, isComplete = false) => {
     try {
-      // Reset any previous errors
       setError(null);
       setIsSavingProgress(true);
       
-      // Save to localStorage as a backup first (this should always succeed)
       localStorage.setItem('applicationDraft', JSON.stringify(data));
       
-      // Now attempt to save to the server
       try {
-        // Convert the form data to the expected application structure
         const applicationData = {
           ...data,
           isComplete,
-          status: isComplete ? 'submitted' : 'draft' // Set the status explicitly
+          status: isComplete ? 'submitted' : 'draft'
         };
         
         console.log('Preparing to submit application data:', 
           isComplete ? 'FINAL SUBMISSION' : 'Draft save', 
           draftId ? `with ID: ${draftId}` : 'new application');
         
-        // If we have a draft ID, update it; otherwise create a new one
         let result = null;
         if (draftId) {
           console.log('Updating existing draft with ID:', draftId);
@@ -99,7 +92,6 @@ const Apply = () => {
           console.log('Create application result:', result);
         }
         
-        // Save the draft ID if we get one back
         if (result && result.id && !draftId) {
           console.log('Setting draft ID:', result.id);
           setDraftId(result.id);
@@ -116,27 +108,22 @@ const Apply = () => {
       } catch (supabaseError) {
         console.error("Detailed Supabase error during save progress:", supabaseError);
         
-        // Set detailed error message for debugging
         if (supabaseError instanceof Error) {
           setError(`Supabase error details: ${supabaseError.message}`);
         } else {
           setError(`Unknown Supabase error: ${JSON.stringify(supabaseError)}`);
         }
         
-        // For non-final submissions, we can continue with localStorage backup
         if (!isComplete) {
-          // Since we already saved to localStorage, we can continue without blocking
           toast({
             title: "Local Save Only",
             description: "Your progress has been saved locally. We'll try to sync with our servers later.",
             variant: "default",
           });
           
-          // Return true to allow the user to continue
           setIsSavingProgress(false);
           return true;
         } else {
-          // For final submission, we need to fail if the server save fails
           toast({
             title: "Submission Error",
             description: "There was a problem submitting your application to our servers.",
@@ -150,14 +137,12 @@ const Apply = () => {
     } catch (error) {
       console.error("Detailed error saving application progress:", error);
       
-      // Set detailed error message
       if (error instanceof Error) {
         setError(`Error details: ${error.message}`);
       } else {
         setError(`Unknown error: ${JSON.stringify(error)}`);
       }
       
-      // If everything fails, show a toast but still allow progress for non-final submissions
       toast({
         title: "Warning",
         description: "We've encountered an issue saving your progress. You can continue, but please don't close your browser.",
@@ -165,26 +150,18 @@ const Apply = () => {
       });
       
       setIsSavingProgress(false);
-      // Return true to allow user to continue anyway for non-final submissions
       return !isComplete;
     }
   };
 
   const nextStep = () => {
-    console.log("nextStep called, saving progress and advancing to step", currentStep + 1);
-    
-    // First, save to localStorage immediately to ensure we don't lose data
     localStorage.setItem('applicationDraft', JSON.stringify(formData));
-    
-    // Increment the step immediately to give user feedback
     setCurrentStep(currentStep + 1);
     window.scrollTo(0, 0);
     
-    // Then attempt to save to server in the background
     saveProgress(formData)
       .catch(err => {
         console.error("Background save failed:", err);
-        // We already advanced the step, so no need to handle this error further
       });
   };
 
@@ -204,19 +181,16 @@ const Apply = () => {
       setIsSubmitting(true);
       setError(null);
       
-      // First save to localStorage immediately
       localStorage.setItem('applicationDraft', JSON.stringify(formData));
       console.log("Saved to localStorage");
       
       try {
-        // Final submission (mark as complete)
         console.log("Submitting to server with complete flag");
         const success = await saveProgress(formData, true);
         
         if (success) {
           console.log("Application submitted successfully");
           
-          // Clear draft data
           localStorage.removeItem('applicationDraft');
           localStorage.removeItem('applicationDraftId');
           setDraftId(null);
@@ -227,8 +201,6 @@ const Apply = () => {
             variant: "default",
           });
           
-          // Redirect to homepage after a short delay to ensure the toast is visible
-          console.log("Redirecting to home page in 1 second");
           setTimeout(() => {
             navigate("/");
           }, 1000);
@@ -239,7 +211,6 @@ const Apply = () => {
       } catch (submitError) {
         console.error("Error during final submission:", submitError);
         
-        // Set detailed error message
         if (submitError instanceof Error) {
           setError(`Submission error details: ${submitError.message}`);
         } else {
@@ -257,7 +228,6 @@ const Apply = () => {
     } catch (error) {
       console.error("Unhandled error in handleSubmit:", error);
       
-      // Set detailed error message
       if (error instanceof Error) {
         setError(`Error details: ${error.message}`);
       } else {

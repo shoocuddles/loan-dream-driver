@@ -26,8 +26,8 @@ declare
   valid_company_id uuid;
   role_value text;
 begin
-  -- The correct path is raw_app_meta_data -> 'user_metadata'
-  meta := new.raw_app_meta_data -> 'user_metadata';
+  -- Get the metadata from the new user
+  meta := coalesce(new.raw_user_metadata, new.raw_app_meta_data);
   
   -- Extract values safely
   raw_company_id := meta ->> 'company_id';
@@ -38,8 +38,13 @@ begin
     valid_company_id := raw_company_id::uuid;
   exception when others then
     raise notice 'Invalid company_id: %', raw_company_id;
-    valid_company_id := null;
+    valid_company_id := '11111111-1111-1111-1111-111111111111'::uuid;
   end;
+  
+  -- Default role if missing
+  if role_value is null then
+    role_value := 'dealer';
+  end if;
 
   insert into public.user_profiles (
     id,

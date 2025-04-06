@@ -2,19 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-// Initialize the Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables. Please check your .env file.');
-}
-
-// Create typed client (optional Database type)
-export const supabase = createClient(
-  supabaseUrl || '',
-  supabaseAnonKey || ''
-);
+// Re-export the supabase client from the centralized location
+import { supabase } from '@/integrations/supabase/client';
+export { supabase };
 
 // System settings
 export const getSystemSettings = async () => {
@@ -80,9 +70,9 @@ export const signUpDealer = async (email: string, password: string, name: string
     password,
     options: {
       data: {
-        name,
-        company,
-        role: 'dealer'
+        full_name: name,
+        role: 'dealer',
+        company_name: company
       }
     }
   });

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -75,11 +74,10 @@ const Dealers = () => {
         companyName: company
       });
       
-      // Pass user data with correct metadata structure
+      // Pass user data with correct metadata structure - simplified structure
       await signUp(signupEmail, signupPassword, {
         fullName: dealerName,
         role: 'dealer',
-        company_id: '11111111-1111-1111-1111-111111111111',
         companyName: company
       });
       
@@ -91,8 +89,7 @@ const Dealers = () => {
     } catch (error: any) {
       console.error("Detailed signup error:", error);
       
-      // Error toast is now handled in the AuthContext signUp function
-      // We can add additional dealer-specific error logging here if needed
+      // Additional debug logging for signup errors
       console.error("🔍 [DEALERS] Additional signup error context:", {
         formState: {
           email: signupEmail,
@@ -105,7 +102,6 @@ const Dealers = () => {
     }
   };
 
-  // Add debug panel for development mode
   const showDebugInfo = process.env.NODE_ENV === 'development' && localStorage.getItem('showDebug') === 'true';
 
   return (

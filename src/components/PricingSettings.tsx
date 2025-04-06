@@ -17,30 +17,31 @@ const PricingSettings = () => {
   const { toast } = useToast();
   
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        setIsLoading(true);
-        const settings = await getSystemSettings();
-        
-        if (settings) {
-          setStandardPrice(settings.standardPrice.toString());
-          setDiscountedPrice(settings.discountedPrice.toString());
-          setLockoutPeriod(settings.lockoutPeriodHours.toString());
-        }
-      } catch (error) {
-        console.error("Error loading settings:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load pricing settings. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
     loadSettings();
-  }, [toast]);
+  }, []);
+  
+  const loadSettings = async () => {
+    try {
+      setIsLoading(true);
+      const settings = await getSystemSettings();
+      
+      if (settings) {
+        console.log("Loaded system settings:", settings);
+        setStandardPrice(settings.standardPrice.toString());
+        setDiscountedPrice(settings.discountedPrice.toString());
+        setLockoutPeriod(settings.lockoutPeriodHours.toString());
+      }
+    } catch (error) {
+      console.error("Error loading settings:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load pricing settings. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const handleSave = async () => {
     try {
@@ -87,17 +88,28 @@ const PricingSettings = () => {
         return;
       }
       
-      // Save settings
-      await updateSystemSettings({
+      console.log("Saving system settings:", {
         standardPrice: standard,
         discountedPrice: discounted,
         lockoutPeriodHours: lockHours
       });
       
+      // Save settings
+      const result = await updateSystemSettings({
+        standardPrice: standard,
+        discountedPrice: discounted,
+        lockoutPeriodHours: lockHours
+      });
+      
+      console.log("Update system settings result:", result);
+      
       toast({
         title: "Settings Saved",
         description: "Pricing settings have been updated successfully.",
       });
+      
+      // Reload settings to ensure UI is in sync with database
+      await loadSettings();
     } catch (error) {
       console.error("Error saving settings:", error);
       toast({

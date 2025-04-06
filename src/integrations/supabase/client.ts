@@ -10,19 +10,31 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // import { supabase } from "@/integrations/supabase/client";
 
 console.log(`🔌 Initializing Supabase client with URL: ${SUPABASE_URL}`);
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+
+// Create client with automatic retry and enhanced error handling
+const options = {
   auth: {
-    persistSession: true
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
   },
   global: {
     headers: {
-      'x-application-name': 'ontario-loans'
+      'x-application-name': 'ontario-loans',
+      'x-client-info': 'application-form'
     }
   },
   db: {
     schema: 'public'
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 1
+    }
   }
-});
+};
+
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, options);
 
 // Log supabase version info
 console.log(`📊 Supabase client initialized`);
@@ -95,12 +107,23 @@ export const testSupabaseConnection = async (retries = 2): Promise<{connected: b
     console.log('🔍 Testing Supabase connection...');
     const start = Date.now();
     
-    const { data, error } = await supabase.from('applications').select('id').limit(1);
+    // Increase the timeout for the connection test
+    const timeoutPromise = new Promise<{data: null, error: any}>((_, reject) => {
+      setTimeout(() => {
+        reject({ error: { message: "Connection timeout after 5 seconds" } });
+      }, 5000);
+    });
+    
+    // Race between the actual query and the timeout
+    const result = await Promise.race([
+      supabase.from('applications').select('id').limit(1),
+      timeoutPromise
+    ]);
     
     const elapsed = Date.now() - start;
     
-    if (error) {
-      console.error(`❌ Supabase connection test failed after ${elapsed}ms:`, error);
+    if ('error' in result && result.error) {
+      console.error(`❌ Supabase connection test failed after ${elapsed}ms:`, result.error);
       
       if (retries > 0) {
         console.log(`Retrying connection test (${retries} attempts left)...`);
@@ -111,7 +134,7 @@ export const testSupabaseConnection = async (retries = 2): Promise<{connected: b
       return {
         connected: false,
         latency: elapsed,
-        error: error.message
+        error: result.error.message || "Unknown error"
       };
     }
     
@@ -119,11 +142,10 @@ export const testSupabaseConnection = async (retries = 2): Promise<{connected: b
     return {
       connected: true,
       latency: elapsed,
-      data
+      data: result.data
     };
-  } catch (err) {
-    const start = Date.now();
-    const elapsed = Date.now() - start;
+  } catch (err: any) {
+    const elapsed = Date.now() - start || 0;
     console.error(`❌ Unexpected Supabase connection error after ${elapsed}ms:`, err);
     
     if (retries > 0) {
@@ -228,11 +250,13 @@ export const getSupabaseConnectionInfo = () => {
 
 // Check and report connection status on page load
 window.addEventListener('DOMContentLoaded', () => {
+  // Initialize connection check on page load with a small delay
   setTimeout(() => {
     testSupabaseConnection()
       .then(status => {
         if (!status.connected) {
           console.warn('⚠️ Initial connection check failed. Some features may not work properly.');
+          toast.warning("Database connection issues detected. Some features may not work properly.");
         }
       })
       .catch(err => {
@@ -244,6 +268,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // Expose function to check for network connectivity issues
 export const checkNetworkConnectivity = async (): Promise<boolean> => {
   try {
+    // First try to fetch a small resource from Google as a general internet connectivity test
     const response = await fetch('https://www.google.com/favicon.ico', { 
       mode: 'no-cors',
       cache: 'no-cache',

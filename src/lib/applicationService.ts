@@ -49,6 +49,24 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
     
     while (retryCount < maxRetries) {
       try {
+        // Force a new connection attempt before sending data
+        const connectionCheck = await supabase.from('applications').select('count').limit(1).single();
+        console.log(`🔍 Connection check before submission: ${connectionCheck.error ? 'Failed' : 'Success'}`);
+        
+        if (connectionCheck.error) {
+          console.warn(`⚠️ Connection issue detected (attempt ${retryCount + 1}/${maxRetries}): ${connectionCheck.error.message}`);
+          
+          // If this is the last retry, show a toast notification
+          if (retryCount === maxRetries - 1) {
+            toast.error("Connection to database failed. Please check your internet connection and try again.");
+          }
+          
+          // Wait before retrying with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+          retryCount++;
+          continue;
+        }
+        
         if (application.applicationId) {
           // Update existing application
           console.log(`🔄 Updating application with ID: ${application.applicationId} (Attempt ${retryCount + 1})`);
@@ -69,6 +87,8 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
             
             // Otherwise, retry
             retryCount++;
+            // Wait before retrying with exponential backoff
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
             continue;
           }
           
@@ -77,6 +97,12 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           
           if (!result) {
             throw new Error(`No data returned after updating application ID: ${application.applicationId}`);
+          }
+          
+          if (isComplete) {
+            toast.success("Application submitted successfully!");
+          } else {
+            toast.success("Draft saved successfully");
           }
           
           // Success, break out of retry loop
@@ -89,7 +115,7 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           // Make sure we're using an array for insert
           const { data, error } = await supabase
             .from('applications')
-            .insert([applicationData])
+            .insert([{ ...applicationData, created_at: new Date().toISOString() }])
             .select();
           
           if (error) {
@@ -99,13 +125,15 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
             console.error('❌ Data that failed:', applicationData);
             
             // Show toast notification for user feedback
-            toast.error("Connection error. Please try again.");
-            
-            // If this is the last retry, throw the error
-            if (retryCount === maxRetries - 1) throw error;
+            if (retryCount === maxRetries - 1) {
+              toast.error("Connection error. Please try again.");
+              throw error;
+            }
             
             // Otherwise, retry
             retryCount++;
+            // Wait before retrying with exponential backoff
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
             continue;
           }
           
@@ -126,6 +154,8 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           break;
         }
       } catch (innerError) {
+        console.error(`❌ Error during submission attempt ${retryCount + 1}:`, innerError);
+        
         // If this is the last retry, rethrow
         if (retryCount === maxRetries - 1) throw innerError;
         

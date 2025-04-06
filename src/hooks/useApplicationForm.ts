@@ -1,3 +1,4 @@
+
 import { useState, useRef, useCallback, useEffect } from "react";
 import { ApplicationForm } from "@/lib/types";
 import { submitApplicationToSupabase } from "@/lib/applicationService";
@@ -181,6 +182,14 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
         setError(errorMsg);
         setIsSubmitting(false);
         finalSubmissionInProgress.current = false;
+        
+        toast.error(errorMsg);
+        uiToast({
+          title: "Connection Error",
+          description: errorMsg,
+          variant: "destructive",
+        });
+        
         return;
       }
       
@@ -220,15 +229,7 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
           setCurrentStep(5); // Step 5 will be our confirmation page
           window.scrollTo(0, 0);
         } else {
-          console.error("❌ Failed to submit application - submitApplicationToSupabase returned falsy value");
-          setError("Failed to submit application. Please try again.");
-          
-          toast.error("Failed to submit your application. Please try again.");
-          uiToast({
-            title: "Submission Error",
-            description: "Failed to submit your application. Please try again.",
-            variant: "destructive",
-          });
+          throw new Error("Failed to submit application - no result returned from server.");
         }
       } catch (submitError: any) {
         console.error("❌ Error during final submission:", submitError);
@@ -250,6 +251,15 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
           description: "There was a problem submitting your application: " + errorMessage,
           variant: "destructive",
         });
+        
+        // Try to recover by saving as a draft
+        try {
+          console.log("Attempting to save as draft instead...");
+          await saveDraft(formData);
+          toast.info("Your application was saved as a draft. You can try submitting again.");
+        } catch (draftError) {
+          console.error("❌ Failed to save as draft:", draftError);
+        }
       }
     } catch (error: any) {
       console.error("❌ Unhandled error in handleSubmit:", error);

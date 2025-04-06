@@ -1,50 +1,77 @@
 
-import { supabase } from "@/integrations/supabase/client";
+// Utilities for Supabase integration
+
+import { supabase, testSupabaseConnection } from "@/integrations/supabase/client";
 
 /**
- * Utility function to check if Supabase is connected
+ * Check Supabase connection and provide detailed error information
  */
-export const checkSupabaseConnection = async (): Promise<boolean> => {
+export const checkSupabaseConnection = async () => {
   try {
     console.log("🔍 Testing Supabase connection...");
-    const { error } = await supabase.from('applications').select('id').limit(1);
+    const result = await testSupabaseConnection(2);
     
-    if (error) {
-      console.error("❌ Supabase connection test failed:", error.message);
+    if (!result.connected) {
+      console.error(`❌ Supabase connection test failed: ${result.error || 'Unknown error'}`);
+      console.error(`❌ Connection latency: ${result.latency}ms`);
       return false;
     }
     
-    console.log("✅ Supabase connection test successful");
+    console.log(`✅ Supabase connection test successful (${result.latency}ms)`);
     return true;
-  } catch (error: any) {
-    console.error("❌ Supabase connection exception:", error.message);
+  } catch (error) {
+    console.error("❌ Error in checkSupabaseConnection:", error);
     return false;
   }
 };
 
 /**
- * Check for any remaining Firebase dependencies
+ * Check if there are Firebase dependencies in the window object
+ * (This helps us confirm we're fully migrated to Supabase)
  */
-export const detectFirebaseDependencies = (): void => {
+export const detectFirebaseDependencies = () => {
   console.log("🔍 Checking for Firebase dependencies...");
   
-  // Look for Firebase in global window object
-  const hasFirebaseSDK = 
-    typeof window !== 'undefined' && 
-    (
-      // @ts-ignore - Check for Firebase SDK
-      window.firebase || 
-      // @ts-ignore - Check for Firebase v9 SDK
-      window.firebaseApp || 
-      // @ts-ignore - Check for older Firebase
-      window.firestore
-    );
+  // Check if Firebase SDK is present in window
+  if ((window as any).firebase) {
+    console.warn("⚠️ Firebase SDK detected in window object");
+    return true;
+  }
   
-  if (hasFirebaseSDK) {
-    console.warn("⚠️ Firebase SDK detected in window object - this should be removed");
-  } else {
-    console.log("✅ No Firebase SDK detected in window object");
+  console.log("✅ No Firebase SDK detected in window object");
+  
+  // Check for specific Firebase libraries
+  const firebaseLibraries = [
+    'firestore',
+    'firebase-app',
+    'firebase-auth',
+    'firebase-storage',
+    'firebase-analytics'
+  ];
+  
+  const detectedLibraries = firebaseLibraries.filter(lib => 
+    document.querySelector(`script[src*="${lib}"]`)
+  );
+  
+  if (detectedLibraries.length > 0) {
+    console.warn("⚠️ Firebase script tags detected:", detectedLibraries);
+    return true;
   }
   
   console.log("✅ Firebase dependency check complete");
+  return false;
+};
+
+/**
+ * Pre-connect to Supabase to warm up the connection
+ */
+export const preconnectToSupabase = async () => {
+  try {
+    await supabase.from('applications').select('count').limit(1);
+    console.log("🔌 Pre-connected to Supabase");
+    return true;
+  } catch (error) {
+    console.error("❌ Failed to pre-connect to Supabase:", error);
+    return false;
+  }
 };

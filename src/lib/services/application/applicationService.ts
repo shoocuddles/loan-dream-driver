@@ -115,6 +115,10 @@ export const recordDownload = async (applicationId: string, paymentId?: string, 
     });
     
     if (error) throw error;
+    
+    // Note: The automatic 24-hour lock is now applied in DealerDashboard.tsx
+    // after successful purchase confirmation
+    
     return data?.success || false;
   } catch (error: any) {
     console.error('❌ Error recording download:', error.message);

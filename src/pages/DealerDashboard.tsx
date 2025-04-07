@@ -119,7 +119,7 @@ const DealerDashboard = () => {
 
     try {
       setProcessingId(applicationId);
-
+      
       if (lockType !== 'temporary') {
         setPendingAction({
           type: 'lock',
@@ -183,7 +183,7 @@ const DealerDashboard = () => {
       }
       
       const application = applications.find(app => app.applicationId === applicationId) || 
-                          downloadedApps.find(app => app.applicationId === applicationId);
+                        downloadedApps.find(app => app.applicationId === applicationId);
       
       if (!application) {
         toast.error("Application not found");
@@ -239,6 +239,7 @@ const DealerDashboard = () => {
         
         for (const appId of pendingAction.applicationIds) {
           await recordDownload(appId);
+          await lockApplication(appId, '24hours');
         }
         
         toast.success(`${pendingAction.applicationIds.length} application(s) purchased`);

@@ -37,25 +37,21 @@ export const LockStatusBadge = ({ lockInfo }: LockStatusBadgeProps) => {
     return null;
   }
 
-  if (lockInfo.isOwnLock) {
-    return (
-      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-        <Lock className="w-3 h-3 mr-1" /> Locked by You
-      </Badge>
-    );
-  }
-
+  // Always show lock status to all dealers
   const expiresAt = lockInfo.expiresAt ? new Date(lockInfo.expiresAt) : null;
-  if (!expiresAt) return null;
-
-  const isExpired = expiresAt < new Date();
-  if (isExpired) return null;
+  if (!expiresAt || expiresAt < new Date()) return null;
 
   const timeLeft = formatDistanceToNow(expiresAt, { addSuffix: true });
   
+  // Use different styling based on whether it's the dealer's own lock
+  const badgeClass = lockInfo.isOwnLock 
+    ? "bg-blue-50 text-blue-700 border-blue-200"
+    : "bg-red-50 text-red-700 border-red-200";
+  
   return (
-    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-      <Clock className="w-3 h-3 mr-1" /> Locked {timeLeft}
+    <Badge variant="outline" className={badgeClass}>
+      <Clock className="w-3 h-3 mr-1" /> 
+      {lockInfo.isOwnLock ? "Locked by You" : `Locked ${timeLeft}`}
     </Badge>
   );
 };

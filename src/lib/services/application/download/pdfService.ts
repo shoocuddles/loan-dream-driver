@@ -106,8 +106,13 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
             k.replace(/\s+/g, '').toLowerCase() === field.replace(/\s+/g, '').toLowerCase()
           );
           
-          // For debugging, log the field mappings
+          // Log the field mapping for debugging
           console.log(`Looking for field "${field}" in formattedData, found key: "${key || 'not found'}"`);
+          
+          // Log value for debugging
+          if (key) {
+            console.log(`Value for ${field}: "${formattedData[key]}"`);
+          }
           
           return [field, key ? formattedData[key] : 'N/A'];
         });
@@ -167,17 +172,54 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
         'application id',
         'id',
         'user id',
-        'street address', // Removed as requested
+        'street address',
         'is complete',
         'last updated',
-        'download id'
+        'download id',
+        'Full Name', 
+        'City', 
+        'Address', 
+        'Province', 
+        'Postal Code', 
+        'Email', 
+        'Phone Number',
+        'Vehicle Type', 
+        'Unwanted Colors', 
+        'Required Features', 
+        'Preferred Make/Model',
+        'Has Existing Loan',
+        'Current Vehicle',
+        'Current Payment',
+        'Amount Owed',
+        'Mileage',
+        'Employment Status',
+        'Monthly Income',
+        'Employer Name',
+        'Job Title',
+        'Employment Duration',
+        'Additional Notes',
+        'Submission Date'
       ];
       
-      const usedFields = Object.values(categories).flatMap(cat => cat.fields).map(f => f.toLowerCase().replace(/\s+/g, ''));
+      const usedFields = Object.values(categories)
+        .flatMap(cat => cat.fields)
+        .map(f => f.toLowerCase().replace(/\s+/g, ''));
+      
       const otherFields = Object.keys(formattedData).filter(key => {
         const normalizedKey = key.toLowerCase().replace(/\s+/g, '');
-        return !usedFields.some(f => f === normalizedKey || f.includes(normalizedKey) || normalizedKey.includes(f)) &&
-               !excludedFields.some(f => normalizedKey.includes(f));
+        // Check if this field is already included in a category or should be excluded
+        const isUsed = usedFields.some(f => 
+          f === normalizedKey || 
+          f.includes(normalizedKey) || 
+          normalizedKey.includes(f)
+        );
+        
+        const isExcluded = excludedFields.some(f => 
+          normalizedKey === f.toLowerCase().replace(/\s+/g, '') ||
+          normalizedKey.includes(f.toLowerCase().replace(/\s+/g, ''))
+        );
+        
+        return !isUsed && !isExcluded;
       });
       
       if (otherFields.length > 0) {

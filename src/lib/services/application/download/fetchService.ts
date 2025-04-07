@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Application } from '@/lib/types/supabase';
@@ -22,11 +23,28 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
       // Don't throw yet, we'll try with the downloaded applications table
     }
     
-    // If we got data from the regular applications table, return it
+    // Log the raw data from Supabase for debugging
     if (lowerCaseData && lowerCaseData.length > 0) {
-      console.log(`✅ Retrieved ${lowerCaseData.length} full application details from applications table`);
-      console.log('📋 Sample data fields:', Object.keys(lowerCaseData[0]).slice(0, 10));
-      console.log('📋 Sample data values for first application:', JSON.stringify(lowerCaseData[0]).substring(0, 300) + '...');
+      console.log('🔍 RAW DATA FROM SUPABASE:');
+      console.log(JSON.stringify(lowerCaseData, null, 2));
+      
+      // Log specific fields we're looking for
+      lowerCaseData.forEach(app => {
+        console.log(`Application ID ${app.id} field check:`);
+        console.log('hasexistingloan:', app.hasexistingloan);
+        console.log('currentvehicle:', app.currentvehicle);
+        console.log('currentpayment:', app.currentpayment);
+        console.log('amountowed:', app.amountowed);
+        console.log('mileage:', app.mileage);
+        console.log('employmentstatus:', app.employmentstatus);
+        console.log('monthlyincome:', app.monthlyincome);
+        console.log('employer_name:', app.employer_name);
+        console.log('job_title:', app.job_title);
+        console.log('employment_duration:', app.employment_duration);
+        console.log('additionalnotes:', app.additionalnotes);
+      });
+      
+      console.log('✅ Retrieved full application details from applications table');
       return lowerCaseData as Application[];
     }
     
@@ -60,7 +78,10 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
         
         if (filteredDownloads.length > 0) {
           console.log(`✅ Found ${filteredDownloads.length} application details from downloads`);
-          console.log('📋 Sample download data:', JSON.stringify(filteredDownloads[0]).substring(0, 300) + '...');
+          
+          // Log raw data for debugging
+          console.log('🔍 RAW DATA FROM DOWNLOADS:');
+          console.log(JSON.stringify(filteredDownloads, null, 2));
           
           // For each download, fetch the full application data to ensure we have ALL fields
           const completeApplications = await Promise.all(filteredDownloads.map(async (download: any) => {
@@ -75,11 +96,27 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
               return download; // Return what we have if we can't get complete data
             }
             
+            // Log the raw application data
+            console.log(`🔍 RAW APPLICATION DATA for ${download.applicationId}:`);
+            console.log(JSON.stringify(appData, null, 2));
+            
+            // Log specific fields we're looking for
+            console.log(`Application ${download.applicationId} field check:`);
+            console.log('hasexistingloan:', appData.hasexistingloan);
+            console.log('currentvehicle:', appData.currentvehicle);
+            console.log('currentpayment:', appData.currentpayment);
+            console.log('amountowed:', appData.amountowed);
+            console.log('mileage:', appData.mileage);
+            console.log('employmentstatus:', appData.employmentstatus);
+            console.log('monthlyincome:', appData.monthlyincome);
+            console.log('employer_name:', appData.employer_name);
+            console.log('job_title:', appData.job_title);
+            console.log('employment_duration:', appData.employment_duration);
+            console.log('additionalnotes:', appData.additionalnotes);
+            
             // Merge the download record with the full application data
             // Keep download fields as they may have updated/override values
             const mergedData = { ...appData, ...download };
-            console.log(`📋 Merged application data for ${download.applicationId}:`, 
-              JSON.stringify(mergedData).substring(0, 300) + '...');
             
             return mergedData;
           }));
@@ -119,6 +156,10 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
             return null;
           }
           
+          // Log the raw application data
+          console.log(`🔍 RAW APPLICATION DATA for ${record.application_id}:`);
+          console.log(JSON.stringify(appDetails, null, 2));
+          
           return {
             downloadId: record.id,
             downloadDate: record.downloaded_at,
@@ -133,8 +174,6 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
         
         if (validAppData.length > 0) {
           console.log(`✅ Transformed ${validAppData.length} application records`);
-          console.log('📋 Sample data fields:', Object.keys(validAppData[0]).slice(0, 10));
-          console.log('📋 Sample data for first application:', JSON.stringify(validAppData[0]).substring(0, 300) + '...');
           return validAppData;
         }
       }

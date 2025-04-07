@@ -21,8 +21,8 @@ export const downloadAsExcel = async (applicationIds: string[]): Promise<void> =
     const formattedApplications = await Promise.all(formattedApplicationsPromises);
     
     // Log the formatted application data
-    console.log('Formatted application data for Excel:', 
-      JSON.stringify(formattedApplications[0]).substring(0, 300) + '...');
+    console.log('Formatted application data for Excel (first application):');
+    console.log(JSON.stringify(formattedApplications[0], null, 2));
     
     // Create workbook and worksheet
     const wb = XLSX.utils.book_new();

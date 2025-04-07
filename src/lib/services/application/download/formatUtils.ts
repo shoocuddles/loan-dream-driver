@@ -23,7 +23,7 @@ export const formatApplicationData = async (application: ApplicationData) => {
   const isDownloadedApp = 'downloadId' in application || 'applicationId' in application;
   
   // Log the application data for debugging
-  console.log('Raw application data:', JSON.stringify(application).substring(0, 300) + '...');
+  console.log('Raw application data (first 300 chars):', JSON.stringify(application).substring(0, 300) + '...');
   
   // Format dates - handle different date field locations based on application type
   let createdDate = 'N/A';
@@ -31,6 +31,8 @@ export const formatApplicationData = async (application: ApplicationData) => {
     const downloadedApp = application as any;
     if (downloadedApp.downloadDate) {
       createdDate = format(new Date(downloadedApp.downloadDate), 'MMM d, yyyy');
+    } else if (downloadedApp.created_at) {
+      createdDate = format(new Date(downloadedApp.created_at), 'MMM d, yyyy');
     }
   } else {
     const standardApp = application as any;
@@ -74,149 +76,125 @@ export const formatApplicationData = async (application: ApplicationData) => {
     return 'N/A';
   };
   
-  // For downloaded applications (which have already been processed)
-  if (isDownloadedApp) {
-    const downloadedApp = application as any;
-    
-    // Map field names to match our PDF categories - use the getValueOrNA for consistent formatting
-    formattedData['Full Name'] = getValueOrNA(downloadedApp.fullName || downloadedApp.fullname);
-    formattedData['City'] = getValueOrNA(downloadedApp.city);
-    formattedData['Address'] = getValueOrNA(downloadedApp.streetAddress || downloadedApp.streetaddress || downloadedApp.address);
-    formattedData['Province'] = getValueOrNA(downloadedApp.province);
-    formattedData['Postal Code'] = getValueOrNA(downloadedApp.postalCode || downloadedApp.postalcode);
-    formattedData['Email'] = getValueOrNA(downloadedApp.email);
-    formattedData['Phone Number'] = getValueOrNA(downloadedApp.phoneNumber || downloadedApp.phonenumber || downloadedApp.phone);
-    
-    // Vehicle information - using the correct field names from Supabase
-    formattedData['Vehicle Type'] = getValueOrNA(downloadedApp.vehicleType || downloadedApp.vehicletype);
-    formattedData['Unwanted Colors'] = getValueOrNA(downloadedApp.unwantedColors || downloadedApp.unwantedcolors);
-    formattedData['Required Features'] = getValueOrNA(downloadedApp.requiredFeatures || downloadedApp.requiredfeatures);
-    formattedData['Preferred Make/Model'] = getValueOrNA(downloadedApp.preferredMakeModel || downloadedApp.preferredmakemodel);
-    
-    // Loan information - use getBooleanValue for boolean fields
-    formattedData['Has Existing Loan'] = getBooleanValue(downloadedApp.hasExistingLoan || downloadedApp.hasexistingloan);
-    formattedData['Current Vehicle'] = getValueOrNA(downloadedApp.currentVehicle || downloadedApp.currentvehicle);
-    formattedData['Current Payment'] = getValueOrNA(downloadedApp.currentPayment || downloadedApp.currentpayment);
-    formattedData['Amount Owed'] = getValueOrNA(downloadedApp.amountOwed || downloadedApp.amountowed);
-    formattedData['Mileage'] = getValueOrNA(downloadedApp.mileage);
-    
-    // Income information
-    formattedData['Employment Status'] = getValueOrNA(downloadedApp.employmentStatus || downloadedApp.employmentstatus);
-    formattedData['Monthly Income'] = getValueOrNA(downloadedApp.monthlyIncome || downloadedApp.monthlyincome || downloadedApp.income);
-    formattedData['Employer Name'] = getValueOrNA(downloadedApp.employerName || downloadedApp.employer_name);
-    formattedData['Job Title'] = getValueOrNA(downloadedApp.jobTitle || downloadedApp.job_title);
-    formattedData['Employment Duration'] = getValueOrNA(downloadedApp.employmentDuration || downloadedApp.employment_duration);
-    
-    // Additional information
-    formattedData['Additional Notes'] = getValueOrNA(downloadedApp.additionalNotes || downloadedApp.additionalnotes);
-    formattedData['Submission Date'] = createdDate;
-    
-    // Log the field mapping for debugging
-    console.log('Field mapping for downloaded app - Has Existing Loan:', {
-      raw: downloadedApp.hasExistingLoan || downloadedApp.hasexistingloan,
-      formatted: formattedData['Has Existing Loan']
-    });
-    
-    console.log('Field mapping for downloaded app - Employment Status:', {
-      raw: downloadedApp.employmentStatus || downloadedApp.employmentstatus,
-      formatted: formattedData['Employment Status']
-    });
-    
-    // Make sure ALL columns from metadata are included, even if missing in the downloadedApp
-    columnMetadata.forEach(column => {
-      const camelCaseKey = toCamelCase(column.name);
-      const snakeCaseKey = column.name;
-      const displayName = column.displayName;
-      
-      // Check if we already have this field (using various naming conventions)
-      const hasField = Object.keys(formattedData).some(key => 
-        key.toLowerCase() === displayName.toLowerCase() || 
-        key.replace(/\s+/g, '').toLowerCase() === displayName.replace(/\s+/g, '').toLowerCase()
-      );
-      
-      if (!hasField) {
-        // Look for the field using various naming formats
-        const value = downloadedApp[camelCaseKey] || downloadedApp[snakeCaseKey] || null;
-        formattedData[displayName] = getValueOrNA(value);
-      }
-    });
-  } 
-  // For standard applications directly from the database
-  else {
-    const standardApp = application as any;
-    
-    // Map field names to match our PDF categories - be more thorough with field checks
-    formattedData['Full Name'] = getValueOrNA(standardApp.fullname);
-    formattedData['City'] = getValueOrNA(standardApp.city);
-    formattedData['Address'] = getValueOrNA(standardApp.streetaddress || standardApp.address);
-    formattedData['Province'] = getValueOrNA(standardApp.province);
-    formattedData['Postal Code'] = getValueOrNA(standardApp.postalcode);
-    formattedData['Email'] = getValueOrNA(standardApp.email);
-    formattedData['Phone Number'] = getValueOrNA(standardApp.phonenumber || standardApp.phone);
-    
-    // Vehicle information - using the correct field names from Supabase
-    formattedData['Vehicle Type'] = getValueOrNA(standardApp.vehicletype);
-    formattedData['Unwanted Colors'] = getValueOrNA(standardApp.unwantedcolors);
-    formattedData['Required Features'] = getValueOrNA(standardApp.requiredfeatures);
-    formattedData['Preferred Make/Model'] = getValueOrNA(standardApp.preferredmakemodel);
-    
-    // Loan information - use getBooleanValue for consistency
-    formattedData['Has Existing Loan'] = getBooleanValue(standardApp.hasexistingloan);
-    formattedData['Current Vehicle'] = getValueOrNA(standardApp.currentvehicle);
-    formattedData['Current Payment'] = getValueOrNA(standardApp.currentpayment);
-    formattedData['Amount Owed'] = getValueOrNA(standardApp.amountowed);
-    formattedData['Mileage'] = getValueOrNA(standardApp.mileage);
-    
-    // Income information
-    formattedData['Employment Status'] = getValueOrNA(standardApp.employmentstatus);
-    formattedData['Monthly Income'] = getValueOrNA(standardApp.monthlyincome || standardApp.income);
-    formattedData['Employer Name'] = getValueOrNA(standardApp.employer_name);
-    formattedData['Job Title'] = getValueOrNA(standardApp.job_title);
-    formattedData['Employment Duration'] = getValueOrNA(standardApp.employment_duration);
-    
-    // Additional information
-    formattedData['Additional Notes'] = getValueOrNA(standardApp.additionalnotes);
-    formattedData['Submission Date'] = createdDate;
-    
-    // Log the field mapping for debugging
-    console.log('Field mapping for standard app - Has Existing Loan:', {
-      raw: standardApp.hasexistingloan,
-      formatted: formattedData['Has Existing Loan']
-    });
-    
-    console.log('Field mapping for standard app - Employment Status:', {
-      raw: standardApp.employmentstatus,
-      formatted: formattedData['Employment Status']
-    });
-    
-    // Process ALL database columns systematically, including all empty fields
-    // This ensures we don't miss any fields not explicitly mapped above
-    columnMetadata.forEach(column => {
-      const key = column.name;
-      const displayName = column.displayName;
-      
-      // Check if we already have this field (using various naming conventions)
-      const hasField = Object.keys(formattedData).some(existingKey => 
-        existingKey.toLowerCase() === displayName.toLowerCase() || 
-        existingKey.replace(/\s+/g, '').toLowerCase() === displayName.replace(/\s+/g, '').toLowerCase()
-      );
-      
-      if (!hasField) {
-        // Handle mappings between camelCase and snake_case
-        const camelCaseKey = toCamelCase(key);
-        const value = key in standardApp 
-          ? standardApp[key] 
-          : camelCaseKey in standardApp 
-            ? standardApp[camelCaseKey] 
-            : null;
-            
-        formattedData[displayName] = key === 'id' || typeof value !== 'boolean'
-          ? getValueOrNA(value) // Non-booleans should show as-is
-          : getBooleanValue(value); // Booleans should show as Yes/No
-      }
-    });
-  }
+  // Log the application object keys to help with debugging
+  console.log('Application object keys:', Object.keys(application));
   
+  // Common mapping function for both downloaded and standard applications
+  const mapField = (fieldName: string, camelCaseName: string, snakeCaseName: string) => {
+    // Try to find the value using various casing conventions
+    const value = application[fieldName] ?? 
+                 application[camelCaseName] ?? 
+                 application[snakeCaseName] ?? 
+                 application[fieldName.toLowerCase()] ?? 
+                 application[camelCaseName.toLowerCase()] ?? 
+                 application[snakeCaseName.toLowerCase()];
+    
+    console.log(`Field mapping - ${fieldName}:`, {
+      fieldName: fieldName,
+      camelCase: camelCaseName,
+      snakeCase: snakeCaseName,
+      value: value,
+      type: value !== undefined ? typeof value : 'undefined'
+    });
+    
+    return value;
+  };
+  
+  // Map all fields explicitly using proper mappings from Supabase
+  formattedData['Full Name'] = getValueOrNA(mapField('fullName', 'fullName', 'fullname'));
+  formattedData['City'] = getValueOrNA(mapField('city', 'city', 'city'));
+  formattedData['Address'] = getValueOrNA(mapField('address', 'streetAddress', 'streetaddress'));
+  formattedData['Province'] = getValueOrNA(mapField('province', 'province', 'province'));
+  formattedData['Postal Code'] = getValueOrNA(mapField('postalCode', 'postalCode', 'postalcode'));
+  formattedData['Email'] = getValueOrNA(mapField('email', 'email', 'email'));
+  formattedData['Phone Number'] = getValueOrNA(mapField('phoneNumber', 'phoneNumber', 'phonenumber'));
+  
+  // Vehicle information - using the specific field names from Supabase
+  formattedData['Vehicle Type'] = getValueOrNA(mapField('vehicleType', 'vehicleType', 'vehicletype'));
+  formattedData['Unwanted Colors'] = getValueOrNA(mapField('unwantedColors', 'unwantedColors', 'unwantedcolors'));
+  formattedData['Required Features'] = getValueOrNA(mapField('requiredFeatures', 'requiredFeatures', 'requiredfeatures'));
+  formattedData['Preferred Make/Model'] = getValueOrNA(mapField('preferredMakeModel', 'preferredMakeModel', 'preferredmakemodel'));
+  
+  // Loan information - use getBooleanValue for boolean fields
+  const existingLoanValue = mapField('hasExistingLoan', 'hasExistingLoan', 'hasexistingloan');
+  console.log('Has Existing Loan raw value:', existingLoanValue, 'type:', typeof existingLoanValue);
+  formattedData['Has Existing Loan'] = getBooleanValue(existingLoanValue);
+  
+  formattedData['Current Vehicle'] = getValueOrNA(mapField('currentVehicle', 'currentVehicle', 'currentvehicle'));
+  formattedData['Current Payment'] = getValueOrNA(mapField('currentPayment', 'currentPayment', 'currentpayment'));
+  formattedData['Amount Owed'] = getValueOrNA(mapField('amountOwed', 'amountOwed', 'amountowed'));
+  formattedData['Mileage'] = getValueOrNA(mapField('mileage', 'mileage', 'mileage'));
+  
+  // Income information
+  formattedData['Employment Status'] = getValueOrNA(mapField('employmentStatus', 'employmentStatus', 'employmentstatus'));
+  formattedData['Monthly Income'] = getValueOrNA(mapField('monthlyIncome', 'monthlyIncome', 'monthlyincome'));
+  formattedData['Employer Name'] = getValueOrNA(mapField('employerName', 'employerName', 'employer_name'));
+  formattedData['Job Title'] = getValueOrNA(mapField('jobTitle', 'jobTitle', 'job_title'));
+  formattedData['Employment Duration'] = getValueOrNA(mapField('employmentDuration', 'employmentDuration', 'employment_duration'));
+  
+  // Additional information
+  formattedData['Additional Notes'] = getValueOrNA(mapField('additionalNotes', 'additionalNotes', 'additionalnotes'));
+  formattedData['Submission Date'] = createdDate;
+  
+  // Log the formatted data for all key fields
+  console.log('Formatted data for key fields:');
+  [
+    'Full Name', 'City', 'Address', 'Province', 'Postal Code', 'Email', 'Phone Number',
+    'Vehicle Type', 'Unwanted Colors', 'Required Features', 'Preferred Make/Model',
+    'Has Existing Loan', 'Current Vehicle', 'Current Payment', 'Amount Owed', 'Mileage',
+    'Employment Status', 'Monthly Income', 'Employer Name', 'Job Title', 'Employment Duration',
+    'Additional Notes', 'Submission Date'
+  ].forEach(key => {
+    console.log(`${key}: '${formattedData[key]}'`);
+  });
+  
+  // Final fallback to ensure we include ALL fields from the application with proper display names
+  columnMetadata.forEach(column => {
+    const displayName = column.displayName;
+    const columnName = column.name;
+    
+    // Skip fields we've explicitly removed
+    const excludedFields = [
+      'payment amount',
+      'status',
+      'application id',
+      'id',
+      'user id',
+      'street address',
+      'is complete',
+      'last updated',
+      'download id'
+    ];
+    
+    if (excludedFields.some(excluded => 
+      columnName.toLowerCase() === excluded.toLowerCase() ||
+      displayName.toLowerCase() === excluded.toLowerCase()
+    )) {
+      return;
+    }
+    
+    // Check if we already have this field (using case-insensitive comparison)
+    const hasField = Object.keys(formattedData).some(key => 
+      key.toLowerCase() === displayName.toLowerCase() || 
+      key.replace(/\s+/g, '').toLowerCase() === displayName.replace(/\s+/g, '').toLowerCase()
+    );
+    
+    if (!hasField) {
+      // Try to find the value using various naming conventions
+      const camelCaseKey = toCamelCase(columnName);
+      const value = application[columnName] ?? 
+                   application[camelCaseKey] ?? 
+                   application[columnName.toLowerCase()] ?? 
+                   application[camelCaseKey.toLowerCase()];
+      
+      if (value !== undefined) {
+        const isBooleanField = typeof value === 'boolean';
+        formattedData[displayName] = isBooleanField ? getBooleanValue(value) : getValueOrNA(value);
+      }
+    }
+  });
+  
+  console.log('Final formatted data object:', formattedData);
   return formattedData;
 };
 

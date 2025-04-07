@@ -21,13 +21,16 @@ export const fetchAvailableApplications = async (): Promise<ApplicationItem[]> =
     
     if (error) throw error;
     
-    // Map the data to ensure all expected properties exist
+    console.log('Raw application data from database:', data);
+    
+    // Map the data to ensure all expected properties exist and field names match
     const formattedData = data?.map(app => ({
       ...app,
-      vehicleType: app.vehicleType || 'N/A' // Use the existing vehicleType or provide a fallback
+      // Make sure we capture vehicleType from either camelCase or lowercase property
+      vehicleType: app.vehicleType || app.vehicletype || 'N/A'
     })) || [];
     
-    console.log('Fetched applications:', formattedData);
+    console.log('Formatted applications with vehicleType:', formattedData);
     
     return formattedData;
   } catch (error: any) {

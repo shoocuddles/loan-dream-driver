@@ -1,3 +1,4 @@
+
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { saveAs } from 'file-saver';
@@ -200,7 +201,7 @@ const formatApplicationData = (application: ApplicationData) => {
     'Current Vehicle': getValueOrNA(standardApp.currentvehicle),
     'Mileage': getValueOrNA(standardApp.mileage),
     'Employment Status': getValueOrNA(standardApp.employmentstatus),
-    'Monthly Income': getValueOrNA(standardApp.monthlyincome || standardApp.income), // Keep the fallback for income field
+    'Monthly Income': getValueOrNA(standardApp.monthlyincome || standardApp.income), // Fixed: using monthlyIncome with fallback to income
     'Additional Notes': getValueOrNA(standardApp.additionalnotes),
     'Status': getValueOrNA(standardApp.status),
     'Submission Date': createdDate,

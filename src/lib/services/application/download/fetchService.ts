@@ -26,6 +26,7 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
     // If we got data from the regular applications table, return it
     if (lowerCaseData && lowerCaseData.length > 0) {
       console.log(`✅ Retrieved ${lowerCaseData.length} full application details from applications table`);
+      console.log('📋 Sample data fields:', Object.keys(lowerCaseData[0]).slice(0, 10));
       return lowerCaseData as Application[];
     }
     
@@ -55,7 +56,25 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
         
         if (filteredDownloads.length > 0) {
           console.log(`✅ Retrieved ${filteredDownloads.length} application details from downloads`);
-          return filteredDownloads as DownloadedApplication[];
+          
+          // For each download, fetch the full application data to ensure we have ALL fields
+          const completeApplications = await Promise.all(filteredDownloads.map(async (download: any) => {
+            const { data: appData, error: appError } = await supabase
+              .from('applications')
+              .select('*')
+              .eq('id', download.applicationId)
+              .single();
+              
+            if (appError) {
+              console.warn(`⚠️ Could not fetch complete data for ${download.applicationId}:`, appError);
+              return download; // Return what we have if we can't get complete data
+            }
+            
+            // Merge the download record with the full application data
+            return { ...download, ...appData };
+          }));
+          
+          return completeApplications as DownloadedApplication[];
         }
       }
     } catch (rpcError) {
@@ -104,6 +123,7 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
         
         if (validAppData.length > 0) {
           console.log(`✅ Transformed ${validAppData.length} application records`);
+          console.log('📋 Sample data fields:', Object.keys(validAppData[0]).slice(0, 10));
           return validAppData;
         }
       }
@@ -141,10 +161,16 @@ export const fetchApplicationColumnMetadata = async (): Promise<ColumnMetadata[]
       console.log(`✅ Retrieved ${columnsData.length} columns from applications table`);
       
       // Map the column data to our metadata format
-      return columnsData.map((col: any) => ({
+      const metadata = columnsData.map((col: any) => ({
         name: col.column_name,
         displayName: formatColumnName(col.column_name)
       }));
+      
+      // Add any additional virtual columns that might be needed
+      metadata.push({ name: 'downloadDate', displayName: 'Download Date' });
+      metadata.push({ name: 'applicationId', displayName: 'Application ID' });
+      
+      return metadata;
     }
     
     // Fallback to hardcoded list if no columns returned
@@ -168,8 +194,11 @@ const formatColumnName = (columnName: string): string => {
 
 // Fallback column metadata in case the database query fails
 const getDefaultColumnMetadata = (): ColumnMetadata[] => {
-  return [
+  // Include ALL known database columns, even if they might not be used
+  const columns = [
+    // Standard application fields
     { name: 'id', displayName: 'ID' },
+    { name: 'user_id', displayName: 'User ID' },
     { name: 'fullname', displayName: 'Full Name' },
     { name: 'email', displayName: 'Email' },
     { name: 'phonenumber', displayName: 'Phone Number' },
@@ -190,7 +219,16 @@ const getDefaultColumnMetadata = (): ColumnMetadata[] => {
     { name: 'monthlyincome', displayName: 'Monthly Income' },
     { name: 'additionalnotes', displayName: 'Additional Notes' },
     { name: 'status', displayName: 'Status' },
+    { name: 'iscomplete', displayName: 'Is Complete' },
     { name: 'created_at', displayName: 'Submission Date' },
-    { name: 'updated_at', displayName: 'Last Updated' }
+    { name: 'updated_at', displayName: 'Last Updated' },
+    
+    // Virtual fields from download processing
+    { name: 'downloadId', displayName: 'Download ID' },
+    { name: 'downloadDate', displayName: 'Download Date' },
+    { name: 'applicationId', displayName: 'Application ID' },
+    { name: 'paymentAmount', displayName: 'Payment Amount' }
   ];
+  
+  return columns;
 };

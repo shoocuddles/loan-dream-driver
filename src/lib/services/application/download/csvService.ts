@@ -20,8 +20,17 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
     const formattedApplicationsPromises = applications.map(app => formatApplicationData(app));
     const formattedApplications = await Promise.all(formattedApplicationsPromises);
     
+    // Get all unique headers across all applications
+    const allHeaders = new Set<string>();
+    formattedApplications.forEach(app => {
+      Object.keys(app).forEach(header => allHeaders.add(header));
+    });
+    
+    // Convert to array and sort for consistent output
+    const headers = Array.from(allHeaders).sort();
+    console.log('🏷️ CSV Headers:', headers);
+    
     // Create CSV content
-    const headers = Object.keys(formattedApplications[0]);
     const csvRows = [
       // Header row
       headers.join(','),
@@ -29,7 +38,7 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       ...formattedApplications.map(app => 
         headers.map(header => {
           // Escape commas and quotes
-          let value = app[header as keyof typeof app] || '';
+          let value = app[header] || '';
           value = String(value).replace(/"/g, '""');
           // Wrap in quotes if contains comma, quote or newline
           return /[",\n\r]/.test(value) ? `"${value}"` : value;

@@ -45,40 +45,33 @@ export const formatApplicationData = async (application: ApplicationData) => {
   const getValueOrNA = (value: any) => value !== null && value !== undefined ? String(value) : 'N/A';
   const getBooleanValue = (value: boolean | null | undefined) => value === true ? 'Yes' : 'No';
   
-  // Build a dynamic object based on the application type and available fields
+  // For downloaded applications (which have already been processed)
   if (isDownloadedApp) {
-    // For downloaded applications, map fields from the downloaded format
     const downloadedApp = application as any;
     
-    // Standard fields that are always included
-    formattedData['Full Name'] = getValueOrNA(downloadedApp.fullName);
-    formattedData['Email'] = getValueOrNA(downloadedApp.email);
-    formattedData['Phone Number'] = getValueOrNA(downloadedApp.phoneNumber);
-    formattedData['Address'] = getValueOrNA(downloadedApp.address);
-    formattedData['City'] = getValueOrNA(downloadedApp.city);
-    formattedData['Province'] = getValueOrNA(downloadedApp.province);
-    formattedData['Postal Code'] = getValueOrNA(downloadedApp.postalCode);
-    formattedData['Vehicle Type'] = getValueOrNA(downloadedApp.vehicleType);
-    formattedData['Download Date'] = downloadedApp.downloadDate
-      ? format(new Date(downloadedApp.downloadDate), 'MMM d, yyyy')
-      : 'N/A';
-    formattedData['Application ID'] = getValueOrNA(downloadedApp.applicationId);
-    
-    // Add all other fields that might be available
+    // Process all fields from the downloaded app object
     for (const key in downloadedApp) {
-      if (!['fullName', 'email', 'phoneNumber', 'address', 'city', 'province', 'postalCode', 
-           'vehicleType', 'downloadDate', 'applicationId', 'downloadId', 'paymentAmount'].includes(key)) {
-        const column = columnMetadata.find(col => col.name === key.toLowerCase());
-        if (column) {
-          formattedData[column.displayName] = getValueOrNA(downloadedApp[key]);
-        }
+      if (key === 'downloadDate') {
+        formattedData['Download Date'] = downloadedApp.downloadDate
+          ? format(new Date(downloadedApp.downloadDate), 'MMM d, yyyy')
+          : 'N/A';
+      } else {
+        // Convert keys to proper display format
+        const displayKey = formatColumnName(key);
+        formattedData[displayKey] = getValueOrNA(downloadedApp[key]);
       }
     }
-  } else {
-    // Standard application format from applications table
+    
+    // Ensure Application ID is properly named
+    if ('applicationId' in downloadedApp) {
+      formattedData['Application ID'] = getValueOrNA(downloadedApp.applicationId);
+    }
+  } 
+  // For standard applications directly from the database
+  else {
     const standardApp = application as any;
     
-    // Include all available fields
+    // Process ALL database columns systematically
     columnMetadata.forEach(column => {
       const key = column.name;
       const displayName = column.displayName;
@@ -93,40 +86,53 @@ export const formatApplicationData = async (application: ApplicationData) => {
       else if (key === 'updated_at') {
         formattedData['Last Updated'] = updatedDate;
       }
-      // Handle different naming conventions between API and database
+      // Handle mappings between camelCase and snake_case
       else if (key === 'monthlyincome' && 'monthlyIncome' in standardApp) {
         formattedData[displayName] = getValueOrNA(standardApp.monthlyIncome);
       }
-      // Standard field handling
-      else if (key in standardApp) {
-        formattedData[displayName] = getValueOrNA(standardApp[key]);
+      // Map the database column name to a display name and include the value
+      else {
+        // Handle both snake_case (from DB) and camelCase (from frontend)
+        const camelCaseKey = toCamelCase(key);
+        const value = key in standardApp 
+          ? standardApp[key] 
+          : camelCaseKey in standardApp 
+            ? standardApp[camelCaseKey] 
+            : null;
+            
+        formattedData[displayName] = key === 'id' 
+          ? getValueOrNA(value) // ID should be shown as-is
+          : getBooleanValue(value); // Booleans should show as Yes/No
       }
     });
     
-    // Ensure these fields are always present with correct naming
-    formattedData['Full Name'] = getValueOrNA(standardApp.fullname);
-    formattedData['Email'] = getValueOrNA(standardApp.email);
-    formattedData['Phone Number'] = getValueOrNA(standardApp.phonenumber);
-    formattedData['Address'] = getValueOrNA(standardApp.streetaddress);
-    formattedData['City'] = getValueOrNA(standardApp.city);
-    formattedData['Province'] = getValueOrNA(standardApp.province);
-    formattedData['Postal Code'] = getValueOrNA(standardApp.postalcode);
-    formattedData['Vehicle Type'] = getValueOrNA(standardApp.vehicletype);
-    formattedData['Required Features'] = getValueOrNA(standardApp.requiredfeatures);
-    formattedData['Unwanted Colors'] = getValueOrNA(standardApp.unwantedcolors);
-    formattedData['Preferred Make/Model'] = getValueOrNA(standardApp.preferredmakemodel);
-    formattedData['Has Existing Loan'] = getBooleanValue(standardApp.hasexistingloan);
-    formattedData['Current Payment'] = getValueOrNA(standardApp.currentpayment);
-    formattedData['Amount Owed'] = getValueOrNA(standardApp.amountowed);
-    formattedData['Current Vehicle'] = getValueOrNA(standardApp.currentvehicle);
-    formattedData['Mileage'] = getValueOrNA(standardApp.mileage);
-    formattedData['Employment Status'] = getValueOrNA(standardApp.employmentstatus);
-    formattedData['Monthly Income'] = getValueOrNA(standardApp.monthlyincome || standardApp.monthlyIncome);
-    formattedData['Additional Notes'] = getValueOrNA(standardApp.additionalnotes);
-    formattedData['Status'] = getValueOrNA(standardApp.status);
+    // Ensure these common fields have consistent naming
+    if ('id' in standardApp) {
+      formattedData['Application ID'] = getValueOrNA(standardApp.id);
+    }
+    if ('fullname' in standardApp) {
+      formattedData['Full Name'] = getValueOrNA(standardApp.fullname);
+    }
+    if ('email' in standardApp) {
+      formattedData['Email'] = getValueOrNA(standardApp.email);
+    }
   }
   
   return formattedData;
+};
+
+// Format database column names to display names
+const formatColumnName = (columnName: string): string => {
+  // Replace underscores with spaces and capitalize each word
+  return columnName
+    .split(/(?=[A-Z])|_/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+// Convert snake_case to camelCase for property matching
+const toCamelCase = (str: string): string => {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 };
 
 // Get a formatted date string from application data

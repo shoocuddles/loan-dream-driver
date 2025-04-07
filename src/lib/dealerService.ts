@@ -21,10 +21,10 @@ export const fetchAvailableApplications = async (): Promise<ApplicationItem[]> =
     
     if (error) throw error;
     
-    // Ensure vehicle type is mapped correctly
+    // Map the data to ensure all expected properties exist
     const formattedData = data?.map(app => ({
       ...app,
-      vehicleType: app.vehicleType || 'N/A' // Ensure vehicleType is displayed properly
+      vehicleType: app.vehicleType || 'N/A' // Use the existing vehicleType or provide a fallback
     })) || [];
     
     console.log('Fetched applications:', formattedData);

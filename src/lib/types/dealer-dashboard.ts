@@ -1,4 +1,3 @@
-
 import { Application, UserProfile } from './supabase';
 
 export interface LockInfo {
@@ -21,6 +20,7 @@ export interface ApplicationItem {
   isDownloaded?: boolean;
   standardPrice?: number;
   discountedPrice?: number;
+  vehicleType?: string; // Added missing property to match the data returned from the backend
 }
 
 export interface DownloadedApplication {

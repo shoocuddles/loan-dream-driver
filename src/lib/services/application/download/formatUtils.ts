@@ -79,64 +79,50 @@ export const formatApplicationData = async (application: ApplicationData) => {
   // Log the application object keys to help with debugging
   console.log('Application object keys:', Object.keys(application));
   
-  // Common mapping function for both downloaded and standard applications
-  const mapField = (fieldName: string, camelCaseName: string, snakeCaseName: string) => {
-    // Try to find the value using various casing conventions
-    const value = application[fieldName] ?? 
-                 application[camelCaseName] ?? 
-                 application[snakeCaseName] ?? 
-                 application[fieldName.toLowerCase()] ?? 
-                 application[camelCaseName.toLowerCase()] ?? 
-                 application[snakeCaseName.toLowerCase()];
-    
-    console.log(`Field mapping - ${fieldName}:`, {
-      fieldName: fieldName,
-      camelCase: camelCaseName,
-      snakeCase: snakeCaseName,
-      value: value,
-      type: value !== undefined ? typeof value : 'undefined'
-    });
-    
-    return value;
-  };
-  
-  // Map all fields explicitly using proper mappings from Supabase
-  formattedData['Full Name'] = getValueOrNA(mapField('fullName', 'fullName', 'fullname'));
-  formattedData['City'] = getValueOrNA(mapField('city', 'city', 'city'));
-  formattedData['Address'] = getValueOrNA(mapField('address', 'streetAddress', 'streetaddress'));
-  formattedData['Province'] = getValueOrNA(mapField('province', 'province', 'province'));
-  formattedData['Postal Code'] = getValueOrNA(mapField('postalCode', 'postalCode', 'postalcode'));
-  formattedData['Email'] = getValueOrNA(mapField('email', 'email', 'email'));
-  formattedData['Phone Number'] = getValueOrNA(mapField('phoneNumber', 'phoneNumber', 'phonenumber'));
+  // DIRECT MAPPING FROM DATABASE FIELDS - Using the exact field names from Supabase
+  // This ensures we get the data regardless of camelCase vs snake_case issues
+  formattedData['Full Name'] = getValueOrNA(application.fullname || application.fullName);
+  formattedData['City'] = getValueOrNA(application.city);
+  formattedData['Address'] = getValueOrNA(application.streetaddress || application.streetAddress);
+  formattedData['Province'] = getValueOrNA(application.province);
+  formattedData['Postal Code'] = getValueOrNA(application.postalcode || application.postalCode);
+  formattedData['Email'] = getValueOrNA(application.email);
+  formattedData['Phone Number'] = getValueOrNA(application.phonenumber || application.phoneNumber);
   
   // Vehicle information - using the specific field names from Supabase
-  formattedData['Vehicle Type'] = getValueOrNA(mapField('vehicleType', 'vehicleType', 'vehicletype'));
-  formattedData['Unwanted Colors'] = getValueOrNA(mapField('unwantedColors', 'unwantedColors', 'unwantedcolors'));
-  formattedData['Required Features'] = getValueOrNA(mapField('requiredFeatures', 'requiredFeatures', 'requiredfeatures'));
-  formattedData['Preferred Make/Model'] = getValueOrNA(mapField('preferredMakeModel', 'preferredMakeModel', 'preferredmakemodel'));
+  formattedData['Vehicle Type'] = getValueOrNA(application.vehicletype || application.vehicleType);
+  formattedData['Unwanted Colors'] = getValueOrNA(application.unwantedcolors || application.unwantedColors);
+  formattedData['Required Features'] = getValueOrNA(application.requiredfeatures || application.requiredFeatures);
+  formattedData['Preferred Make/Model'] = getValueOrNA(application.preferredmakemodel || application.preferredMakeModel);
   
   // Loan information - use getBooleanValue for boolean fields
-  const existingLoanValue = mapField('hasExistingLoan', 'hasExistingLoan', 'hasexistingloan');
-  console.log('Has Existing Loan raw value:', existingLoanValue, 'type:', typeof existingLoanValue);
-  formattedData['Has Existing Loan'] = getBooleanValue(existingLoanValue);
+  // Try multiple field name variations to ensure we capture the data
+  let hasExistingLoan = 'N/A';
   
-  formattedData['Current Vehicle'] = getValueOrNA(mapField('currentVehicle', 'currentVehicle', 'currentvehicle'));
-  formattedData['Current Payment'] = getValueOrNA(mapField('currentPayment', 'currentPayment', 'currentpayment'));
-  formattedData['Amount Owed'] = getValueOrNA(mapField('amountOwed', 'amountOwed', 'amountowed'));
-  formattedData['Mileage'] = getValueOrNA(mapField('mileage', 'mileage', 'mileage'));
+  if ('hasexistingloan' in application && application.hasexistingloan !== undefined) {
+    hasExistingLoan = getBooleanValue(application.hasexistingloan);
+  } else if ('hasExistingLoan' in application && (application as any).hasExistingLoan !== undefined) {
+    hasExistingLoan = getBooleanValue((application as any).hasExistingLoan);
+  }
   
-  // Income information
-  formattedData['Employment Status'] = getValueOrNA(mapField('employmentStatus', 'employmentStatus', 'employmentstatus'));
-  formattedData['Monthly Income'] = getValueOrNA(mapField('monthlyIncome', 'monthlyIncome', 'monthlyincome'));
-  formattedData['Employer Name'] = getValueOrNA(mapField('employerName', 'employerName', 'employer_name'));
-  formattedData['Job Title'] = getValueOrNA(mapField('jobTitle', 'jobTitle', 'job_title'));
-  formattedData['Employment Duration'] = getValueOrNA(mapField('employmentDuration', 'employmentDuration', 'employment_duration'));
+  formattedData['Has Existing Loan'] = hasExistingLoan;
+  formattedData['Current Vehicle'] = getValueOrNA(application.currentvehicle || (application as any).currentVehicle);
+  formattedData['Current Payment'] = getValueOrNA(application.currentpayment || (application as any).currentPayment);
+  formattedData['Amount Owed'] = getValueOrNA(application.amountowed || (application as any).amountOwed);
+  formattedData['Mileage'] = getValueOrNA(application.mileage);
+  
+  // Income information - ensuring all possible field name variations are checked
+  formattedData['Employment Status'] = getValueOrNA(application.employmentstatus || (application as any).employmentStatus);
+  formattedData['Monthly Income'] = getValueOrNA(application.monthlyincome || (application as any).monthlyIncome);
+  formattedData['Employer Name'] = getValueOrNA(application.employer_name || (application as any).employerName);
+  formattedData['Job Title'] = getValueOrNA(application.job_title || (application as any).jobTitle);
+  formattedData['Employment Duration'] = getValueOrNA(application.employment_duration || (application as any).employmentDuration);
   
   // Additional information
-  formattedData['Additional Notes'] = getValueOrNA(mapField('additionalNotes', 'additionalNotes', 'additionalnotes'));
+  formattedData['Additional Notes'] = getValueOrNA(application.additionalnotes || (application as any).additionalNotes);
   formattedData['Submission Date'] = createdDate;
   
-  // Log the formatted data for all key fields
+  // Log the formatted data for all key fields to confirm values are being properly assigned
   console.log('Formatted data for key fields:');
   [
     'Full Name', 'City', 'Address', 'Province', 'Postal Code', 'Email', 'Phone Number',
@@ -149,6 +135,7 @@ export const formatApplicationData = async (application: ApplicationData) => {
   });
   
   // Final fallback to ensure we include ALL fields from the application with proper display names
+  // We'll only add fields that haven't been explicitly added above
   columnMetadata.forEach(column => {
     const displayName = column.displayName;
     const columnName = column.name;

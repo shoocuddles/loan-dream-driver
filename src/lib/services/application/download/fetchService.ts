@@ -28,20 +28,27 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
       console.log('🔍 RAW DATA FROM SUPABASE:');
       console.log(JSON.stringify(lowerCaseData, null, 2));
       
+      // Log EVERY field for the first application to help debugging
+      console.log('📄 COMPLETE FIELD MAPPING FOR FIRST APPLICATION:');
+      const app = lowerCaseData[0];
+      Object.keys(app).forEach(key => {
+        console.log(`Field: ${key} | Value: ${JSON.stringify(app[key])} | Type: ${typeof app[key]}`);
+      });
+      
       // Log specific fields we're looking for
       lowerCaseData.forEach(app => {
         console.log(`Application ID ${app.id} field check:`);
-        console.log('hasexistingloan:', app.hasexistingloan);
-        console.log('currentvehicle:', app.currentvehicle);
-        console.log('currentpayment:', app.currentpayment);
-        console.log('amountowed:', app.amountowed);
-        console.log('mileage:', app.mileage);
-        console.log('employmentstatus:', app.employmentstatus);
-        console.log('monthlyincome:', app.monthlyincome);
-        console.log('employer_name:', app.employer_name);
-        console.log('job_title:', app.job_title);
-        console.log('employment_duration:', app.employment_duration);
-        console.log('additionalnotes:', app.additionalnotes);
+        console.log('hasexistingloan:', app.hasexistingloan, 'type:', typeof app.hasexistingloan);
+        console.log('currentvehicle:', app.currentvehicle, 'type:', typeof app.currentvehicle);
+        console.log('currentpayment:', app.currentpayment, 'type:', typeof app.currentpayment);
+        console.log('amountowed:', app.amountowed, 'type:', typeof app.amountowed);
+        console.log('mileage:', app.mileage, 'type:', typeof app.mileage);
+        console.log('employmentstatus:', app.employmentstatus, 'type:', typeof app.employmentstatus);
+        console.log('monthlyincome:', app.monthlyincome, 'type:', typeof app.monthlyincome);
+        console.log('employer_name:', app.employer_name, 'type:', typeof app.employer_name);
+        console.log('job_title:', app.job_title, 'type:', typeof app.job_title);
+        console.log('employment_duration:', app.employment_duration, 'type:', typeof app.employment_duration);
+        console.log('additionalnotes:', app.additionalnotes, 'type:', typeof app.additionalnotes);
       });
       
       console.log('✅ Retrieved full application details from applications table');
@@ -72,6 +79,8 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
       // If we got data, filter for requested application ids
       if (Array.isArray(downloadedApps) && downloadedApps.length > 0) {
         console.log('✅ Retrieved application details from downloads RPC, now filtering');
+        console.log('📄 RAW DOWNLOAD RPC DATA:', JSON.stringify(downloadedApps, null, 2));
+        
         const filteredDownloads = downloadedApps.filter((app: any) => 
           applicationIds.includes(app.applicationId)
         );
@@ -97,22 +106,28 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
             }
             
             // Log the raw application data
-            console.log(`🔍 RAW APPLICATION DATA for ${download.applicationId}:`);
+            console.log(`🔍 COMPLETE RAW APPLICATION DATA for ${download.applicationId}:`);
             console.log(JSON.stringify(appData, null, 2));
+            
+            // Log EVERY field to help debugging
+            console.log(`📄 COMPLETE FIELD MAPPING FOR APPLICATION ${download.applicationId}:`);
+            Object.keys(appData).forEach(key => {
+              console.log(`Field: ${key} | Value: ${JSON.stringify(appData[key])} | Type: ${typeof appData[key]}`);
+            });
             
             // Log specific fields we're looking for
             console.log(`Application ${download.applicationId} field check:`);
-            console.log('hasexistingloan:', appData.hasexistingloan);
-            console.log('currentvehicle:', appData.currentvehicle);
-            console.log('currentpayment:', appData.currentpayment);
-            console.log('amountowed:', appData.amountowed);
-            console.log('mileage:', appData.mileage);
-            console.log('employmentstatus:', appData.employmentstatus);
-            console.log('monthlyincome:', appData.monthlyincome);
-            console.log('employer_name:', appData.employer_name);
-            console.log('job_title:', appData.job_title);
-            console.log('employment_duration:', appData.employment_duration);
-            console.log('additionalnotes:', appData.additionalnotes);
+            console.log('hasexistingloan:', appData.hasexistingloan, 'type:', typeof appData.hasexistingloan);
+            console.log('currentvehicle:', appData.currentvehicle, 'type:', typeof appData.currentvehicle);
+            console.log('currentpayment:', appData.currentpayment, 'type:', typeof appData.currentpayment);
+            console.log('amountowed:', appData.amountowed, 'type:', typeof appData.amountowed);
+            console.log('mileage:', appData.mileage, 'type:', typeof appData.mileage);
+            console.log('employmentstatus:', appData.employmentstatus, 'type:', typeof appData.employmentstatus);
+            console.log('monthlyincome:', appData.monthlyincome, 'type:', typeof appData.monthlyincome);
+            console.log('employer_name:', appData.employer_name, 'type:', typeof appData.employer_name);
+            console.log('job_title:', appData.job_title, 'type:', typeof appData.job_title);
+            console.log('employment_duration:', appData.employment_duration, 'type:', typeof appData.employment_duration);
+            console.log('additionalnotes:', appData.additionalnotes, 'type:', typeof appData.additionalnotes);
             
             // Merge the download record with the full application data
             // Keep download fields as they may have updated/override values
@@ -142,6 +157,7 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
       
       if (downloadRecords && downloadRecords.length > 0) {
         console.log(`✅ Found ${downloadRecords.length} download records`);
+        console.log('📄 RAW DOWNLOAD RECORDS:', JSON.stringify(downloadRecords, null, 2));
         
         // Now fetch the full application details for each download
         const appData = await Promise.all(downloadRecords.map(async (record) => {
@@ -157,8 +173,14 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
           }
           
           // Log the raw application data
-          console.log(`🔍 RAW APPLICATION DATA for ${record.application_id}:`);
+          console.log(`🔍 COMPLETE RAW APPLICATION DATA for ${record.application_id}:`);
           console.log(JSON.stringify(appDetails, null, 2));
+          
+          // Log EVERY field to help debugging
+          console.log(`📄 COMPLETE FIELD MAPPING FOR APPLICATION ${record.application_id}:`);
+          Object.keys(appDetails).forEach(key => {
+            console.log(`Field: ${key} | Value: ${JSON.stringify(appDetails[key])} | Type: ${typeof appDetails[key]}`);
+          });
           
           return {
             downloadId: record.id,

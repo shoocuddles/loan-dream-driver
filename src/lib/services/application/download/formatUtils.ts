@@ -22,6 +22,9 @@ export const formatApplicationData = async (application: ApplicationData) => {
   // Check if this is a downloaded application (has different field structure)
   const isDownloadedApp = 'downloadId' in application || 'applicationId' in application;
   
+  // Log the application data for debugging
+  console.log('Raw application data:', JSON.stringify(application).substring(0, 300) + '...');
+  
   // Format dates - handle different date field locations based on application type
   let createdDate = 'N/A';
   if (isDownloadedApp) {
@@ -41,22 +44,48 @@ export const formatApplicationData = async (application: ApplicationData) => {
     ? format(new Date((application as any).updated_at), 'MMM d, yyyy')
     : 'N/A';
   
-  // Handle nullable fields
-  const getValueOrNA = (value: any) => value !== null && value !== undefined ? String(value) : 'N/A';
-  const getBooleanValue = (value: boolean | null | undefined) => value === true ? 'Yes' : 'No';
+  // Handle nullable fields - more lenient to accept various data formats
+  const getValueOrNA = (value: any) => {
+    if (value === null || value === undefined || value === '') {
+      return 'N/A';
+    }
+    if (typeof value === 'boolean') {
+      return value ? 'Yes' : 'No';
+    }
+    return String(value);
+  };
+  
+  const getBooleanValue = (value: any) => {
+    if (typeof value === 'boolean') {
+      return value ? 'Yes' : 'No';
+    }
+    if (typeof value === 'string') {
+      value = value.toLowerCase();
+      if (value === 'true' || value === 't' || value === 'yes' || value === 'y' || value === '1') {
+        return 'Yes';
+      }
+      if (value === 'false' || value === 'f' || value === 'no' || value === 'n' || value === '0') {
+        return 'No';
+      }
+    }
+    if (typeof value === 'number') {
+      return value === 1 ? 'Yes' : 'No';
+    }
+    return 'N/A';
+  };
   
   // For downloaded applications (which have already been processed)
   if (isDownloadedApp) {
     const downloadedApp = application as any;
     
-    // Map field names to match our PDF categories
+    // Map field names to match our PDF categories - use the getValueOrNA for consistent formatting
     formattedData['Full Name'] = getValueOrNA(downloadedApp.fullName || downloadedApp.fullname);
     formattedData['City'] = getValueOrNA(downloadedApp.city);
-    formattedData['Address'] = getValueOrNA(downloadedApp.streetAddress || downloadedApp.streetaddress);
+    formattedData['Address'] = getValueOrNA(downloadedApp.streetAddress || downloadedApp.streetaddress || downloadedApp.address);
     formattedData['Province'] = getValueOrNA(downloadedApp.province);
     formattedData['Postal Code'] = getValueOrNA(downloadedApp.postalCode || downloadedApp.postalcode);
     formattedData['Email'] = getValueOrNA(downloadedApp.email);
-    formattedData['Phone Number'] = getValueOrNA(downloadedApp.phoneNumber || downloadedApp.phonenumber);
+    formattedData['Phone Number'] = getValueOrNA(downloadedApp.phoneNumber || downloadedApp.phonenumber || downloadedApp.phone);
     formattedData['Download Id'] = getValueOrNA(downloadedApp.downloadId || downloadedApp.id);
     
     // Vehicle information
@@ -65,16 +94,17 @@ export const formatApplicationData = async (application: ApplicationData) => {
     formattedData['Required Features'] = getValueOrNA(downloadedApp.requiredFeatures || downloadedApp.requiredfeatures);
     formattedData['Preferred Make/Model'] = getValueOrNA(downloadedApp.preferredMakeModel || downloadedApp.preferredmakemodel);
     
-    // Loan information
+    // Loan information - use getBooleanValue for boolean fields
     formattedData['Has Existing Loan'] = getBooleanValue(downloadedApp.hasExistingLoan || downloadedApp.hasexistingloan);
     formattedData['Current Vehicle'] = getValueOrNA(downloadedApp.currentVehicle || downloadedApp.currentvehicle);
     formattedData['Current Payment'] = getValueOrNA(downloadedApp.currentPayment || downloadedApp.currentpayment);
+    formattedData['Payment Amount'] = getValueOrNA(downloadedApp.paymentAmount || downloadedApp.payment_amount); // Added payment amount
     formattedData['Amount Owed'] = getValueOrNA(downloadedApp.amountOwed || downloadedApp.amountowed);
     formattedData['Mileage'] = getValueOrNA(downloadedApp.mileage);
     
     // Income information
     formattedData['Employment Status'] = getValueOrNA(downloadedApp.employmentStatus || downloadedApp.employmentstatus);
-    formattedData['Monthly Income'] = getValueOrNA(downloadedApp.monthlyIncome || downloadedApp.monthlyincome);
+    formattedData['Monthly Income'] = getValueOrNA(downloadedApp.monthlyIncome || downloadedApp.monthlyincome || downloadedApp.income);
     formattedData['Employer Name'] = getValueOrNA(downloadedApp.employerName || downloadedApp.employer_name);
     formattedData['Job Title'] = getValueOrNA(downloadedApp.jobTitle || downloadedApp.job_title);
     formattedData['Employment Duration'] = getValueOrNA(downloadedApp.employmentDuration || downloadedApp.employment_duration);
@@ -85,6 +115,17 @@ export const formatApplicationData = async (application: ApplicationData) => {
     formattedData['Submission Date'] = createdDate;
     formattedData['Last Updated'] = updatedDate;
     formattedData['Additional Notes'] = getValueOrNA(downloadedApp.additionalNotes || downloadedApp.additionalnotes);
+    
+    // Log the field mapping for debugging
+    console.log('Field mapping for downloaded app - Has Existing Loan:', {
+      raw: downloadedApp.hasExistingLoan || downloadedApp.hasexistingloan,
+      formatted: formattedData['Has Existing Loan']
+    });
+    
+    console.log('Field mapping for downloaded app - Employment Status:', {
+      raw: downloadedApp.employmentStatus || downloadedApp.employmentstatus,
+      formatted: formattedData['Employment Status']
+    });
     
     // Make sure ALL columns from metadata are included, even if missing in the downloadedApp
     columnMetadata.forEach(column => {
@@ -109,14 +150,14 @@ export const formatApplicationData = async (application: ApplicationData) => {
   else {
     const standardApp = application as any;
     
-    // Map field names to match our PDF categories
+    // Map field names to match our PDF categories - be more thorough with field checks
     formattedData['Full Name'] = getValueOrNA(standardApp.fullname);
     formattedData['City'] = getValueOrNA(standardApp.city);
-    formattedData['Address'] = getValueOrNA(standardApp.streetaddress);
+    formattedData['Address'] = getValueOrNA(standardApp.streetaddress || standardApp.address);
     formattedData['Province'] = getValueOrNA(standardApp.province);
     formattedData['Postal Code'] = getValueOrNA(standardApp.postalcode);
     formattedData['Email'] = getValueOrNA(standardApp.email);
-    formattedData['Phone Number'] = getValueOrNA(standardApp.phonenumber);
+    formattedData['Phone Number'] = getValueOrNA(standardApp.phonenumber || standardApp.phone);
     
     // Vehicle information
     formattedData['Vehicle Type'] = getValueOrNA(standardApp.vehicletype);
@@ -124,16 +165,17 @@ export const formatApplicationData = async (application: ApplicationData) => {
     formattedData['Required Features'] = getValueOrNA(standardApp.requiredfeatures);
     formattedData['Preferred Make/Model'] = getValueOrNA(standardApp.preferredmakemodel);
     
-    // Loan information
+    // Loan information - use getBooleanValue for consistency
     formattedData['Has Existing Loan'] = getBooleanValue(standardApp.hasexistingloan);
     formattedData['Current Vehicle'] = getValueOrNA(standardApp.currentvehicle);
     formattedData['Current Payment'] = getValueOrNA(standardApp.currentpayment);
+    formattedData['Payment Amount'] = getValueOrNA(standardApp.payment_amount);
     formattedData['Amount Owed'] = getValueOrNA(standardApp.amountowed);
     formattedData['Mileage'] = getValueOrNA(standardApp.mileage);
     
     // Income information
     formattedData['Employment Status'] = getValueOrNA(standardApp.employmentstatus);
-    formattedData['Monthly Income'] = getValueOrNA(standardApp.monthlyincome);
+    formattedData['Monthly Income'] = getValueOrNA(standardApp.monthlyincome || standardApp.income);
     formattedData['Employer Name'] = getValueOrNA(standardApp.employer_name);
     formattedData['Job Title'] = getValueOrNA(standardApp.job_title);
     formattedData['Employment Duration'] = getValueOrNA(standardApp.employment_duration);
@@ -144,6 +186,17 @@ export const formatApplicationData = async (application: ApplicationData) => {
     formattedData['Submission Date'] = createdDate;
     formattedData['Last Updated'] = updatedDate;
     formattedData['Additional Notes'] = getValueOrNA(standardApp.additionalnotes);
+    
+    // Log the field mapping for debugging
+    console.log('Field mapping for standard app - Has Existing Loan:', {
+      raw: standardApp.hasexistingloan,
+      formatted: formattedData['Has Existing Loan']
+    });
+    
+    console.log('Field mapping for standard app - Employment Status:', {
+      raw: standardApp.employmentstatus,
+      formatted: formattedData['Employment Status']
+    });
     
     // Process ALL database columns systematically, including all empty fields
     // This ensures we don't miss any fields not explicitly mapped above

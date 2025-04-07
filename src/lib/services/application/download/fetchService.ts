@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Application } from '@/lib/types/supabase';
@@ -27,6 +26,7 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
     if (lowerCaseData && lowerCaseData.length > 0) {
       console.log(`✅ Retrieved ${lowerCaseData.length} full application details from applications table`);
       console.log('📋 Sample data fields:', Object.keys(lowerCaseData[0]).slice(0, 10));
+      console.log('📋 Sample data values for first application:', JSON.stringify(lowerCaseData[0]).substring(0, 300) + '...');
       return lowerCaseData as Application[];
     }
     
@@ -46,16 +46,21 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
           p_dealer_id: userData.user.id
         });
       
-      if (downloadError) throw downloadError;
+      if (downloadError) {
+        console.error('❌ Error fetching from get_dealer_downloads:', downloadError);
+        throw downloadError;
+      }
       
       // If we got data, filter for requested application ids
       if (Array.isArray(downloadedApps) && downloadedApps.length > 0) {
+        console.log('✅ Retrieved application details from downloads RPC, now filtering');
         const filteredDownloads = downloadedApps.filter((app: any) => 
           applicationIds.includes(app.applicationId)
         );
         
         if (filteredDownloads.length > 0) {
-          console.log(`✅ Retrieved ${filteredDownloads.length} application details from downloads`);
+          console.log(`✅ Found ${filteredDownloads.length} application details from downloads`);
+          console.log('📋 Sample download data:', JSON.stringify(filteredDownloads[0]).substring(0, 300) + '...');
           
           // For each download, fetch the full application data to ensure we have ALL fields
           const completeApplications = await Promise.all(filteredDownloads.map(async (download: any) => {
@@ -71,7 +76,12 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
             }
             
             // Merge the download record with the full application data
-            return { ...download, ...appData };
+            // Keep download fields as they may have updated/override values
+            const mergedData = { ...appData, ...download };
+            console.log(`📋 Merged application data for ${download.applicationId}:`, 
+              JSON.stringify(mergedData).substring(0, 300) + '...');
+            
+            return mergedData;
           }));
           
           return completeApplications as DownloadedApplication[];
@@ -124,6 +134,7 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
         if (validAppData.length > 0) {
           console.log(`✅ Transformed ${validAppData.length} application records`);
           console.log('📋 Sample data fields:', Object.keys(validAppData[0]).slice(0, 10));
+          console.log('📋 Sample data for first application:', JSON.stringify(validAppData[0]).substring(0, 300) + '...');
           return validAppData;
         }
       }
@@ -169,6 +180,7 @@ export const fetchApplicationColumnMetadata = async (): Promise<ColumnMetadata[]
       // Add any additional virtual columns that might be needed
       metadata.push({ name: 'downloadDate', displayName: 'Download Date' });
       metadata.push({ name: 'applicationId', displayName: 'Application ID' });
+      metadata.push({ name: 'paymentAmount', displayName: 'Payment Amount' });
       
       return metadata;
     }
@@ -225,6 +237,7 @@ const getDefaultColumnMetadata = (): ColumnMetadata[] => {
     { name: 'iscomplete', displayName: 'Is Complete' },
     { name: 'created_at', displayName: 'Submission Date' },
     { name: 'updated_at', displayName: 'Last Updated' },
+    { name: 'payment_amount', displayName: 'Payment Amount' },
     
     // Virtual fields from download processing
     { name: 'downloadId', displayName: 'Download ID' },

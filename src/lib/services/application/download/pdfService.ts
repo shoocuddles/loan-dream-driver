@@ -4,7 +4,7 @@ import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
 import { formatApplicationData, getDateFromApplication, generateFilename } from './formatUtils';
 import { fetchFullApplicationDetails } from './fetchService';
-import { ApplicationData } from './types';
+import { ApplicationData, PDFCategory } from './types';
 
 // Download as PDF
 export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => {
@@ -33,46 +33,59 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
       
       // Format data for PDF
       const formattedData = await formatApplicationData(application);
+      console.log('Formatted application data for PDF:', formattedData);
       
       // Add header
       pdf.setFontSize(16);
       pdf.setTextColor(0, 0, 0);
       pdf.text('Ontario Loans - Lead Details', 105, 15, { align: 'center' });
       
-      // Group fields by category
-      const categories = {
-        'Contact Details': [
-          'Full Name', 
-          'City', 
-          'Address', 
-          'Province', 
-          'Postal Code', 
-          'Email', 
-          'Phone Number',
-          'Download Id'
-        ],
-        'Vehicle Wanted': [
-          'Vehicle Type', 
-          'Unwanted Colors', 
-          'Required Features', 
-          'Preferred Make/Model'
-        ],
-        'Existing Loan': [
-          'Has Existing Loan',
-          'Current Vehicle',
-          'Current Payment',
-          'Payment Amount',
-          'Amount Owed',
-          'Mileage'
-        ],
-        'Income Details': [
-          'Employment Status',
-          'Monthly Income',
-          'Employer Name',
-          'Job Title',
-          'Employment Duration',
-          'Status'
-        ]
+      // Define PDF categories with field mappings
+      const categories: Record<string, PDFCategory> = {
+        'Contact Details': {
+          title: 'Contact Details',
+          fields: [
+            'Full Name', 
+            'City', 
+            'Address', 
+            'Province', 
+            'Postal Code', 
+            'Email', 
+            'Phone Number',
+            'Download Id'
+          ]
+        },
+        'Vehicle Wanted': {
+          title: 'Vehicle Wanted',
+          fields: [
+            'Vehicle Type', 
+            'Unwanted Colors', 
+            'Required Features', 
+            'Preferred Make/Model'
+          ]
+        },
+        'Existing Loan': {
+          title: 'Existing Loan',
+          fields: [
+            'Has Existing Loan',
+            'Current Vehicle',
+            'Current Payment',
+            'Payment Amount',
+            'Amount Owed',
+            'Mileage'
+          ]
+        },
+        'Income Details': {
+          title: 'Income Details',
+          fields: [
+            'Employment Status',
+            'Monthly Income',
+            'Employer Name',
+            'Job Title',
+            'Employment Duration',
+            'Status'
+          ]
+        }
       };
       
       // Starting Y position for first category
@@ -80,14 +93,18 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
       const margin = 14;
       
       // Process each category
-      for (const [category, fields] of Object.entries(categories)) {
+      for (const category of Object.values(categories)) {
         // Create rows for the current category
-        const rows = fields.map(field => {
+        const rows = category.fields.map(field => {
           // Look for the field in formattedData (case insensitive)
           const key = Object.keys(formattedData).find(k => 
             k.toLowerCase() === field.toLowerCase() || 
             k.replace(/\s+/g, '').toLowerCase() === field.replace(/\s+/g, '').toLowerCase()
           );
+          
+          // For debugging, log the field mappings
+          console.log(`Looking for field "${field}" in formattedData, found key: "${key || 'not found'}"`);
+          
           return [field, key ? formattedData[key] : 'N/A'];
         });
         
@@ -96,7 +113,7 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
         pdf.setTextColor(255, 255, 255);
         pdf.setFillColor(0, 0, 255); // Blue background for category header
         pdf.rect(margin, startY, pdf.internal.pageSize.width - 2 * margin, 6, 'F');
-        pdf.text(category, margin + 2, startY + 4);
+        pdf.text(category.title, margin + 2, startY + 4);
         
         // Add table with the data for this category
         autoTable(pdf, {
@@ -132,14 +149,14 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
         startY = (pdf as any).lastAutoTable.finalY + 10;
         
         // If we're close to the page bottom, start a new page
-        if (startY > pdf.internal.pageSize.height - 40 && Object.keys(categories).indexOf(category) < Object.keys(categories).length - 1) {
+        if (startY > pdf.internal.pageSize.height - 40 && Object.values(categories).indexOf(category) < Object.values(categories).length - 1) {
           pdf.addPage();
           startY = 15;
         }
       }
       
       // Create "Other Details" category with remaining fields
-      const usedFields = Object.values(categories).flat().map(f => f.toLowerCase().replace(/\s+/g, ''));
+      const usedFields = Object.values(categories).flatMap(cat => cat.fields).map(f => f.toLowerCase().replace(/\s+/g, ''));
       const otherFields = Object.keys(formattedData).filter(key => {
         const normalizedKey = key.toLowerCase().replace(/\s+/g, '');
         return !usedFields.some(f => f === normalizedKey || f.includes(normalizedKey) || normalizedKey.includes(f));

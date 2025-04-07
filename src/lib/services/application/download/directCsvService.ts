@@ -20,7 +20,10 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
     const idList = applicationIds.map(id => `'${id}'`).join(',');
     
     // Query to get all applications data in CSV format directly from Supabase
-    const { data, error } = await supabase.rpc<string>(
+    // Use the correct generic type syntax for rpc
+    const { data, error } = await supabase.rpc<string, {
+      p_application_ids: string[]
+    }>(
       'export_applications_as_csv',
       { p_application_ids: applicationIds }
     );
@@ -40,9 +43,9 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
     // Create blob from the returned CSV string
     const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
     
-    // Generate filename
+    // Generate filename - use a different approach since we don't have ApplicationData
     const fileName = applicationIds.length === 1 
-      ? `full_${generateFilename(applicationIds[0], 'csv')}`
+      ? `full_${applicationIds[0]}.csv`
       : `full_applications_${new Date().getTime()}.csv`;
     
     // Save the file

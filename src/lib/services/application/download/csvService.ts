@@ -1,9 +1,9 @@
 
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { rpcCall, supabase } from '@/integrations/supabase/client';
 
-// Download as CSV using the Supabase export_applications_as_csv function
+// Download as CSV directly from Supabase RPC function with no processing
 export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => {
   try {
     console.log('📊 Requesting CSV directly from Supabase for applications:', applicationIds);
@@ -14,12 +14,11 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
-    // Direct call to Supabase's RPC function with no post-processing
+    // Direct call to Supabase's export_applications_as_csv RPC function
+    // Using direct supabase.rpc call to ensure we get the raw response
     const { data, error } = await supabase.rpc(
-      'export_applications_as_csv', 
-      { 
-        app_ids: applicationIds 
-      }
+      'export_applications_as_csv',
+      { app_ids: applicationIds }
     );
     
     if (error) {
@@ -36,9 +35,10 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       toast.error('Error generating CSV');
       return;
     }
-    
-    console.log('✅ Raw CSV data received from Supabase');
+
+    console.log('✅ CSV data received from Supabase');
     console.log('📊 CSV data length:', data.length);
+    console.log('📊 First 100 characters of CSV:', data.substring(0, 100));
     
     // Create a blob directly from the raw data returned by Supabase
     const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
@@ -50,7 +50,7 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
     
     // Save the blob directly as a file without any manipulation
     saveAs(blob, fileName);
-    console.log('✅ Raw CSV file saved successfully');
+    console.log('✅ CSV file saved successfully');
     toast.success('CSV downloaded successfully');
     
   } catch (error) {

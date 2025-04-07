@@ -1,3 +1,4 @@
+
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 
@@ -82,7 +83,7 @@ const cleanCsvData = (rawData: string): string => {
   const lines = rawData.split('\n');
   if (lines.length < 2) {
     console.log('⚠️ CSV data didn\'t contain multiple lines, returning as is');
-    return rawData;
+    return removeAllQuotes(rawData);
   }
   
   const header = lines[0];
@@ -91,91 +92,64 @@ const cleanCsvData = (rawData: string): string => {
   // Process the data rows (everything after the header)
   let dataContent = lines.slice(1).join('\n');
   
-  // Remove surrounding parentheses from the data
-  dataContent = dataContent.replace(/^\(|\)$/g, '');
-  
   // Process the CSV using the enhanced processing function
-  const processedCSV = processCSVData(header, dataContent);
+  const processedCSV = processMultipleApplications(header, dataContent);
   
   console.log('🔄 CSV data cleaned successfully');
   return processedCSV;
 };
 
-// Enhanced function to process CSV data properly
-const processCSVData = (header: string, dataContent: string): string => {
-  // First, split the data into rows by actual newlines 
-  const dataRows = dataContent.split('\n');
-  console.log(`📊 Processing ${dataRows.length} data rows`);
+// Process multiple applications with proper line breaks
+const processMultipleApplications = (header: string, dataContent: string): string => {
+  // Clean the header (remove quotes)
+  const cleanHeader = removeAllQuotes(header);
   
-  // Process each row to properly handle CSV formatting
-  const processedRows = dataRows.map(row => {
+  // First remove surrounding parentheses
+  dataContent = dataContent.replace(/^\(|\)$/g, '');
+  
+  // Look for UUID patterns that indicate the start of a new application record
+  // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  const uuidPattern = /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi;
+  
+  // First split by any existing line breaks
+  let rows = dataContent.split('\n');
+  
+  // Process each row to clean up formatting characters
+  const processedRows = rows.map(row => {
+    // Skip empty rows
     if (!row.trim()) return '';
     
-    // Remove all parentheses
+    // Remove any remaining parentheses
     row = row.replace(/[\(\)]/g, '');
     
-    // Split by commas, but respect quoted fields
-    return processCSVRow(row);
-  }).filter(row => row.length > 0);
-  
-  // Combine header with processed data rows
-  return header + '\n' + processedRows.join('\n');
-};
+    // Remove all quotes
+    row = removeAllQuotes(row);
+    
+    // Remove all backslashes
+    row = row.replace(/\\/g, '');
+    
+    return row;
+  }).filter(row => row.trim().length > 0);
 
-// Process a single CSV row correctly
-const processCSVRow = (row: string): string => {
-  const result = [];
-  let field = '';
-  let inQuotes = false;
-  let i = 0;
-  
-  while (i < row.length) {
-    const char = row[i];
+  // Now ensure each application record starts with a line break
+  let result = '';
+  for (let i = 0; i < processedRows.length; i++) {
+    const row = processedRows[i];
     
-    // Handle quotes
-    if (char === '"') {
-      // If we see a quote and we're not in a quoted field, start a quoted field
-      // If we see a quote and we're in a quoted field, check if it's an escaped quote
-      if (i + 1 < row.length && row[i + 1] === '"' && inQuotes) {
-        // This is an escaped quote within a quoted field, add a single quote
-        field += '';  // Skip the quote character
-        i += 2;  // Skip both quote characters
-        continue;
-      } else {
-        // Toggle quote state
-        inQuotes = !inQuotes;
-        i++;
-        continue;
-      }
+    // If this isn't the first row and starts with a UUID, add a line break before it
+    const matches = row.match(uuidPattern);
+    if (i > 0 && matches && matches.length && row.trimStart().startsWith(matches[0])) {
+      result += '\n';
     }
     
-    // Handle commas
-    if (char === ',' && !inQuotes) {
-      // End of field
-      result.push(field);
-      field = '';
-      i++;
-      continue;
-    }
-    
-    // Handle backslashes - skip them
-    if (char === '\\') {
-      i++;
-      if (i < row.length) {
-        // Keep the character after the backslash
-        field += row[i];
-      }
-      i++;
-      continue;
-    }
-    
-    // Regular character - add to field
-    field += char;
-    i++;
+    result += row + '\n';
   }
   
-  // Add the last field
-  result.push(field);
-  
-  return result.join(',');
+  console.log('🔄 CSV data cleaned with proper application line breaks');
+  return cleanHeader + '\n' + result.trim();
+};
+
+// Remove all quotation marks from the text
+const removeAllQuotes = (text: string): string => {
+  return text.replace(/"/g, '');
 };

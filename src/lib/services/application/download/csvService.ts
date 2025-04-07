@@ -94,38 +94,57 @@ const cleanCsvData = (rawData: string): string => {
   let dataContent = lines.slice(1).join('\n');
   
   // Remove all quotes, parentheses, and backslashes
-  return removeAllFormatting(header, dataContent);
+  return processMultipleApplications(header, dataContent);
 };
 
-// Function to remove all formatting characters
-const removeAllFormatting = (header: string, dataContent: string): string => {
+// Process multiple applications with proper line breaks
+const processMultipleApplications = (header: string, dataContent: string): string => {
   // Clean the header (remove quotes) but preserve the structure
   const cleanHeader = removeAllQuotes(header);
   
-  // Clean data content - first remove surrounding parentheses
+  // First remove surrounding parentheses
   dataContent = dataContent.replace(/^\(|\)$/g, '');
   
-  // Split the data into rows
-  const dataRows = dataContent.split('\n');
+  // Look for UUID patterns that indicate the start of a new application record
+  // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  const uuidPattern = /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi;
+  
+  // First split by any existing line breaks
+  let rows = dataContent.split('\n');
   
   // Process each row
-  const processedRows = dataRows
-    .map(row => {
-      // Remove any remaining parentheses
-      row = row.replace(/[\(\)]/g, '');
-      
-      // Remove all quotes
-      row = removeAllQuotes(row);
-      
-      // Remove all backslashes
-      row = row.replace(/\\/g, '');
-      
-      return row;
-    })
-    .filter(row => row.trim().length > 0);
+  const processedRows = rows.map(row => {
+    // Skip empty rows
+    if (!row.trim()) return '';
+    
+    // Remove any remaining parentheses
+    row = row.replace(/[\(\)]/g, '');
+    
+    // Remove all quotes
+    row = removeAllQuotes(row);
+    
+    // Remove all backslashes
+    row = row.replace(/\\/g, '');
+    
+    return row;
+  }).filter(row => row.trim().length > 0);
+
+  // Further processing for multiple applications - look for ID patterns
+  let result = '';
+  for (let i = 0; i < processedRows.length; i++) {
+    const row = processedRows[i];
+    
+    // If this isn't the first row and starts with a UUID, add a line break before it
+    const matches = row.match(uuidPattern);
+    if (i > 0 && matches && matches.length && row.trimStart().startsWith(matches[0])) {
+      result += '\n';
+    }
+    
+    result += row + '\n';
+  }
   
-  console.log('🔄 CSV data cleaned successfully');
-  return cleanHeader + '\n' + processedRows.join('\n');
+  console.log('🔄 CSV data cleaned successfully with proper application line breaks');
+  return cleanHeader + '\n' + result.trim();
 };
 
 // Remove all quotation marks from the text

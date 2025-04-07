@@ -2,8 +2,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { FileDown, FileSpreadsheet, FileText, Table, Database } from 'lucide-react';
-import { downloadAsPDF, downloadAsCSV, downloadAsExcel, downloadFullCsv } from '@/lib/services/application/downloadService';
+import { FileDown, FileSpreadsheet, FileText, Table, Database, Code } from 'lucide-react';
+import { downloadAsPDF, downloadAsCSV, downloadAsExcel, downloadFullCsv, downloadRawData } from '@/lib/services/application/downloadService';
 import { toast } from 'sonner';
 
 interface DownloadOptionsProps {
@@ -53,6 +53,9 @@ const DownloadOptions = ({
           break;
         case 'Full CSV':
           await downloadFullCsv(applicationIds);
+          break;
+        case 'Raw Data':
+          await downloadRawData(applicationIds);
           break;
         default:
           throw new Error(`Unsupported download type: ${type}`);
@@ -120,6 +123,16 @@ const DownloadOptions = ({
           >
             <Database className="h-4 w-4 mr-2" />
             Download FULL CSV
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="justify-start" 
+            onClick={() => handleDownload('Raw Data')}
+            disabled={downloadType !== null || isDownloading}
+          >
+            <Code className="h-4 w-4 mr-2" />
+            Download Raw Data
           </Button>
         </div>
       </PopoverContent>

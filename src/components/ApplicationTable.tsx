@@ -142,132 +142,118 @@ const ApplicationTable = ({
       accessorKey: 'select',
       header: '',
       enableSorting: false,
-      cell: ({ row }) => {
-        const app = row as unknown as ApplicationItem;
-        return (
-          <Checkbox 
-            checked={selectedApplications.includes(app.applicationId)}
-            onCheckedChange={() => toggleApplicationSelection(app.applicationId)}
-            disabled={app.lockInfo?.isLocked && !app.lockInfo?.isOwnLock}
-            aria-label={`Select application ${app.applicationId}`}
-          />
-        );
-      }
-    },
-    {
-      accessorKey: 'fullName',
-      header: 'Application',
-      cell: ({ row }) => {
-        const app = row as unknown as ApplicationItem;
-        return <div className="font-medium">{app.fullName}</div>;
-      }
-    },
-    {
-      accessorKey: 'city',
-      header: 'City',
+      cell: ({ row }) => (
+        <Checkbox 
+          checked={selectedApplications.includes(row.original.applicationId)}
+          onCheckedChange={() => toggleApplicationSelection(row.original.applicationId)}
+          disabled={row.original.lockInfo?.isLocked && !row.original.lockInfo?.isOwnLock}
+          aria-label={`Select application ${row.original.applicationId}`}
+        />
+      )
     },
     {
       accessorKey: 'submissionDate',
       header: 'Date',
-      cell: ({ row }) => {
-        const app = row as unknown as ApplicationItem;
-        return safeFormatDate(app.submissionDate);
-      }
+      cell: ({ row }) => safeFormatDate(row.original.submissionDate)
+    },
+    {
+      accessorKey: 'fullName',
+      header: 'Name',
+      cell: ({ row }) => <div className="font-medium">{row.original.fullName}</div>
+    },
+    {
+      accessorKey: 'city',
+      header: 'City'
+    },
+    {
+      accessorKey: 'vehicleType',
+      header: 'Type'
     },
     {
       accessorKey: 'status',
       header: 'Status',
-      cell: ({ row }) => {
-        const app = row as unknown as ApplicationItem;
-        return (
-          <div className="flex flex-col gap-1">
-            {renderLockStatus(app)}
-            {renderDownloadStatus(app)}
-          </div>
-        );
-      }
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1">
+          {renderLockStatus(row.original)}
+          {renderDownloadStatus(row.original)}
+        </div>
+      )
     },
     {
       accessorKey: 'price',
       header: 'Price',
-      cell: ({ row }) => {
-        const app = row as unknown as ApplicationItem;
-        return (
-          <div className="font-medium text-right">{getPrice(app)}</div>
-        );
-      }
+      cell: ({ row }) => (
+        <div className="font-medium text-right">{getPrice(row.original)}</div>
+      )
     },
     {
       accessorKey: 'actions',
       header: 'Actions',
       enableSorting: false,
-      cell: ({ row }) => {
-        const app = row as unknown as ApplicationItem;
-        return (
-          <div className="flex items-center justify-end gap-2">
+      cell: ({ row }) => (
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onViewDetails(row.original)}
+            title="View Details"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          
+          {row.original.lockInfo?.isLocked && row.original.lockInfo?.isOwnLock ? (
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => onViewDetails(app)}
-              title="View Details"
+              onClick={() => onUnlock(row.original.applicationId)}
+              disabled={processingId === row.original.applicationId}
+              title="Unlock Application"
             >
-              <Eye className="h-4 w-4" />
+              <Unlock className="h-4 w-4" />
             </Button>
-            
-            {app.lockInfo?.isLocked && app.lockInfo?.isOwnLock ? (
+          ) : !row.original.lockInfo?.isLocked && (
+            <div className="relative">
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => onUnlock(app.applicationId)}
-                disabled={processingId === app.applicationId}
-                title="Unlock Application"
+                onClick={() => handleToggleLockOptions(row.original.applicationId)}
+                disabled={processingId === row.original.applicationId}
+                title="Lock Application"
               >
-                <Unlock className="h-4 w-4" />
+                <Lock className="h-4 w-4" />
               </Button>
-            ) : !app.lockInfo?.isLocked && (
-              <div className="relative">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleToggleLockOptions(app.applicationId)}
-                  disabled={processingId === app.applicationId}
-                  title="Lock Application"
-                >
-                  <Lock className="h-4 w-4" />
-                </Button>
-                
-                {showLockOptions[app.applicationId] && (
-                  <div className="absolute right-0 mt-1 bg-white shadow-lg rounded-md border border-gray-200 z-10 w-48 py-1">
-                    {lockOptions.map(option => (
-                      <button
-                        key={option.id}
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex justify-between"
-                        onClick={() => handleLock(app.applicationId, option.type)}
-                      >
-                        <span>{option.name}</span>
-                        <span className="font-medium">${option.fee.toFixed(2)}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onDownload(app.applicationId)}
-              disabled={
-                processingId === app.applicationId || 
-                (app.lockInfo?.isLocked && !app.lockInfo?.isOwnLock)
-              }
-              title="Download Application"
-            >
-              <Download className="h-4 w-4" />
-            </Button>
-          </div>
-        );
-      }
+              
+              {showLockOptions[row.original.applicationId] && (
+                <div className="absolute right-0 mt-1 bg-white shadow-lg rounded-md border border-gray-200 z-10 w-48 py-1">
+                  {lockOptions.map(option => (
+                    <button
+                      key={option.id}
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex justify-between"
+                      onClick={() => handleLock(row.original.applicationId, option.type)}
+                    >
+                      <span>{option.name}</span>
+                      <span className="font-medium">${option.fee.toFixed(2)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDownload(row.original.applicationId)}
+            disabled={
+              processingId === row.original.applicationId || 
+              (row.original.lockInfo?.isLocked && !row.original.lockInfo?.isOwnLock)
+            }
+            title="Download Application"
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+        </div>
+      )
     },
   ];
 

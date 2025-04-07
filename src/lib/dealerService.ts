@@ -20,7 +20,16 @@ export const fetchAvailableApplications = async (): Promise<ApplicationItem[]> =
     });
     
     if (error) throw error;
-    return data || [];
+    
+    // Ensure vehicle type is mapped correctly
+    const formattedData = data?.map(app => ({
+      ...app,
+      vehicleType: app.vehicleType || 'N/A' // Ensure vehicleType is displayed properly
+    })) || [];
+    
+    console.log('Fetched applications:', formattedData);
+    
+    return formattedData;
   } catch (error: any) {
     console.error('❌ Error fetching available applications:', error.message);
     toast.error('Failed to load applications');

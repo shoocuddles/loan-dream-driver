@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ApplicationItem, DownloadedApplication, LockType } from '@/lib/types/dealer-dashboard';
+import { ApplicationItem, DownloadedApplication, LockType, LockoutPeriod, SystemSettings } from '@/lib/types/dealer-dashboard';
 import DealerDashboardLayout from '@/components/DealerDashboardLayout';
 import ApplicationTable from '@/components/ApplicationTable';
 import DownloadedApplications from '@/components/DownloadedApplications';
@@ -59,7 +59,7 @@ const DealerDashboard = () => {
     { id: 2, name: '1 Week', type: '1week', fee: 9.99 },
     { id: 3, name: 'Permanent', type: 'permanent', fee: 29.99 }
   ]);
-  
+
   const { user } = useAuth();
 
   useEffect(() => {

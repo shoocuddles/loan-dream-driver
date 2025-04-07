@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SortableTable, ColumnDef } from "@/components/ui/sortable-table";
@@ -53,13 +54,13 @@ const DealerPurchases = () => {
       // Transform the data format
       const formattedData: DealerPurchase[] = downloadsData.map(item => ({
         id: item.id,
-        dealerName: item.user_profiles && item.user_profiles[0] ? item.user_profiles[0].full_name || 'Unknown Dealer' : 'Unknown Dealer',
-        dealerEmail: item.user_profiles && item.user_profiles[0] ? item.user_profiles[0].email || 'N/A' : 'N/A',
-        clientName: item.applications && item.applications[0] ? item.applications[0].fullname || 'Unknown Client' : 'Unknown Client',
-        vehicleType: item.applications && item.applications[0] ? item.applications[0].vehicletype || 'N/A' : 'N/A',
-        purchaseDate: new Date(item.downloaded_at).toLocaleString(),
+        dealerName: item.user_profiles?.[0]?.full_name || 'Unknown Dealer',
+        dealerEmail: item.user_profiles?.[0]?.email || 'N/A',
+        clientName: item.applications?.[0]?.fullname || 'Unknown Client',
+        vehicleType: item.applications?.[0]?.vehicletype || 'N/A',
+        purchaseDate: item.downloaded_at,
         paymentAmount: item.payment_amount || 0,
-        status: item.applications && item.applications[0] ? item.applications[0].status || 'N/A' : 'N/A'
+        status: item.applications?.[0]?.status || 'N/A'
       }));
       
       setPurchases(formattedData);

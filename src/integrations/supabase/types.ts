@@ -447,6 +447,10 @@ export type Database = {
         }
         Returns: Json
       }
+      get_applications_columns: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       get_applications_for_dealer: {
         Args: {
           p_dealer_id: string

@@ -79,40 +79,63 @@ export const formatApplicationData = async (application: ApplicationData) => {
   // Log the application object keys to help with debugging
   console.log('Application object keys:', Object.keys(application));
   
-  // DIRECT MAPPING FROM DATABASE FIELDS - Updated to match the exact field names from Supabase
-  // Using the specific field names provided by the user
-  formattedData['Full Name'] = getValueOrNA(application.fullname || application.fullName);
-  formattedData['City'] = getValueOrNA(application.city);
-  formattedData['Address'] = getValueOrNA(application.streetaddress || application.streetAddress);
-  formattedData['Province'] = getValueOrNA(application.province);
-  formattedData['Postal Code'] = getValueOrNA(application.postalcode || application.postalCode);
-  formattedData['Email'] = getValueOrNA(application.email);
-  formattedData['Phone Number'] = getValueOrNA(application.phonenumber || application.phoneNumber);
+  // Create a unified object with different case versions of the field names to handle inconsistencies
+  const unifiedApp: Record<string, any> = {};
+  
+  // Add all properties with original case
+  Object.entries(application).forEach(([key, value]) => {
+    unifiedApp[key] = value;
+    
+    // Also add camelCase and snake_case versions
+    const camelCase = key.charAt(0).toLowerCase() + key.slice(1).replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    const snakeCase = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+    
+    if (camelCase !== key) unifiedApp[camelCase] = value;
+    if (snakeCase !== key) unifiedApp[snakeCase] = value;
+  });
+  
+  // Debug log the unified object
+  console.log('Unified application object with multiple case versions:', Object.keys(unifiedApp));
+  
+  // DIRECT MAPPING FROM DATABASE FIELDS - more robust to handle different field name formats
+  // First try exact database field name, then try camelCase and variations
+  formattedData['Full Name'] = getValueOrNA(unifiedApp.fullname || unifiedApp.fullName);
+  formattedData['City'] = getValueOrNA(unifiedApp.city);
+  formattedData['Address'] = getValueOrNA(unifiedApp.streetaddress || unifiedApp.streetAddress || unifiedApp.address);
+  formattedData['Province'] = getValueOrNA(unifiedApp.province);
+  formattedData['Postal Code'] = getValueOrNA(unifiedApp.postalcode || unifiedApp.postalCode);
+  formattedData['Email'] = getValueOrNA(unifiedApp.email);
+  formattedData['Phone Number'] = getValueOrNA(unifiedApp.phonenumber || unifiedApp.phoneNumber);
   
   // Vehicle information - using the specific field names from Supabase as specified by the user
-  formattedData['Vehicle Type'] = getValueOrNA(application.vehicletype);
-  formattedData['Unwanted Colors'] = getValueOrNA(application.unwantedcolors);
-  formattedData['Required Features'] = getValueOrNA(application.requiredfeatures);
-  formattedData['Preferred Make/Model'] = getValueOrNA(application.preferredmakemodel);
+  formattedData['Vehicle Type'] = getValueOrNA(unifiedApp.vehicletype || unifiedApp.vehicleType);
+  formattedData['Unwanted Colors'] = getValueOrNA(unifiedApp.unwantedcolors || unifiedApp.unwantedColors);
+  formattedData['Required Features'] = getValueOrNA(unifiedApp.requiredfeatures || unifiedApp.requiredFeatures);
+  formattedData['Preferred Make/Model'] = getValueOrNA(unifiedApp.preferredmakemodel || unifiedApp.preferredMakeModel);
   
   // Loan information - directly use the database field names as specified
-  formattedData['Has Existing Loan'] = getBooleanValue(application.hasexistingloan);
-  formattedData['Current Vehicle'] = getValueOrNA(application.currentvehicle);
-  formattedData['Current Payment'] = getValueOrNA(application.currentpayment);
-  formattedData['Amount Owed'] = getValueOrNA(application.amountowed);
-  formattedData['Mileage'] = getValueOrNA(application.mileage);
+  formattedData['Has Existing Loan'] = getBooleanValue(unifiedApp.hasexistingloan || unifiedApp.hasExistingLoan);
+  formattedData['Current Vehicle'] = getValueOrNA(unifiedApp.currentvehicle || unifiedApp.currentVehicle);
+  formattedData['Current Payment'] = getValueOrNA(unifiedApp.currentpayment || unifiedApp.currentPayment);
+  formattedData['Amount Owed'] = getValueOrNA(unifiedApp.amountowed || unifiedApp.amountOwed);
+  formattedData['Mileage'] = getValueOrNA(unifiedApp.mileage);
   
   // Income information - directly use the database field names as specified
-  formattedData['Employment Status'] = getValueOrNA(application.employmentstatus);
-  formattedData['Monthly Income'] = getValueOrNA(application.monthlyincome);
-  formattedData['Employer Name'] = getValueOrNA(application.employer_name);
-  formattedData['Job Title'] = getValueOrNA(application.job_title);
-  formattedData['Employment Duration'] = getValueOrNA(application.employment_duration);
+  formattedData['Employment Status'] = getValueOrNA(unifiedApp.employmentstatus || unifiedApp.employmentStatus);
+  formattedData['Monthly Income'] = getValueOrNA(unifiedApp.monthlyincome || unifiedApp.monthlyIncome);
+  formattedData['Employer Name'] = getValueOrNA(unifiedApp.employer_name || unifiedApp.employerName);
+  formattedData['Job Title'] = getValueOrNA(unifiedApp.job_title || unifiedApp.jobTitle);
+  formattedData['Employment Duration'] = getValueOrNA(unifiedApp.employment_duration || unifiedApp.employmentDuration);
   
   // Additional information
-  formattedData['Additional Notes'] = getValueOrNA(application.additionalnotes);
+  formattedData['Additional Notes'] = getValueOrNA(unifiedApp.additionalnotes || unifiedApp.additionalNotes);
   formattedData['Submission Date'] = createdDate;
-  formattedData['Application ID'] = getValueOrNA(application.id || application.applicationId);
+  formattedData['Application ID'] = getValueOrNA(unifiedApp.id || unifiedApp.applicationId);
+  
+  // Add download date if it exists
+  if (unifiedApp.downloadDate) {
+    formattedData['Download Date'] = unifiedApp.downloadDate;
+  }
   
   // Log the formatted data for all key fields to confirm values are being properly assigned
   console.log('Formatted data for key fields:');
@@ -159,8 +182,20 @@ export const formatApplicationData = async (application: ApplicationData) => {
     );
     
     if (!hasField) {
-      // Try to find the value using the exact database field name
-      const value = application[columnName];
+      // Try to find the value using different case versions of the field name
+      let value = unifiedApp[columnName];
+      
+      if (value === undefined) {
+        // Try camelCase version
+        const camelCase = toCamelCase(columnName);
+        value = unifiedApp[camelCase];
+        
+        if (value === undefined) {
+          // Try Pascal case (first letter uppercase)
+          const pascalCase = columnName.charAt(0).toUpperCase() + toCamelCase(columnName).slice(1);
+          value = unifiedApp[pascalCase];
+        }
+      }
       
       if (value !== undefined) {
         const isBooleanField = typeof value === 'boolean';

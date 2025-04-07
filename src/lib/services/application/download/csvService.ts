@@ -1,7 +1,7 @@
 
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
-import { rpcCall, supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 
 // Download as CSV directly from Supabase RPC function with no processing
 export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => {
@@ -14,34 +14,40 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
-    // Direct call to Supabase's export_applications_as_csv RPC function
-    // Using direct supabase.rpc call to ensure we get the raw response
-    const { data, error } = await supabase.rpc(
-      'export_applications_as_csv',
-      { app_ids: applicationIds }
-    );
+    // Direct call to Supabase's export_applications_as_csv RPC function using POST to ensure proper handling of array parameters
+    const response = await fetch(`${supabase.supabaseUrl}/rest/v1/rpc/export_applications_as_csv`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabase.supabaseKey,
+        'Authorization': `Bearer ${supabase.supabaseKey}`
+      },
+      body: JSON.stringify({ app_ids: applicationIds })
+    });
     
-    if (error) {
-      console.error('❌ Supabase CSV export error:', error);
-      console.error('Error details:', error.details);
-      console.error('Error message:', error.message);
-      console.error('Error hint:', error.hint);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Supabase CSV export error:', response.status, response.statusText);
+      console.error('Error details:', errorText);
       toast.error('Error generating CSV');
       return;
     }
     
-    if (!data) {
+    // Get raw text directly from the response without any parsing or processing
+    const csvData = await response.text();
+    
+    if (!csvData || csvData.trim() === '') {
       console.error('❌ No data returned from Supabase CSV export');
       toast.error('Error generating CSV');
       return;
     }
 
     console.log('✅ CSV data received from Supabase');
-    console.log('📊 CSV data length:', data.length);
-    console.log('📊 First 100 characters of CSV:', data.substring(0, 100));
+    console.log('📊 CSV data length:', csvData.length);
+    console.log('📊 First 100 characters of CSV:', csvData.substring(0, 100));
     
-    // Create a blob directly from the raw data returned by Supabase
-    const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
+    // Create a blob directly from the raw text data
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
     
     // Generate filename based on number of applications
     const fileName = applicationIds.length === 1 

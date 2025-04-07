@@ -14,33 +14,40 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
       return;
     }
     
-    // Direct call to Supabase RPC function with no post-processing
-    const { data, error } = await supabase.rpc(
-      'export_applications_as_csv', 
-      { 
-        app_ids: applicationIds 
-      }
-    );
+    // Direct fetch request to ensure proper binary data handling
+    const response = await fetch(`${supabase.supabaseUrl}/rest/v1/rpc/export_applications_as_csv`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabase.supabaseKey,
+        'Authorization': `Bearer ${supabase.supabaseKey}`
+      },
+      body: JSON.stringify({ app_ids: applicationIds })
+    });
     
-    if (error) {
-      console.error('❌ Error from Supabase export_applications_as_csv:', error);
-      console.error('Error details:', error.details);
-      console.error('Error message:', error.message);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Error from Supabase export_applications_as_csv:', response.status, response.statusText);
+      console.error('Error details:', errorText);
       toast.error('Error generating CSV');
       return;
     }
     
-    if (!data) {
+    // Get raw CSV data as text
+    const csvData = await response.text();
+    
+    if (!csvData || csvData.trim() === '') {
       console.error('❌ No data returned from export_applications_as_csv function');
       toast.error('Error generating CSV');
       return;
     }
     
     console.log('✅ CSV data received from Supabase');
-    console.log('📊 CSV data length:', data.length);
+    console.log('📊 CSV data length:', csvData.length);
+    console.log('📊 First 100 characters of CSV:', csvData.substring(0, 100));
     
-    // Create blob directly from the CSV data
-    const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
+    // Create blob directly from the CSV text data
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
     
     // Generate filename based on number of applications
     const fileName = applicationIds.length === 1 

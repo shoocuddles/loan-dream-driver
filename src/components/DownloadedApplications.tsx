@@ -1,10 +1,12 @@
+
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { format, isValid, parseISO } from 'date-fns';
-import { Download, Eye, Search } from 'lucide-react';
+import { Eye, Search } from 'lucide-react';
 import { DownloadedApplication } from '@/lib/types/dealer-dashboard';
+import DownloadOptions from './application-table/DownloadOptions';
 
 interface DownloadedApplicationsProps {
   applications: DownloadedApplication[];
@@ -20,6 +22,7 @@ const DownloadedApplications = ({
   onViewDetails
 }: DownloadedApplicationsProps) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedApplications, setSelectedApplications] = useState<string[]>([]);
   
   const filteredApplications = applications.filter(app => 
     app.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -42,19 +45,56 @@ const DownloadedApplications = ({
     }
   };
 
+  const toggleApplicationSelection = (applicationId: string) => {
+    setSelectedApplications(prev => 
+      prev.includes(applicationId)
+        ? prev.filter(id => id !== applicationId)
+        : [...prev, applicationId]
+    );
+  };
+
+  const handleBulkDownload = () => {
+    if (selectedApplications.length === 0) return;
+    // Let the DownloadOptions component handle the download
+  };
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-xl font-bold">Downloaded Applications</CardTitle>
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-          <input
-            type="text"
-            placeholder="Search downloaded applications..."
-            className="pl-8 pr-4 py-2 w-full border rounded-md"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex items-center gap-4">
+          {selectedApplications.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">
+                {selectedApplications.length} selected
+              </span>
+              <DownloadOptions
+                applicationIds={selectedApplications}
+                isProcessing={false}
+                label="Download Selected"
+                size="sm"
+                variant="outline"
+                onClose={() => setSelectedApplications([])}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedApplications([])}
+              >
+                Clear
+              </Button>
+            </div>
+          )}
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Search downloaded applications..."
+              className="pl-8 pr-4 py-2 w-full border rounded-md"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -62,6 +102,20 @@ const DownloadedApplications = ({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>
+                  <input
+                    type="checkbox"
+                    checked={selectedApplications.length === filteredApplications.length && filteredApplications.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedApplications(filteredApplications.map(app => app.applicationId));
+                      } else {
+                        setSelectedApplications([]);
+                      }
+                    }}
+                    className="w-4 h-4"
+                  />
+                </TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Address</TableHead>
@@ -73,7 +127,7 @@ const DownloadedApplications = ({
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     <div className="flex items-center justify-center">
                       <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-ontario-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -85,13 +139,21 @@ const DownloadedApplications = ({
                 </TableRow>
               ) : filteredApplications.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     {searchTerm ? 'No applications match your search' : 'No downloaded applications yet'}
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredApplications.map((application) => (
                   <TableRow key={application.downloadId}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={selectedApplications.includes(application.applicationId)}
+                        onChange={() => toggleApplicationSelection(application.applicationId)}
+                        className="w-4 h-4"
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="font-medium">{application.fullName}</div>
                     </TableCell>
@@ -119,14 +181,12 @@ const DownloadedApplications = ({
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
+                        <DownloadOptions 
+                          applicationIds={[application.applicationId]}
+                          isProcessing={false}
                           variant="ghost"
                           size="icon"
-                          onClick={() => onDownload(application.applicationId)}
-                          title="Download Again"
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
+                        />
                       </div>
                     </TableCell>
                   </TableRow>

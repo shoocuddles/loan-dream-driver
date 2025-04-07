@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ApplicationItem, LockType } from '@/lib/types/dealer-dashboard';
 import { Eye, Lock, Unlock, Download } from 'lucide-react';
 import { useState } from 'react';
+import DownloadOptions from './DownloadOptions';
 
 interface LockOption {
   id: number;
@@ -45,6 +46,7 @@ export const ApplicationActions = ({
   const isLocked = application.lockInfo?.isLocked;
   const isOwnLock = application.lockInfo?.isOwnLock;
   const canDownload = !isProcessing && (!isLocked || isOwnLock);
+  const isDownloaded = application.isDownloaded;
 
   return (
     <div className="flex items-center justify-end gap-2">
@@ -96,15 +98,24 @@ export const ApplicationActions = ({
         </div>
       )}
       
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => onDownload(application.applicationId)}
-        disabled={!canDownload}
-        title="Download Application"
-      >
-        <Download className="h-4 w-4" />
-      </Button>
+      {isDownloaded ? (
+        <DownloadOptions 
+          applicationIds={[application.applicationId]}
+          isProcessing={isProcessing}
+          variant="ghost"
+          size="icon"
+        />
+      ) : (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onDownload(application.applicationId)}
+          disabled={!canDownload}
+          title="Download Application"
+        >
+          <Download className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 };

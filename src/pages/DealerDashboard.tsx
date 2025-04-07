@@ -190,26 +190,7 @@ const DealerDashboard = () => {
         return;
       }
       
-      const dateField = 'submissionDate' in application 
-        ? application.submissionDate 
-        : (application as DownloadedApplication).downloadDate;
-        
-      const pdfBlob = generateApplicationPDF({
-        id: application.applicationId,
-        fullName: application.fullName,
-        created_at: dateField,
-        status: 'submitted'
-      });
-      
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `application_${application.applicationId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast.success("Application downloaded successfully");
+      toast.success("Application ready for download");
     } catch (error: any) {
       console.error("Error downloading application:", error);
       toast.error("An error occurred while downloading the application.");
@@ -232,39 +213,7 @@ const DealerDashboard = () => {
       });
       setShowPaymentDialog(true);
     } else {
-      try {
-        for (const appId of selectedApplications) {
-          const application = applications.find(app => app.applicationId === appId) || 
-                              downloadedApps.find(app => app.applicationId === appId);
-          
-          if (!application) continue;
-          
-          const dateField = 'submissionDate' in application 
-            ? application.submissionDate 
-            : (application as DownloadedApplication).downloadDate;
-            
-          const pdfBlob = generateApplicationPDF({
-            id: application.applicationId,
-            fullName: application.fullName,
-            created_at: dateField,
-            status: 'submitted'
-          });
-          
-          const url = URL.createObjectURL(pdfBlob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `application_${application.applicationId}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        }
-        
-        toast.success(`${selectedApplications.length} applications downloaded`);
-        setSelectedApplications([]);
-      } catch (error) {
-        console.error("Error in bulk download:", error);
-        toast.error("Failed to download some applications");
-      }
+      toast.success(`${selectedApplications.length} applications ready for download`);
     }
   };
 
@@ -393,6 +342,7 @@ const DealerDashboard = () => {
                 onBulkLock={handleBulkLock}
                 onClearSelection={() => setSelectedApplications([])}
                 isProcessing={!!processingId}
+                selectedApplicationIds={selectedApplications}
               />
               
               <div className="mt-6 text-sm text-gray-500">
@@ -415,6 +365,7 @@ const DealerDashboard = () => {
             onLock={handleLockApplication}
             onUnlock={handleUnlockApplication}
             isProcessing={processingId === detailsApplication?.applicationId}
+            selectedApplicationIds={detailsApplication ? [detailsApplication.applicationId] : []}
           />
           
           <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>

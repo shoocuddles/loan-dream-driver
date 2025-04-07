@@ -4,7 +4,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { ApplicationItem, DownloadedApplication } from '@/lib/types/dealer-dashboard';
 import { format } from 'date-fns';
-import { Download, Lock, Unlock } from 'lucide-react';
+import { Lock, Unlock } from 'lucide-react';
+import DownloadOptions from './application-table/DownloadOptions';
 
 interface ApplicationDetailsProps {
   application: ApplicationItem | DownloadedApplication | null;
@@ -15,6 +16,7 @@ interface ApplicationDetailsProps {
   onLock?: (applicationId: string, lockType: string) => Promise<void>;
   onUnlock?: (applicationId: string) => Promise<void>;
   isProcessing?: boolean;
+  selectedApplicationIds?: string[];
 }
 
 const ApplicationDetails = ({
@@ -25,14 +27,15 @@ const ApplicationDetails = ({
   onDownload,
   onLock,
   onUnlock,
-  isProcessing = false
+  isProcessing = false,
+  selectedApplicationIds = []
 }: ApplicationDetailsProps) => {
   const [showLockOptions, setShowLockOptions] = useState(false);
 
   const handleDownload = async () => {
     if (!application || !onDownload) return;
     await onDownload(application.applicationId);
-    onClose();
+    // Don't close the dialog here anymore
   };
 
   const handleLock = async (lockType: string) => {
@@ -116,7 +119,7 @@ const ApplicationDetails = ({
       return (
         <div className="flex gap-2">
           <Button onClick={handleDownload} className="flex-1">
-            <Download className="mr-2 h-4 w-4" /> Download Application
+            Purchase Application
           </Button>
           
           {isApplicationItem(application) && (
@@ -164,11 +167,13 @@ const ApplicationDetails = ({
       );
     }
     
-    if (isDownloaded && onDownload) {
+    if (isDownloaded && application) {
       return (
-        <Button onClick={handleDownload}>
-          <Download className="mr-2 h-4 w-4" /> Download Again
-        </Button>
+        <DownloadOptions
+          applicationIds={[application.applicationId]}
+          isProcessing={isProcessing}
+          label="Download Application"
+        />
       );
     }
     

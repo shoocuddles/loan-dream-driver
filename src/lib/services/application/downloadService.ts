@@ -1,3 +1,4 @@
+
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { saveAs } from 'file-saver';
@@ -37,13 +38,66 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
     // If we didn't get data from applications table, try fetching from downloaded applications
     console.log('🔄 Attempting to fetch from application_downloads and join with applications');
     
-    // Get the application data through the application_downloads table
+    // Get the current user's ID for the dealer_id parameter
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      throw new Error('User not authenticated');
+    }
+    
+    // Get the application data through the application_downloads table with explicit dealer_id
     const { data: downloadedApps, error: downloadError } = await supabase
-      .rpc('get_dealer_downloads');
+      .rpc('get_dealer_downloads', {
+        p_dealer_id: userData.user.id
+      });
     
     if (downloadError) {
       console.error('❌ Error fetching from get_dealer_downloads:', downloadError);
-      throw downloadError;
+      
+      // Attempt a direct join query as fallback
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('application_downloads')
+        .select(`
+          id as downloadId,
+          downloaded_at as downloadDate,
+          application_id as applicationId,
+          payment_amount as paymentAmount,
+          applications!inner(*)
+        `)
+        .in('application_id', applicationIds)
+        .eq('dealer_id', userData.user.id);
+        
+      if (fallbackError) {
+        console.error('❌ Error with fallback query:', fallbackError);
+        throw fallbackError;
+      }
+      
+      if (fallbackData && fallbackData.length > 0) {
+        console.log(`✅ Retrieved ${fallbackData.length} application details from fallback query`);
+        // Transform the data to match the expected format
+        const transformedData = fallbackData.map(item => {
+          const app = item.applications;
+          return {
+            downloadId: item.downloadId,
+            downloadDate: item.downloadDate,
+            applicationId: item.applicationId,
+            paymentAmount: item.paymentAmount,
+            fullName: app.fullname || 'Unknown',
+            email: app.email,
+            phoneNumber: app.phonenumber || app.phone,
+            address: app.streetaddress || app.address,
+            city: app.city,
+            province: app.province,
+            postalCode: app.postalcode,
+            vehicleType: app.vehicletype
+          };
+        });
+        
+        return transformedData as DownloadedApplication[];
+      }
+      
+      console.error('❌ Could not find application data in any table');
+      toast.error('Could not find application data. Please try downloading the application again.');
+      return [];
     }
     
     // Filter for requested application ids

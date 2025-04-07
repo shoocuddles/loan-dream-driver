@@ -5,7 +5,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { generateFilename } from './formatUtils';
 import { SupabaseCSVResponse } from './types';
 import { fetchFullApplicationDetails } from './fetchService';
-import { directFetchApplicationDetails } from '@/lib/directApiClient';
 
 // Use environment variables from .env file
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://kgtfpuvksmqyaraijoal.supabase.co";
@@ -29,6 +28,12 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
     try {
       applications = await fetchFullApplicationDetails(applicationIds);
       console.log('First attempt result count:', applications?.length || 0);
+      
+      // Log raw data structure to help with debugging
+      if (applications && applications.length > 0) {
+        console.log('Raw Supabase data structure (first app):', Object.keys(applications[0]));
+        console.log('Sample values (truncated):', JSON.stringify(applications[0]).substring(0, 300) + '...');
+      }
     } catch (error) {
       console.error('❌ Error in fetchFullApplicationDetails:', error);
     }
@@ -44,6 +49,7 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
         if (!error && directQueryData && directQueryData.length > 0) {
           applications = directQueryData;
           console.log('Direct query succeeded with', directQueryData.length, 'records');
+          console.log('Direct query data structure:', Object.keys(directQueryData[0]));
         } else if (error) {
           console.error('❌ Supabase direct query error:', error);
         }
@@ -71,6 +77,7 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
           if (directData && directData.length > 0) {
             applications = directData;
             console.log('Direct API fetch succeeded with', directData.length, 'records');
+            console.log('Direct API data structure:', Object.keys(directData[0]));
           }
         } else {
           console.error('❌ Direct API fetch failed:', response.status, await response.text());
@@ -91,7 +98,8 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
       return;
     }
     
-    // We have data, proceed with CSV generation
+    // We have data, proceed with CSV generation with minimal transformations
+    // Pass the raw data directly to preserve all fields
     processAndDownloadCsv(applications, applicationIds);
     
   } catch (error) {
@@ -103,12 +111,17 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
 // Helper function to process data and generate CSV
 const processAndDownloadCsv = (data: any[], applicationIds: string[], isFallback = false) => {
   try {
-    // Get all unique headers from the data
+    // Log the raw data structure
+    console.log('CSV raw data sample:', JSON.stringify(data[0]).substring(0, 300) + '...');
+    
+    // Get all unique headers from the data to ensure ALL fields are included
     const allKeys = new Set<string>();
     data.forEach(row => {
       Object.keys(row).forEach(key => allKeys.add(key));
     });
     const headers = Array.from(allKeys);
+    
+    console.log('CSV will include all these fields:', headers);
     
     // Create CSV content
     let csvContent = headers.join(',') + '\n';

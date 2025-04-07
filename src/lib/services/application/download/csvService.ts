@@ -16,7 +16,7 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
-    // Format all applications
+    // Format all applications with minimal transformations to preserve data
     const formattedApplicationsPromises = applications.map(app => formatApplicationData(app));
     const formattedApplications = await Promise.all(formattedApplicationsPromises);
     

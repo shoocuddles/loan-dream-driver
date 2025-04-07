@@ -26,7 +26,12 @@ export const downloadAsExcel = async (applicationIds: string[]): Promise<void> =
     
     // Create workbook and worksheet
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(formattedApplications);
+    
+    // Preserve raw data structure as much as possible
+    const ws = XLSX.utils.json_to_sheet(formattedApplications, {
+      header: Object.keys(formattedApplications[0]),
+      skipHeader: false
+    });
     
     // Set column widths
     const colWidths = Object.keys(formattedApplications[0]).map(() => ({ wch: 20 }));

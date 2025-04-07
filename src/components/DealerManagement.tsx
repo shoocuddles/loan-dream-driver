@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -45,7 +46,8 @@ import {
   getDefaultPin
 } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
-import { UserDealer, PauseStatus } from '@/lib/types/supabase';
+import { UserDealer, PauseStatus, UserProfile } from '@/lib/types/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 const DealerManagement = () => {
   const [dealers, setDealers] = useState<(UserDealer & { pauseStatus?: PauseStatus })[]>([]);
@@ -64,6 +66,12 @@ const DealerManagement = () => {
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  
+  // Edit user profile states
+  const [fullName, setFullName] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [companyId, setCompanyId] = useState('');
+  const [phone, setPhone] = useState('');
   
   // Pause states
   const [isPermanent, setIsPermanent] = useState(false);
@@ -351,12 +359,36 @@ const DealerManagement = () => {
     }
   };
   
-  const handleEditDealer = (dealer: UserDealer & { pauseStatus?: PauseStatus }) => {
+  const handleEditDealer = async (dealer: UserDealer & { pauseStatus?: PauseStatus }) => {
     setSelectedDealer(dealer);
-    setName(dealer.name);
-    setCompany(dealer.company);
-    setIsAdmin(dealer.isAdmin);
-    setEditDialogOpen(true);
+    
+    try {
+      // Fetch the complete user profile to get all fields
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', dealer.id)
+        .single();
+      
+      if (error) throw error;
+      
+      if (data) {
+        // Set all fields for editing
+        setFullName(data.full_name || '');
+        setCompanyName(data.company_name || '');
+        setCompanyId(data.company_id || '');
+        setPhone(data.phone || '');
+      }
+      
+      setEditDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching dealer profile:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load dealer profile details.',
+        variant: 'destructive',
+      });
+    }
   };
   
   const handleDeleteConfirm = (dealer: UserDealer & { pauseStatus?: PauseStatus }) => {
@@ -367,47 +399,46 @@ const DealerManagement = () => {
   const handleUpdateDealer = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!selectedDealer || !name || !company) {
-      toast({
-        title: 'Missing Information',
-        description: 'Please fill in all required fields.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (!selectedDealer) return;
+    
+    setProcessingId(`update-${selectedDealer.id}`);
     
     try {
-      // Fixed: Create update object with the correct fields
-      const updatedDealerData: Partial<UserDealer> = {
-        name,
-        company,
-        isAdmin
-      };
+      // Update the user profile with all fields
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .update({
+          full_name: fullName,
+          company_name: companyName,
+          company_id: companyId,
+          phone: phone
+        })
+        .eq('id', selectedDealer.id)
+        .select();
       
-      const updatedDealer = await updateDealer({
-        ...updatedDealerData,
-        id: selectedDealer.id
-      });
-      
-      if (updatedDealer) {
-        // Update the dealer in the list
-        setDealers(prevDealers => 
-          prevDealers.map(dealer => 
-            dealer.id === selectedDealer.id ? {
-              ...updatedDealer,
-              pauseStatus: dealer.pauseStatus
-            } : dealer
-          )
-        );
-      }
+      if (error) throw error;
       
       toast({
         title: 'Dealer Updated',
         description: 'Dealer information has been updated successfully.',
       });
       
+      // Update the dealer in the local state
+      setDealers(prevDealers => 
+        prevDealers.map(dealer => 
+          dealer.id === selectedDealer.id 
+            ? { 
+                ...dealer, 
+                name: fullName, 
+                company: companyName,
+                phone: phone,
+                company_id: companyId 
+              } 
+            : dealer
+        )
+      );
+      
       setEditDialogOpen(false);
-      setSelectedDealer(null);
     } catch (error) {
       console.error('Error updating dealer:', error);
       toast({
@@ -415,6 +446,8 @@ const DealerManagement = () => {
         description: 'Failed to update dealer. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setProcessingId(null);
     }
   };
   
@@ -469,6 +502,7 @@ const DealerManagement = () => {
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Company</TableHead>
+              <TableHead>Company ID</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
@@ -477,7 +511,7 @@ const DealerManagement = () => {
           <TableBody>
             {dealers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   No dealers found. Add a new dealer to get started.
                 </TableCell>
               </TableRow>
@@ -487,6 +521,7 @@ const DealerManagement = () => {
                   <TableCell>{dealer.name}</TableCell>
                   <TableCell>{dealer.email}</TableCell>
                   <TableCell>{dealer.company}</TableCell>
+                  <TableCell className="font-mono text-xs">{dealer.company_id}</TableCell>
                   <TableCell>{dealer.isAdmin ? 'Admin' : 'Dealer'}</TableCell>
                   <TableCell>
                     {dealer.pauseStatus?.isPaused ? (
@@ -634,37 +669,52 @@ const DealerManagement = () => {
           <form onSubmit={handleUpdateDealer} className="space-y-4">
             <div className="grid gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-name">Full Name</Label>
+                <Label htmlFor="full_name">Full Name</Label>
                 <Input
-                  id="edit-name"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
+                  id="full_name"
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-company">Company</Label>
+                <Label htmlFor="company_name">Company Name</Label>
                 <Input
-                  id="edit-company"
-                  value={company}
-                  onChange={e => setCompany(e.target.value)}
+                  id="company_name"
+                  value={companyName}
+                  onChange={e => setCompanyName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="company_id">Company ID</Label>
+                <Input
+                  id="company_id"
+                  value={companyId}
+                  onChange={e => setCompanyId(e.target.value)}
                   required
                 />
               </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="edit-isAdmin"
-                  checked={isAdmin}
-                  onCheckedChange={(checked) => setIsAdmin(checked === true)}
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="e.g. 416-555-1234"
                 />
-                <Label htmlFor="edit-isAdmin">Admin Account</Label>
               </div>
+              {/* Role is hidden as requested - cannot be changed */}
             </div>
             <DialogFooter>
               <DialogClose asChild>
                 <Button type="button" variant="outline">Cancel</Button>
               </DialogClose>
-              <Button type="submit">Save Changes</Button>
+              <Button 
+                type="submit"
+                disabled={processingId === `update-${selectedDealer?.id}`}
+              >
+                Save Changes
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

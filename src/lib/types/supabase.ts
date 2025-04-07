@@ -1,3 +1,4 @@
+
 export type SystemSettings = {
   id: number;
   standardPrice: number;

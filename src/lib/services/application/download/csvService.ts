@@ -15,11 +15,12 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
-    // Call the Supabase function with UUID array
+    // Call the Supabase function with the correct parameter name 'app_ids' as per the schema
+    console.log('🔍 Calling Supabase export_applications_as_csv with IDs:', applicationIds);
     const { data, error } = await supabase.rpc(
       'export_applications_as_csv', 
       { 
-        p_application_ids: applicationIds 
+        app_ids: applicationIds 
       }
     );
     
@@ -38,7 +39,7 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
-    console.log('✅ CSV data received from Supabase');
+    console.log('✅ CSV data received from Supabase:', data.substring(0, 100) + '...');
     
     // Create blob from the CSV data
     const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });

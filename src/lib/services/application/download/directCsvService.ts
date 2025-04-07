@@ -34,7 +34,7 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
       return;
     }
     
-    if (!data || !data.length) {
+    if (!data) {
       console.error('❌ No CSV data returned from Supabase');
       toast.error('No data found for CSV export.');
       return;

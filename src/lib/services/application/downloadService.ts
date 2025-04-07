@@ -1,4 +1,3 @@
-
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { saveAs } from 'file-saver';
@@ -44,70 +43,84 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
       throw new Error('User not authenticated');
     }
     
-    // Get the application data through the application_downloads table with explicit dealer_id
-    const { data: downloadedApps, error: downloadError } = await supabase
-      .rpc('get_dealer_downloads', {
-        p_dealer_id: userData.user.id
-      });
-    
-    if (downloadError) {
-      console.error('❌ Error fetching from get_dealer_downloads:', downloadError);
-      
-      // Attempt a direct join query as fallback
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('application_downloads')
-        .select(`
-          id as downloadId,
-          downloaded_at as downloadDate,
-          application_id as applicationId,
-          payment_amount as paymentAmount,
-          applications!inner(*)
-        `)
-        .in('application_id', applicationIds)
-        .eq('dealer_id', userData.user.id);
-        
-      if (fallbackError) {
-        console.error('❌ Error with fallback query:', fallbackError);
-        throw fallbackError;
-      }
-      
-      if (fallbackData && fallbackData.length > 0) {
-        console.log(`✅ Retrieved ${fallbackData.length} application details from fallback query`);
-        // Transform the data to match the expected format
-        const transformedData = fallbackData.map(item => {
-          const app = item.applications;
-          return {
-            downloadId: item.downloadId,
-            downloadDate: item.downloadDate,
-            applicationId: item.applicationId,
-            paymentAmount: item.paymentAmount,
-            fullName: app.fullname || 'Unknown',
-            email: app.email,
-            phoneNumber: app.phonenumber || app.phone,
-            address: app.streetaddress || app.address,
-            city: app.city,
-            province: app.province,
-            postalCode: app.postalcode,
-            vehicleType: app.vehicletype
-          };
+    // Try calling the RPC function first
+    try {
+      const { data: downloadedApps, error: downloadError } = await supabase
+        .rpc('get_dealer_downloads', {
+          p_dealer_id: userData.user.id
         });
-        
-        return transformedData as DownloadedApplication[];
-      }
       
-      console.error('❌ Could not find application data in any table');
-      toast.error('Could not find application data. Please try downloading the application again.');
-      return [];
+      if (downloadError) throw downloadError;
+      
+      // If we got data, filter for requested application ids
+      if (Array.isArray(downloadedApps) && downloadedApps.length > 0) {
+        const filteredDownloads = downloadedApps.filter((app: any) => 
+          applicationIds.includes(app.applicationId)
+        );
+        
+        if (filteredDownloads.length > 0) {
+          console.log(`✅ Retrieved ${filteredDownloads.length} application details from downloads`);
+          return filteredDownloads as DownloadedApplication[];
+        }
+      }
+    } catch (rpcError) {
+      console.error('❌ Error fetching from get_dealer_downloads:', rpcError);
+      // Continue to fallback query
     }
     
-    // Filter for requested application ids
-    const filteredDownloads = Array.isArray(downloadedApps) 
-      ? downloadedApps.filter((app: any) => applicationIds.includes(app.applicationId))
-      : [];
-    
-    if (filteredDownloads.length > 0) {
-      console.log(`✅ Retrieved ${filteredDownloads.length} application details from downloads`);
-      return filteredDownloads as DownloadedApplication[];
+    // Attempt a direct join query as fallback
+    try {
+      // First get the download records
+      const { data: downloadRecords, error: downloadError } = await supabase
+        .from('application_downloads')
+        .select('id, downloaded_at, application_id, payment_amount, dealer_id')
+        .in('application_id', applicationIds)
+        .eq('dealer_id', userData.user.id);
+      
+      if (downloadError) throw downloadError;
+      
+      if (downloadRecords && downloadRecords.length > 0) {
+        console.log(`✅ Found ${downloadRecords.length} download records`);
+        
+        // Now fetch the full application details for each download
+        const appData = await Promise.all(downloadRecords.map(async (record) => {
+          const { data: appDetails, error: appError } = await supabase
+            .from('applications')
+            .select('*')
+            .eq('id', record.application_id)
+            .single();
+          
+          if (appError) {
+            console.error(`❌ Error fetching application details for ${record.application_id}:`, appError);
+            return null;
+          }
+          
+          return {
+            downloadId: record.id,
+            downloadDate: record.downloaded_at,
+            applicationId: record.application_id,
+            paymentAmount: record.payment_amount,
+            fullName: appDetails?.fullname || 'Unknown',
+            email: appDetails?.email,
+            phoneNumber: appDetails?.phonenumber || appDetails?.phone,
+            address: appDetails?.streetaddress || appDetails?.address,
+            city: appDetails?.city,
+            province: appDetails?.province,
+            postalCode: appDetails?.postalcode,
+            vehicleType: appDetails?.vehicletype
+          };
+        }));
+        
+        // Filter out any null results
+        const validAppData = appData.filter(item => item !== null) as DownloadedApplication[];
+        
+        if (validAppData.length > 0) {
+          console.log(`✅ Transformed ${validAppData.length} application records`);
+          return validAppData;
+        }
+      }
+    } catch (fallbackError) {
+      console.error('❌ Error with fallback query:', fallbackError);
     }
     
     console.error('❌ Could not find application data in any table');
@@ -187,7 +200,7 @@ const formatApplicationData = (application: ApplicationData) => {
     'Current Vehicle': getValueOrNA(standardApp.currentvehicle),
     'Mileage': getValueOrNA(standardApp.mileage),
     'Employment Status': getValueOrNA(standardApp.employmentstatus),
-    'Monthly Income': getValueOrNA(standardApp.monthlyIncome || standardApp.income), // Fixed: use standardApp.income as fallback
+    'Monthly Income': getValueOrNA(standardApp.monthlyincome || standardApp.income), // Keep the fallback for income field
     'Additional Notes': getValueOrNA(standardApp.additionalnotes),
     'Status': getValueOrNA(standardApp.status),
     'Submission Date': createdDate,

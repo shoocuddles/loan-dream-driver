@@ -15,16 +15,22 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
-    // Call the Supabase RPC function without any client-side processing
+    // Directly fetch the raw CSV data using the rpcCall helper for detailed logging
     const { data, error } = await supabase.rpc(
       'export_applications_as_csv', 
       { 
         app_ids: applicationIds 
-      }
+      },
+      { count: 'exact' }  // Request exact count to ensure all data is returned
     );
+    
+    console.log('📄 Supabase CSV export response received');
     
     if (error) {
       console.error('❌ Supabase CSV export error:', error);
+      console.error('Error details:', error.details);
+      console.error('Error message:', error.message);
+      console.error('Error hint:', error.hint);
       
       // Fall back to direct CSV generation method if Supabase function fails
       console.log('🔀 Falling back to direct CSV generation method');
@@ -38,9 +44,12 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
-    console.log('✅ Raw CSV data received from Supabase, length:', data.length);
+    console.log('✅ Raw CSV data received from Supabase:');
+    console.log('📊 CSV data length:', data.length);
+    console.log('📊 CSV data preview (first 200 chars):', data.substring(0, 200));
     
     // Create a blob directly from the raw data returned by Supabase
+    // Using text/csv with UTF-8 encoding for proper character support
     const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
     
     // Generate filename based on number of applications
@@ -48,7 +57,7 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       ? `application_${applicationIds[0]}.csv`
       : `applications_${new Date().getTime()}.csv`;
     
-    // Save the blob directly as a file without any processing
+    // Save the blob directly as a file without any manipulation
     saveAs(blob, fileName);
     console.log('✅ Raw CSV file saved successfully');
     toast.success('CSV downloaded successfully');

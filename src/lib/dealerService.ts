@@ -29,18 +29,25 @@ export const fetchAvailableApplications = async (): Promise<ApplicationItem[]> =
       const formattedApp = { ...app };
       
       // Check if vehicletype exists in the raw data (from DB) and map it to vehicleType
-      // TypeScript doesn't know about this property yet, so we need to use a type assertion
       if ((app as any).vehicletype !== undefined) {
         formattedApp.vehicleType = (app as any).vehicletype;
+        console.log(`Mapped vehicletype -> vehicleType: ${(app as any).vehicletype}`);
       } else if (!formattedApp.vehicleType) {
         // Default value if neither exists
         formattedApp.vehicleType = 'N/A';
+        console.log('No vehicle type found, defaulting to N/A');
+      }
+
+      // Ensure the status field is properly set
+      if ((app as any).status !== undefined && !formattedApp.status) {
+        formattedApp.status = (app as any).status;
+        console.log(`Mapped status: ${(app as any).status}`);
       }
       
       return formattedApp;
     }) || [];
     
-    console.log('Formatted applications with vehicleType:', formattedData);
+    console.log('Formatted applications with vehicleType and status:', formattedData);
     
     return formattedData;
   } catch (error: any) {

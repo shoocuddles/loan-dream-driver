@@ -90,7 +90,6 @@ const BulkActionsBar = ({
             isProcessing={isProcessing}
             label={isProcessing ? "Processing..." : "Download selected"}
             size="sm"
-            className="bg-ontario-blue hover:bg-ontario-blue/90"
           />
         </div>
       </div>

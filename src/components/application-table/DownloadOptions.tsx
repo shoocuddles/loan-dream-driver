@@ -13,6 +13,7 @@ interface DownloadOptionsProps {
   label?: string;
   variant?: 'default' | 'outline' | 'ghost' | 'link';
   size?: 'default' | 'sm' | 'lg' | 'icon';
+  className?: string; // Added className prop
 }
 
 const DownloadOptions = ({
@@ -21,7 +22,8 @@ const DownloadOptions = ({
   onClose,
   label = "Download",
   variant = "default",
-  size = "default"
+  size = "default",
+  className // Added className to be destructured
 }: DownloadOptionsProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [downloadType, setDownloadType] = useState<string | null>(null);
@@ -66,6 +68,7 @@ const DownloadOptions = ({
           variant={variant}
           size={size}
           disabled={isProcessing || !applicationIds.length}
+          className={className} // Use className prop
         >
           <FileDown className={size === "icon" ? "h-4 w-4" : "h-4 w-4 mr-2"} />
           {size !== "icon" && label}

@@ -60,7 +60,7 @@ const formatApplicationData = (application: Application) => {
     'Current Vehicle': getValueOrNA(application.currentvehicle),
     'Mileage': getValueOrNA(application.mileage),
     'Employment Status': getValueOrNA(application.employmentstatus),
-    'Monthly Income': getValueOrNA(application.monthlyincome || application.monthlyIncome),
+    'Monthly Income': getValueOrNA(application.monthlyIncome),
     'Additional Notes': getValueOrNA(application.additionalnotes),
     'Status': getValueOrNA(application.status),
     'Submission Date': createdAt,

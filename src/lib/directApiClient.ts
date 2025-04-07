@@ -1,4 +1,3 @@
-
 /**
  * Direct API client for Supabase with alternative fetch implementation
  * This provides a backup method when normal Supabase client connections fail
@@ -42,6 +41,52 @@ const createHeaders = (customHeaders = {}): HeadersInit => {
 
   return headers;
 };
+
+/**
+ * Direct fetch for application details to be used as a fallback
+ */
+export async function directFetchApplicationDetails(applicationIds: string[]): Promise<any[]> {
+  try {
+    console.log("🔌 Using direct API fetch method for application details");
+    
+    // Try multiple endpoint formats to increase chances of success
+    const endpoints = [
+      // Standard format
+      `${SUPABASE_URL}/rest/v1/applications?id=in.(${applicationIds.join(',')})`,
+      // Alternative format
+      `${SUPABASE_URL}/rest/v1/applications?select=*&id=in.(${applicationIds.join(',')})`,
+      // Yet another alternative
+      `${SUPABASE_URL}/rest/v1/applications?select=*&id=in.(${applicationIds.join('.')})`
+    ];
+    
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(endpoint, {
+          method: 'GET',
+          headers: createHeaders()
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            console.log(`✅ Direct API fetch successful from ${endpoint}`);
+            return data;
+          }
+        } else {
+          console.warn(`⚠️ Direct API fetch failed at ${endpoint}: ${response.status}`);
+        }
+      } catch (error) {
+        console.warn(`⚠️ Error with endpoint ${endpoint}:`, error);
+      }
+    }
+    
+    console.error('❌ All direct API fetch attempts failed');
+    return [];
+  } catch (error) {
+    console.error("❌ Direct API fetch exception:", error);
+    return [];
+  }
+}
 
 /**
  * Direct insert method that bypasses the Supabase client for more reliability

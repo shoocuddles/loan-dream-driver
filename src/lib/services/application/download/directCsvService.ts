@@ -73,66 +73,90 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
 const cleanCsvData = (rawData: string): string => {
   if (!rawData) return '';
   
-  // Split into header and data parts
-  const parts = rawData.split('\n');
-  if (parts.length < 2) {
+  console.log('🔄 Starting CSV cleaning process');
+  
+  // Replace literal '\n' with actual line breaks
+  rawData = rawData.replace(/\\n/g, '\n');
+  
+  // Split into header and data parts (now using actual line breaks)
+  const lines = rawData.split('\n');
+  if (lines.length < 2) {
+    console.log('⚠️ CSV data didn\'t contain multiple lines, returning as is');
     return rawData;
   }
   
-  // Get the header row (no need to modify it much)
-  const header = parts[0];
+  // Get the header row
+  const header = lines[0];
+  console.log('📋 Header row:', header);
   
-  // Get the data rows (needs cleanup)
-  let dataContent = parts.slice(1).join('');
+  // Join all data rows
+  let dataContent = lines.slice(1).join('\n');
+  console.log('📊 Data rows length before processing:', dataContent.length);
   
-  // Remove surrounding parentheses
+  // Remove surrounding parentheses if present
   if (dataContent.startsWith('(') && dataContent.endsWith(')')) {
     dataContent = dataContent.substring(1, dataContent.length - 1);
+    console.log('🔄 Removed surrounding parentheses');
+  } else {
+    // Try more aggressively to remove all parentheses
+    dataContent = dataContent.replace(/\(/g, '').replace(/\)/g, '');
+    console.log('🔄 Removed all parentheses');
   }
   
-  // Clean up all unnecessary quotation marks 
-  // But be careful to keep actual commas within fields intact
-  const cleanedData = processCSVFields(dataContent);
+  // Apply thorough cleaning to remove all quotes and backslashes
+  dataContent = cleanAllSpecialCharacters(dataContent);
+  console.log('🔄 Cleaned all special characters');
   
   // Return the properly formatted CSV
-  return header + '\n' + cleanedData;
+  return header + '\n' + dataContent;
 };
 
-// Process CSV fields to remove unnecessary quotes but preserve commas in fields
-const processCSVFields = (csvContent: string): string => {
-  const fields = [];
-  let currentField = '';
-  let inQuote = false;
-  
-  for (let i = 0; i < csvContent.length; i++) {
-    const char = csvContent[i];
-    const nextChar = i < csvContent.length - 1 ? csvContent[i + 1] : '';
+// Comprehensive function to clean all special characters while preserving data integrity
+const cleanAllSpecialCharacters = (csvContent: string): string => {
+  // First, parse the CSV to understand the structure
+  const rows = csvContent.split('\n');
+  const cleanedRows = rows.map(row => {
+    // Skip empty rows
+    if (!row.trim()) return '';
     
-    // Handle quotes
-    if (char === '"') {
-      // Toggle quote state but don't add the quote to our output
-      inQuote = !inQuote;
-    }
-    // Handle comma - only treat as field separator if not inside quotes
-    else if (char === ',' && !inQuote) {
-      fields.push(currentField);
-      currentField = '';
-    }
-    // Handle all other characters - add them to current field
-    else {
-      // Skip escape character but include the actual character
-      if (char === '\\' && (nextChar === '"' || nextChar === '\\')) {
+    let inQuotes = false;
+    let currentField = '';
+    const fields = [];
+    
+    // Process each character in the row
+    for (let i = 0; i < row.length; i++) {
+      const char = row[i];
+      
+      // Handle quotes (toggle quote state)
+      if (char === '"' && (i === 0 || row[i-1] !== '\\')) {
+        inQuotes = !inQuotes;
+        // Skip adding the quote character
         continue;
       }
+      
+      // Handle commas - only treat as field separator if not inside quotes
+      if (char === ',' && !inQuotes) {
+        fields.push(currentField);
+        currentField = '';
+        continue;
+      }
+      
+      // Skip backslashes that are escaping characters
+      if (char === '\\' && i < row.length - 1) {
+        // Skip the backslash but keep the next character
+        continue;
+      }
+      
+      // For all other characters, add to current field
       currentField += char;
     }
-  }
-  
-  // Add the last field
-  if (currentField) {
+    
+    // Don't forget to add the last field
     fields.push(currentField);
-  }
+    
+    // Join fields back with commas
+    return fields.join(',');
+  });
   
-  // Join fields back with commas
-  return fields.join(',');
+  return cleanedRows.filter(row => row.length > 0).join('\n');
 };

@@ -31,50 +31,174 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
         isFirstPage = false;
       }
       
-      // Add header
-      pdf.setFontSize(20);
-      pdf.setTextColor(0, 51, 102); // Ontario blue color
-      pdf.text('Ontario Leads', 105, 15, { align: 'center' });
-      
-      // Add application ID and date
-      pdf.setFontSize(12);
-      pdf.setTextColor(0, 0, 0);
-      const appId = 'applicationId' in application ? application.applicationId : application.id;
-      pdf.text(`Application ID: ${appId}`, 14, 25);
-      pdf.text(`Date: ${getDateFromApplication(application)}`, 14, 32);
-      
       // Format data for PDF
       const formattedData = await formatApplicationData(application);
       
-      // Convert to rows for autoTable
-      const rows = Object.entries(formattedData).map(([key, value]) => [key, value]);
+      // Add header
+      pdf.setFontSize(16);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('Ontario Loans - Lead Details', 105, 15, { align: 'center' });
       
-      // Add table of application details
-      autoTable(pdf, {
-        startY: 40,
-        head: [['Field', 'Value']],
-        body: rows,
-        headStyles: {
-          fillColor: [0, 51, 102], // Ontario blue
-          textColor: [255, 255, 255],
-          fontStyle: 'bold'
-        },
-        alternateRowStyles: {
-          fillColor: [240, 240, 240]
-        },
-        margin: { top: 40 },
-        styles: { overflow: 'linebreak' },
-        columnStyles: {
-          0: { cellWidth: 70 },
-          1: { cellWidth: 'auto' }
+      // Group fields by category
+      const categories = {
+        'Contact Details': [
+          'Full Name', 
+          'City', 
+          'Address', 
+          'Province', 
+          'Postal Code', 
+          'Email', 
+          'Phone Number',
+          'Download Id'
+        ],
+        'Vehicle Wanted': [
+          'Vehicle Type', 
+          'Unwanted Colors', 
+          'Required Features', 
+          'Preferred Make/Model'
+        ],
+        'Existing Loan': [
+          'Has Existing Loan',
+          'Current Vehicle',
+          'Current Payment',
+          'Payment Amount',
+          'Amount Owed',
+          'Mileage'
+        ],
+        'Income Details': [
+          'Employment Status',
+          'Monthly Income',
+          'Employer Name',
+          'Job Title',
+          'Employment Duration',
+          'Status'
+        ]
+      };
+      
+      // Starting Y position for first category
+      let startY = 25;
+      const margin = 14;
+      
+      // Process each category
+      for (const [category, fields] of Object.entries(categories)) {
+        // Create rows for the current category
+        const rows = fields.map(field => {
+          // Look for the field in formattedData (case insensitive)
+          const key = Object.keys(formattedData).find(k => 
+            k.toLowerCase() === field.toLowerCase() || 
+            k.replace(/\s+/g, '').toLowerCase() === field.replace(/\s+/g, '').toLowerCase()
+          );
+          return [field, key ? formattedData[key] : 'N/A'];
+        });
+        
+        // Add category header
+        pdf.setFontSize(10);
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFillColor(0, 0, 255); // Blue background for category header
+        pdf.rect(margin, startY, pdf.internal.pageSize.width - 2 * margin, 6, 'F');
+        pdf.text(category, margin + 2, startY + 4);
+        
+        // Add table with the data for this category
+        autoTable(pdf, {
+          startY: startY + 6,
+          head: [], // No header row
+          body: rows,
+          theme: 'striped',
+          headStyles: {
+            fillColor: [0, 51, 102],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold'
+          },
+          alternateRowStyles: {
+            fillColor: [240, 240, 240]
+          },
+          styles: { 
+            overflow: 'linebreak',
+            cellPadding: 2,
+            fontSize: 9
+          },
+          columnStyles: {
+            0: { 
+              cellWidth: 50,
+              fontStyle: 'bold'
+            },
+            1: { cellWidth: 'auto' }
+          },
+          margin: { left: margin, right: margin },
+          tableWidth: 'auto',
+        });
+        
+        // Update startY for the next category (get the final Y position from autoTable)
+        startY = (pdf as any).lastAutoTable.finalY + 10;
+        
+        // If we're close to the page bottom, start a new page
+        if (startY > pdf.internal.pageSize.height - 40 && Object.keys(categories).indexOf(category) < Object.keys(categories).length - 1) {
+          pdf.addPage();
+          startY = 15;
         }
+      }
+      
+      // Create "Other Details" category with remaining fields
+      const usedFields = Object.values(categories).flat().map(f => f.toLowerCase().replace(/\s+/g, ''));
+      const otherFields = Object.keys(formattedData).filter(key => {
+        const normalizedKey = key.toLowerCase().replace(/\s+/g, '');
+        return !usedFields.some(f => f === normalizedKey || f.includes(normalizedKey) || normalizedKey.includes(f));
       });
+      
+      if (otherFields.length > 0) {
+        // Check if we need a new page for other details
+        if (startY > pdf.internal.pageSize.height - 60) {
+          pdf.addPage();
+          startY = 15;
+        }
+        
+        // Add "Other Details" header
+        pdf.setFontSize(10);
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFillColor(0, 0, 255);
+        pdf.rect(margin, startY, pdf.internal.pageSize.width - 2 * margin, 6, 'F');
+        pdf.text('Other Details', margin + 2, startY + 4);
+        
+        // Create rows for other fields
+        const otherRows = otherFields.map(key => [key, formattedData[key]]);
+        
+        // Add table for other fields
+        autoTable(pdf, {
+          startY: startY + 6,
+          head: [], // No header row
+          body: otherRows,
+          theme: 'striped',
+          alternateRowStyles: {
+            fillColor: [240, 240, 240]
+          },
+          styles: { 
+            overflow: 'linebreak',
+            cellPadding: 2,
+            fontSize: 9
+          },
+          columnStyles: {
+            0: { 
+              cellWidth: 50,
+              fontStyle: 'bold'
+            },
+            1: { cellWidth: 'auto' }
+          },
+          margin: { left: margin, right: margin },
+          tableWidth: 'auto',
+        });
+      }
+      
+      // Add application ID and date
+      const appId = 'applicationId' in application ? application.applicationId : application.id;
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Application ID: ${appId}`, 195, 285, { align: 'right' });
       
       // Add footer with page number
       const pageCount = pdf.getNumberOfPages();
-      pdf.setFontSize(10);
+      pdf.setFontSize(8);
       pdf.setTextColor(100, 100, 100);
-      pdf.text(`Page ${pageCount}`, 195, 285, { align: 'right' });
+      pdf.text(`Page ${pageCount}`, 105, 290, { align: 'center' });
     }
     
     // Save the PDF

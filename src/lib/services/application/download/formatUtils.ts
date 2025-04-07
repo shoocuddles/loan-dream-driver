@@ -49,29 +49,59 @@ export const formatApplicationData = async (application: ApplicationData) => {
   if (isDownloadedApp) {
     const downloadedApp = application as any;
     
-    // Process all fields from the downloaded app object
-    for (const key in downloadedApp) {
-      if (key === 'downloadDate') {
-        formattedData['Download Date'] = downloadedApp.downloadDate
-          ? format(new Date(downloadedApp.downloadDate), 'MMM d, yyyy')
-          : 'N/A';
-      } else {
-        // Convert keys to proper display format
-        const displayKey = formatColumnName(key);
-        formattedData[displayKey] = getValueOrNA(downloadedApp[key]);
-      }
-    }
+    // Map field names to match our PDF categories
+    formattedData['Full Name'] = getValueOrNA(downloadedApp.fullName || downloadedApp.fullname);
+    formattedData['City'] = getValueOrNA(downloadedApp.city);
+    formattedData['Address'] = getValueOrNA(downloadedApp.streetAddress || downloadedApp.streetaddress);
+    formattedData['Province'] = getValueOrNA(downloadedApp.province);
+    formattedData['Postal Code'] = getValueOrNA(downloadedApp.postalCode || downloadedApp.postalcode);
+    formattedData['Email'] = getValueOrNA(downloadedApp.email);
+    formattedData['Phone Number'] = getValueOrNA(downloadedApp.phoneNumber || downloadedApp.phonenumber);
+    formattedData['Download Id'] = getValueOrNA(downloadedApp.downloadId || downloadedApp.id);
     
-    // Ensure Application ID is properly named
-    if ('applicationId' in downloadedApp) {
-      formattedData['Application ID'] = getValueOrNA(downloadedApp.applicationId);
-    }
+    // Vehicle information
+    formattedData['Vehicle Type'] = getValueOrNA(downloadedApp.vehicleType || downloadedApp.vehicletype);
+    formattedData['Unwanted Colors'] = getValueOrNA(downloadedApp.unwantedColors || downloadedApp.unwantedcolors);
+    formattedData['Required Features'] = getValueOrNA(downloadedApp.requiredFeatures || downloadedApp.requiredfeatures);
+    formattedData['Preferred Make/Model'] = getValueOrNA(downloadedApp.preferredMakeModel || downloadedApp.preferredmakemodel);
+    
+    // Loan information
+    formattedData['Has Existing Loan'] = getBooleanValue(downloadedApp.hasExistingLoan || downloadedApp.hasexistingloan);
+    formattedData['Current Vehicle'] = getValueOrNA(downloadedApp.currentVehicle || downloadedApp.currentvehicle);
+    formattedData['Current Payment'] = getValueOrNA(downloadedApp.currentPayment || downloadedApp.currentpayment);
+    formattedData['Amount Owed'] = getValueOrNA(downloadedApp.amountOwed || downloadedApp.amountowed);
+    formattedData['Mileage'] = getValueOrNA(downloadedApp.mileage);
+    
+    // Income information
+    formattedData['Employment Status'] = getValueOrNA(downloadedApp.employmentStatus || downloadedApp.employmentstatus);
+    formattedData['Monthly Income'] = getValueOrNA(downloadedApp.monthlyIncome || downloadedApp.monthlyincome);
+    formattedData['Employer Name'] = getValueOrNA(downloadedApp.employerName || downloadedApp.employer_name);
+    formattedData['Job Title'] = getValueOrNA(downloadedApp.jobTitle || downloadedApp.job_title);
+    formattedData['Employment Duration'] = getValueOrNA(downloadedApp.employmentDuration || downloadedApp.employment_duration);
+    formattedData['Status'] = getValueOrNA(downloadedApp.status);
+    
+    // Add additional fields
+    formattedData['Application ID'] = getValueOrNA(downloadedApp.applicationId || downloadedApp.id);
+    formattedData['Submission Date'] = createdDate;
+    formattedData['Last Updated'] = updatedDate;
+    formattedData['Additional Notes'] = getValueOrNA(downloadedApp.additionalNotes || downloadedApp.additionalnotes);
     
     // Make sure ALL columns from metadata are included, even if missing in the downloadedApp
     columnMetadata.forEach(column => {
+      const camelCaseKey = toCamelCase(column.name);
+      const snakeCaseKey = column.name;
       const displayName = column.displayName;
-      if (!(displayName in formattedData)) {
-        formattedData[displayName] = 'N/A';
+      
+      // Check if we already have this field (using various naming conventions)
+      const hasField = Object.keys(formattedData).some(key => 
+        key.toLowerCase() === displayName.toLowerCase() || 
+        key.replace(/\s+/g, '').toLowerCase() === displayName.replace(/\s+/g, '').toLowerCase()
+      );
+      
+      if (!hasField) {
+        // Look for the field using various naming formats
+        const value = downloadedApp[camelCaseKey] || downloadedApp[snakeCaseKey] || null;
+        formattedData[displayName] = getValueOrNA(value);
       }
     });
   } 
@@ -79,28 +109,56 @@ export const formatApplicationData = async (application: ApplicationData) => {
   else {
     const standardApp = application as any;
     
+    // Map field names to match our PDF categories
+    formattedData['Full Name'] = getValueOrNA(standardApp.fullname);
+    formattedData['City'] = getValueOrNA(standardApp.city);
+    formattedData['Address'] = getValueOrNA(standardApp.streetaddress);
+    formattedData['Province'] = getValueOrNA(standardApp.province);
+    formattedData['Postal Code'] = getValueOrNA(standardApp.postalcode);
+    formattedData['Email'] = getValueOrNA(standardApp.email);
+    formattedData['Phone Number'] = getValueOrNA(standardApp.phonenumber);
+    
+    // Vehicle information
+    formattedData['Vehicle Type'] = getValueOrNA(standardApp.vehicletype);
+    formattedData['Unwanted Colors'] = getValueOrNA(standardApp.unwantedcolors);
+    formattedData['Required Features'] = getValueOrNA(standardApp.requiredfeatures);
+    formattedData['Preferred Make/Model'] = getValueOrNA(standardApp.preferredmakemodel);
+    
+    // Loan information
+    formattedData['Has Existing Loan'] = getBooleanValue(standardApp.hasexistingloan);
+    formattedData['Current Vehicle'] = getValueOrNA(standardApp.currentvehicle);
+    formattedData['Current Payment'] = getValueOrNA(standardApp.currentpayment);
+    formattedData['Amount Owed'] = getValueOrNA(standardApp.amountowed);
+    formattedData['Mileage'] = getValueOrNA(standardApp.mileage);
+    
+    // Income information
+    formattedData['Employment Status'] = getValueOrNA(standardApp.employmentstatus);
+    formattedData['Monthly Income'] = getValueOrNA(standardApp.monthlyincome);
+    formattedData['Employer Name'] = getValueOrNA(standardApp.employer_name);
+    formattedData['Job Title'] = getValueOrNA(standardApp.job_title);
+    formattedData['Employment Duration'] = getValueOrNA(standardApp.employment_duration);
+    formattedData['Status'] = getValueOrNA(standardApp.status);
+    
+    // Add additional fields
+    formattedData['Application ID'] = getValueOrNA(standardApp.id);
+    formattedData['Submission Date'] = createdDate;
+    formattedData['Last Updated'] = updatedDate;
+    formattedData['Additional Notes'] = getValueOrNA(standardApp.additionalnotes);
+    
     // Process ALL database columns systematically, including all empty fields
+    // This ensures we don't miss any fields not explicitly mapped above
     columnMetadata.forEach(column => {
       const key = column.name;
       const displayName = column.displayName;
       
-      // Special handling for certain field types
-      if (key === 'hasexistingloan' && key in standardApp) {
-        formattedData[displayName] = getBooleanValue(standardApp[key]);
-      } 
-      else if (key === 'created_at') {
-        formattedData['Submission Date'] = createdDate;
-      }
-      else if (key === 'updated_at') {
-        formattedData['Last Updated'] = updatedDate;
-      }
-      // Handle mappings between camelCase and snake_case
-      else if (key === 'monthlyincome' && 'monthlyIncome' in standardApp) {
-        formattedData[displayName] = getValueOrNA(standardApp.monthlyIncome);
-      }
-      // Map the database column name to a display name and include the value
-      else {
-        // Handle both snake_case (from DB) and camelCase (from frontend)
+      // Check if we already have this field (using various naming conventions)
+      const hasField = Object.keys(formattedData).some(existingKey => 
+        existingKey.toLowerCase() === displayName.toLowerCase() || 
+        existingKey.replace(/\s+/g, '').toLowerCase() === displayName.replace(/\s+/g, '').toLowerCase()
+      );
+      
+      if (!hasField) {
+        // Handle mappings between camelCase and snake_case
         const camelCaseKey = toCamelCase(key);
         const value = key in standardApp 
           ? standardApp[key] 
@@ -113,17 +171,6 @@ export const formatApplicationData = async (application: ApplicationData) => {
           : getBooleanValue(value); // Booleans should show as Yes/No
       }
     });
-    
-    // Ensure these common fields have consistent naming
-    if ('id' in standardApp) {
-      formattedData['Application ID'] = getValueOrNA(standardApp.id);
-    }
-    if ('fullname' in standardApp) {
-      formattedData['Full Name'] = getValueOrNA(standardApp.fullname);
-    }
-    if ('email' in standardApp) {
-      formattedData['Email'] = getValueOrNA(standardApp.email);
-    }
   }
   
   return formattedData;

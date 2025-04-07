@@ -12,3 +12,9 @@ export interface ColumnMetadata {
 export interface SupabaseCSVResponse {
   csv: string;
 }
+
+// PDF category mapping for organizing data in the PDF output
+export interface PDFCategory {
+  title: string;
+  fields: string[];
+}

@@ -70,7 +70,7 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
   }
 };
 
-// Updated function to completely clean up the CSV data
+// Improved CSV data cleaning function
 const cleanCsvData = (rawData: string): string => {
   if (!rawData) return '';
   
@@ -79,85 +79,104 @@ const cleanCsvData = (rawData: string): string => {
   // Replace literal '\n' with actual line breaks
   rawData = rawData.replace(/\\n/g, '\n');
   
-  // Split into header and data parts (now using actual line breaks)
+  // Get the header row (first line)
   const lines = rawData.split('\n');
   if (lines.length < 2) {
     console.log('⚠️ CSV data didn\'t contain multiple lines, returning as is');
     return rawData;
   }
   
-  // Get the header row
   const header = lines[0];
   console.log('📋 Header row:', header);
   
-  // Join all data rows
+  // Process the data rows (everything after the header)
   let dataContent = lines.slice(1).join('\n');
-  console.log('📊 Data rows length before processing:', dataContent.length);
   
-  // Remove surrounding parentheses if present
-  if (dataContent.startsWith('(') && dataContent.endsWith(')')) {
-    dataContent = dataContent.substring(1, dataContent.length - 1);
-    console.log('🔄 Removed surrounding parentheses');
-  } else {
-    // Try more aggressively to remove all parentheses
-    dataContent = dataContent.replace(/\(/g, '').replace(/\)/g, '');
-    console.log('🔄 Removed all parentheses');
-  }
+  // Remove surrounding parentheses from the data
+  dataContent = dataContent.replace(/^\(|\)$/g, '');
   
-  // Apply thorough cleaning to remove all quotes and backslashes
-  dataContent = cleanAllSpecialCharacters(dataContent);
-  console.log('🔄 Cleaned all special characters');
+  // Process the CSV using the enhanced processing function
+  const processedCSV = processCSVData(header, dataContent);
   
-  // Return the properly formatted CSV
-  return header + '\n' + dataContent;
+  console.log('🔄 CSV data cleaned successfully');
+  return processedCSV;
 };
 
-// New comprehensive function to clean all special characters while preserving data integrity
-const cleanAllSpecialCharacters = (csvContent: string): string => {
-  // First, parse the CSV to understand the structure
-  const rows = csvContent.split('\n');
-  const cleanedRows = rows.map(row => {
-    // Skip empty rows
+// Enhanced function to process CSV data properly
+const processCSVData = (header: string, dataContent: string): string => {
+  // First, split the data into rows by actual newlines 
+  const dataRows = dataContent.split('\n');
+  console.log(`📊 Processing ${dataRows.length} data rows`);
+  
+  // Process each row to properly handle CSV formatting
+  const processedRows = dataRows.map(row => {
     if (!row.trim()) return '';
     
-    let inQuotes = false;
-    let currentField = '';
-    const fields = [];
+    // Remove all parentheses
+    row = row.replace(/[\(\)]/g, '');
     
-    // Process each character in the row
-    for (let i = 0; i < row.length; i++) {
-      const char = row[i];
-      
-      // Handle quotes (toggle quote state)
-      if (char === '"' && (i === 0 || row[i-1] !== '\\')) {
+    // Split by commas, but respect quoted fields
+    return processCSVRow(row);
+  }).filter(row => row.length > 0);
+  
+  // Combine header with processed data rows
+  return header + '\n' + processedRows.join('\n');
+};
+
+// Process a single CSV row correctly
+const processCSVRow = (row: string): string => {
+  const result = [];
+  let field = '';
+  let inQuotes = false;
+  let i = 0;
+  
+  while (i < row.length) {
+    const char = row[i];
+    
+    // Handle quotes
+    if (char === '"') {
+      // If we see a quote and we're not in a quoted field, start a quoted field
+      // If we see a quote and we're in a quoted field, check if it's an escaped quote
+      if (i + 1 < row.length && row[i + 1] === '"' && inQuotes) {
+        // This is an escaped quote within a quoted field, add a single quote
+        field += '';  // Skip the quote character
+        i += 2;  // Skip both quote characters
+        continue;
+      } else {
+        // Toggle quote state
         inQuotes = !inQuotes;
-        // Skip adding the quote character
+        i++;
         continue;
       }
-      
-      // Handle commas - only treat as field separator if not inside quotes
-      if (char === ',' && !inQuotes) {
-        fields.push(currentField);
-        currentField = '';
-        continue;
-      }
-      
-      // Skip backslashes that are escaping characters
-      if (char === '\\' && i < row.length - 1) {
-        // Skip the backslash but keep the next character
-        continue;
-      }
-      
-      // For all other characters, add to current field
-      currentField += char;
     }
     
-    // Don't forget to add the last field
-    fields.push(currentField);
+    // Handle commas
+    if (char === ',' && !inQuotes) {
+      // End of field
+      result.push(field);
+      field = '';
+      i++;
+      continue;
+    }
     
-    // Join fields back with commas
-    return fields.join(',');
-  });
+    // Handle backslashes - skip them
+    if (char === '\\') {
+      i++;
+      if (i < row.length) {
+        // Keep the character after the backslash
+        field += row[i];
+      }
+      i++;
+      continue;
+    }
+    
+    // Regular character - add to field
+    field += char;
+    i++;
+  }
   
-  return cleanedRows.filter(row => row.length > 0).join('\n');
+  // Add the last field
+  result.push(field);
+  
+  return result.join(',');
 };

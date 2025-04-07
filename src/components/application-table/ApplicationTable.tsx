@@ -46,11 +46,12 @@ const ApplicationTable = ({
   const allSelected = applications.length > 0 && selectedApplications.length === applications.length;
   const someSelected = selectedApplications.length > 0 && !allSelected;
 
-  // Log vehicle type data for debugging
-  console.log('Applications with vehicleType:', applications.map(app => ({ 
+  // Debug log for applications data
+  console.log('Applications with lock info:', applications.map(app => ({ 
     id: app.applicationId,
     vehicleType: app.vehicleType,
-    status: app.status
+    status: app.status,
+    lockInfo: app.lockInfo
   })));
 
   const columns: ColumnDef<ApplicationItem>[] = [
@@ -85,8 +86,6 @@ const ApplicationTable = ({
       accessorKey: 'vehicleType',
       header: 'Type',
       cell: ({ row }) => {
-        // Add debugging log
-        console.log(`Rendering vehicleType for ${row.original.applicationId}: ${row.original.vehicleType}`);
         return row.original.vehicleType || 'N/A';
       }
     },
@@ -94,8 +93,13 @@ const ApplicationTable = ({
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => {
-        // Add debugging log
-        console.log(`Rendering status for ${row.original.applicationId}: ${row.original.status}`);
+        // Add detailed logging for status column rendering
+        console.log(`Rendering status for ${row.original.applicationId}:`, {
+          status: row.original.status,
+          lockInfo: row.original.lockInfo,
+          isDownloaded: row.original.isDownloaded
+        });
+        
         return (
           <div className="flex flex-col gap-1">
             <StatusBadge status={row.original.status} />

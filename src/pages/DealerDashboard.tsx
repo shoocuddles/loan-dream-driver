@@ -75,6 +75,10 @@ const DealerDashboard = () => {
     
     try {
       const appsData = await fetchAvailableApplications();
+      console.log('Loaded applications with lock info:', appsData.map(app => ({
+        id: app.applicationId,
+        lockInfo: app.lockInfo
+      })));
       setApplications(appsData);
 
       const downloadedData = await fetchDownloadedApplications();
@@ -237,9 +241,23 @@ const DealerDashboard = () => {
       if (pendingAction.type === 'download') {
         toast.success("Payment processed successfully");
         
+        console.log('Processing purchase for applications:', pendingAction.applicationIds);
+        
         for (const appId of pendingAction.applicationIds) {
-          await recordDownload(appId);
-          await lockApplication(appId, '24hours');
+          try {
+            const downloadSuccess = await recordDownload(appId);
+            if (!downloadSuccess) {
+              console.error(`Failed to record download for application ${appId}`);
+              continue;
+            }
+            
+            const lockResult = await lockApplication(appId, '24hours');
+            if (!lockResult) {
+              console.error(`Failed to apply 24-hour lock for application ${appId}`);
+            }
+          } catch (err) {
+            console.error(`Error processing application ${appId}:`, err);
+          }
         }
         
         toast.success(`${pendingAction.applicationIds.length} application(s) purchased`);

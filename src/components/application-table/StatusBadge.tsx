@@ -33,14 +33,20 @@ interface LockStatusBadgeProps {
 }
 
 export const LockStatusBadge = ({ lockInfo }: LockStatusBadgeProps) => {
+  // Check if there's lock information and if the application is actually locked
   if (!lockInfo || !lockInfo.isLocked) {
     return null;
   }
 
-  // Always show lock status to all dealers
+  // Get the expiration date if available
   const expiresAt = lockInfo.expiresAt ? new Date(lockInfo.expiresAt) : null;
-  if (!expiresAt || expiresAt < new Date()) return null;
+  
+  // If no expiration date or it's already expired, don't show the lock
+  if (!expiresAt || expiresAt < new Date()) {
+    return null;
+  }
 
+  // Calculate time remaining
   const timeLeft = formatDistanceToNow(expiresAt, { addSuffix: true });
   
   // Use different styling based on whether it's the dealer's own lock
@@ -48,10 +54,19 @@ export const LockStatusBadge = ({ lockInfo }: LockStatusBadgeProps) => {
     ? "bg-blue-50 text-blue-700 border-blue-200"
     : "bg-red-50 text-red-700 border-red-200";
   
+  console.log(`Rendering lock badge for application. Own lock: ${lockInfo.isOwnLock}, expires: ${expiresAt}, timeLeft: ${timeLeft}`);
+  
   return (
     <Badge variant="outline" className={badgeClass}>
-      <Clock className="w-3 h-3 mr-1" /> 
-      {lockInfo.isOwnLock ? "Locked by You" : `Locked ${timeLeft}`}
+      {lockInfo.isOwnLock ? (
+        <>
+          <Lock className="w-3 h-3 mr-1" /> Locked by You
+        </>
+      ) : (
+        <>
+          <Clock className="w-3 h-3 mr-1" /> Locked {timeLeft}
+        </>
+      )}
     </Badge>
   );
 };

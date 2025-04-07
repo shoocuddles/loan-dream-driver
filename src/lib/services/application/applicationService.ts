@@ -44,6 +44,14 @@ export const fetchAvailableApplications = async (): Promise<ApplicationItem[]> =
         console.log('No status found, defaulting to "unknown"');
       }
 
+      // Explicitly log the lock info to help with debugging
+      if (formattedApp.lockInfo) {
+        console.log(`Lock info for application ${formattedApp.id}:`, formattedApp.lockInfo);
+      } else {
+        console.log(`No lock info for application ${formattedApp.id}, adding default`);
+        formattedApp.lockInfo = { isLocked: false };
+      }
+
       // Ensure all required fields exist
       return {
         id: formattedApp.id,
@@ -55,7 +63,7 @@ export const fetchAvailableApplications = async (): Promise<ApplicationItem[]> =
         lockInfo: formattedApp.lockInfo || { isLocked: false },
         isDownloaded: formattedApp.isDownloaded || false,
         standardPrice: formattedApp.standardPrice,
-        discountedPrice: formattedApp.discountedPrice, // Fixed: using discountedPrice instead of discountPrice
+        discountedPrice: formattedApp.discountedPrice,
         vehicleType: formattedApp.vehicleType
       };
     }) || [];

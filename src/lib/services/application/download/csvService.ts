@@ -1,3 +1,4 @@
+
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 
@@ -79,11 +80,11 @@ const cleanCsvData = (rawData: string): string => {
   // Replace literal '\n' with actual line breaks
   rawData = rawData.replace(/\\n/g, '\n');
   
-  // Get the header row (first line)
+  // Get the header row and data content separately
   const lines = rawData.split('\n');
   if (lines.length < 2) {
     console.log('⚠️ CSV data didn\'t contain multiple lines, returning as is');
-    return rawData;
+    return removeAllQuotes(rawData);
   }
   
   const header = lines[0];
@@ -92,91 +93,42 @@ const cleanCsvData = (rawData: string): string => {
   // Process the data rows (everything after the header)
   let dataContent = lines.slice(1).join('\n');
   
-  // Remove surrounding parentheses from the data
+  // Remove all quotes, parentheses, and backslashes
+  return removeAllFormatting(header, dataContent);
+};
+
+// Function to remove all formatting characters
+const removeAllFormatting = (header: string, dataContent: string): string => {
+  // Clean the header (remove quotes) but preserve the structure
+  const cleanHeader = removeAllQuotes(header);
+  
+  // Clean data content - first remove surrounding parentheses
   dataContent = dataContent.replace(/^\(|\)$/g, '');
   
-  // Process the CSV using the enhanced processing function
-  const processedCSV = processCSVData(header, dataContent);
+  // Split the data into rows
+  const dataRows = dataContent.split('\n');
+  
+  // Process each row
+  const processedRows = dataRows
+    .map(row => {
+      // Remove any remaining parentheses
+      row = row.replace(/[\(\)]/g, '');
+      
+      // Remove all quotes
+      row = removeAllQuotes(row);
+      
+      // Remove all backslashes
+      row = row.replace(/\\/g, '');
+      
+      return row;
+    })
+    .filter(row => row.trim().length > 0);
   
   console.log('🔄 CSV data cleaned successfully');
-  return processedCSV;
+  return cleanHeader + '\n' + processedRows.join('\n');
 };
 
-// Enhanced function to process CSV data properly
-const processCSVData = (header: string, dataContent: string): string => {
-  // First, split the data into rows by actual newlines 
-  const dataRows = dataContent.split('\n');
-  console.log(`📊 Processing ${dataRows.length} data rows`);
-  
-  // Process each row to properly handle CSV formatting
-  const processedRows = dataRows.map(row => {
-    if (!row.trim()) return '';
-    
-    // Remove all parentheses
-    row = row.replace(/[\(\)]/g, '');
-    
-    // Split by commas, but respect quoted fields
-    return processCSVRow(row);
-  }).filter(row => row.length > 0);
-  
-  // Combine header with processed data rows
-  return header + '\n' + processedRows.join('\n');
-};
-
-// Process a single CSV row correctly
-const processCSVRow = (row: string): string => {
-  const result = [];
-  let field = '';
-  let inQuotes = false;
-  let i = 0;
-  
-  while (i < row.length) {
-    const char = row[i];
-    
-    // Handle quotes
-    if (char === '"') {
-      // If we see a quote and we're not in a quoted field, start a quoted field
-      // If we see a quote and we're in a quoted field, check if it's an escaped quote
-      if (i + 1 < row.length && row[i + 1] === '"' && inQuotes) {
-        // This is an escaped quote within a quoted field, add a single quote
-        field += '';  // Skip the quote character
-        i += 2;  // Skip both quote characters
-        continue;
-      } else {
-        // Toggle quote state
-        inQuotes = !inQuotes;
-        i++;
-        continue;
-      }
-    }
-    
-    // Handle commas
-    if (char === ',' && !inQuotes) {
-      // End of field
-      result.push(field);
-      field = '';
-      i++;
-      continue;
-    }
-    
-    // Handle backslashes - skip them
-    if (char === '\\') {
-      i++;
-      if (i < row.length) {
-        // Keep the character after the backslash
-        field += row[i];
-      }
-      i++;
-      continue;
-    }
-    
-    // Regular character - add to field
-    field += char;
-    i++;
-  }
-  
-  // Add the last field
-  result.push(field);
-  
-  return result.join(',');
+// Remove all quotation marks from the text
+const removeAllQuotes = (text: string): string => {
+  return text.replace(/"/g, '');
 };

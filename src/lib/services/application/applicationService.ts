@@ -1,4 +1,3 @@
-
 import { ApplicationItem, DownloadedApplication } from '@/lib/types/dealer-dashboard';
 import { supabase, rpcCall } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -28,14 +27,11 @@ export const fetchAvailableApplications = async (): Promise<ApplicationItem[]> =
       // First make a copy of the application data
       const formattedApp = { ...app };
       
-      // Handle vehicletype/vehicleType mapping
+      // Handle vehicletype/vehicleType mapping - We no longer need to default to N/A as it's now
+      // handled in the database function with COALESCE
       if ((app as any).vehicletype !== undefined) {
         formattedApp.vehicleType = (app as any).vehicletype;
         console.log(`Mapped vehicletype -> vehicleType: ${(app as any).vehicletype}`);
-      } else if (!formattedApp.vehicleType) {
-        // Default value if neither exists
-        formattedApp.vehicleType = 'N/A';
-        console.log('No vehicle type found, defaulting to N/A');
       }
 
       // Handle status field mapping
@@ -58,8 +54,8 @@ export const fetchAvailableApplications = async (): Promise<ApplicationItem[]> =
         lockInfo: formattedApp.lockInfo || { isLocked: false },
         isDownloaded: formattedApp.isDownloaded || false,
         standardPrice: formattedApp.standardPrice,
-        discountedPrice: formattedApp.discountedPrice,
-        vehicleType: formattedApp.vehicleType || 'N/A'
+        discountedPrice: formattedApp.discountPrice,
+        vehicleType: formattedApp.vehicleType
       };
     }) || [];
     

@@ -24,11 +24,21 @@ export const fetchAvailableApplications = async (): Promise<ApplicationItem[]> =
     console.log('Raw application data from database:', data);
     
     // Map the data to ensure all expected properties exist and field names match
-    const formattedData = data?.map(app => ({
-      ...app,
-      // Make sure we capture vehicleType from either camelCase or lowercase property
-      vehicleType: app.vehicleType || app.vehicletype || 'N/A'
-    })) || [];
+    const formattedData = data?.map(app => {
+      // First make a copy of the application data
+      const formattedApp = { ...app };
+      
+      // Check if vehicletype exists in the raw data (from DB) and map it to vehicleType
+      // TypeScript doesn't know about this property yet, so we need to use a type assertion
+      if ((app as any).vehicletype !== undefined) {
+        formattedApp.vehicleType = (app as any).vehicletype;
+      } else if (!formattedApp.vehicleType) {
+        // Default value if neither exists
+        formattedApp.vehicleType = 'N/A';
+      }
+      
+      return formattedApp;
+    }) || [];
     
     console.log('Formatted applications with vehicleType:', formattedData);
     

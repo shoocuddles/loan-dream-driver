@@ -3,6 +3,10 @@ import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
+// Directly access the URL and key from the environment variables
+const SUPABASE_URL = "https://kgtfpuvksmqyaraijoal.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtndGZwdXZrc21xeWFyYWlqb2FsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MjAxMjksImV4cCI6MjA1OTM5NjEyOX0._fj5EqjZBmS_fHB5Z2p2lDJdXilePMUrbf3If_wGBz0";
+
 // Download as CSV directly from Supabase without any processing
 export const downloadFullCsv = async (applicationIds: string[]): Promise<void> => {
   try {
@@ -15,12 +19,12 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
     }
     
     // Direct fetch request to ensure proper binary data handling
-    const response = await fetch(`${supabase.supabaseUrl}/rest/v1/rpc/export_applications_as_csv`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/export_applications_as_csv`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': supabase.supabaseKey,
-        'Authorization': `Bearer ${supabase.supabaseKey}`
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
       },
       body: JSON.stringify({ app_ids: applicationIds })
     });

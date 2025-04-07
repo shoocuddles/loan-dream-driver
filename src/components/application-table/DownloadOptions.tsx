@@ -13,7 +13,7 @@ interface DownloadOptionsProps {
   label?: string;
   variant?: 'default' | 'outline' | 'ghost' | 'link';
   size?: 'default' | 'sm' | 'lg' | 'icon';
-  className?: string; // Added className prop
+  className?: string; 
 }
 
 const DownloadOptions = ({
@@ -23,15 +23,17 @@ const DownloadOptions = ({
   label = "Download",
   variant = "default",
   size = "default",
-  className // Added className to be destructured
+  className
 }: DownloadOptionsProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [downloadType, setDownloadType] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   const handleDownload = async (type: string) => {
-    if (isProcessing || !applicationIds.length) return;
+    if (isProcessing || !applicationIds.length || isDownloading) return;
     
     setDownloadType(type);
+    setIsDownloading(true);
     setIsOpen(false);
     if (onClose) onClose();
     
@@ -51,13 +53,12 @@ const DownloadOptions = ({
         default:
           throw new Error(`Unsupported download type: ${type}`);
       }
-      
-      toast.success(`${type} downloaded successfully`);
     } catch (error) {
       console.error(`Error downloading ${type}:`, error);
-      toast.error(`Failed to download ${type}`);
+      toast.error(`Failed to download ${type}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setDownloadType(null);
+      setIsDownloading(false);
     }
   };
   
@@ -67,11 +68,11 @@ const DownloadOptions = ({
         <Button 
           variant={variant}
           size={size}
-          disabled={isProcessing || !applicationIds.length}
-          className={className} // Use className prop
+          disabled={isProcessing || !applicationIds.length || isDownloading}
+          className={className}
         >
           <FileDown className={size === "icon" ? "h-4 w-4" : "h-4 w-4 mr-2"} />
-          {size !== "icon" && label}
+          {size !== "icon" && (isDownloading ? "Downloading..." : label)}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-48 p-2">
@@ -81,7 +82,7 @@ const DownloadOptions = ({
             size="sm" 
             className="justify-start" 
             onClick={() => handleDownload('PDF')}
-            disabled={downloadType !== null}
+            disabled={downloadType !== null || isDownloading}
           >
             <FileText className="h-4 w-4 mr-2" />
             Download as PDF
@@ -91,7 +92,7 @@ const DownloadOptions = ({
             size="sm" 
             className="justify-start" 
             onClick={() => handleDownload('CSV')}
-            disabled={downloadType !== null}
+            disabled={downloadType !== null || isDownloading}
           >
             <Table className="h-4 w-4 mr-2" />
             Download as CSV
@@ -101,7 +102,7 @@ const DownloadOptions = ({
             size="sm" 
             className="justify-start" 
             onClick={() => handleDownload('Excel')}
-            disabled={downloadType !== null}
+            disabled={downloadType !== null || isDownloading}
           >
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Download as Excel

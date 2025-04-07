@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { Application } from '@/lib/types/supabase';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 // Get full application details once purchased
 export const fetchFullApplicationDetails = async (applicationIds: string[]): Promise<Application[]> => {
@@ -14,34 +15,92 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
     
     if (!applicationIds.length) return [];
     
-    const { data, error } = await supabase
+    // First attempt with lowercase column names (database standard)
+    const { data: lowerCaseData, error: lowerCaseError } = await supabase
       .from('applications')
       .select('*')
       .in('id', applicationIds);
     
-    if (error) {
-      console.error('❌ Error fetching full application details:', error);
-      throw error;
+    if (lowerCaseError) {
+      console.error('❌ Error fetching full application details with lowercase names:', lowerCaseError);
+      // Don't throw yet, we'll try with the downloaded applications table
     }
     
-    console.log(`✅ Retrieved ${data?.length || 0} full application details`);
-    return data || [];
+    // If we got data from the regular applications table, return it
+    if (lowerCaseData && lowerCaseData.length > 0) {
+      console.log(`✅ Retrieved ${lowerCaseData.length} full application details from applications table`);
+      return lowerCaseData;
+    }
+    
+    // If we didn't get data from applications table, try fetching from downloaded applications
+    console.log('🔄 Attempting to fetch from application_downloads and join with applications');
+    
+    // Get the application data through the application_downloads table
+    const { data: downloadedApps, error: downloadError } = await supabase
+      .rpc('get_dealer_downloads');
+    
+    if (downloadError) {
+      console.error('❌ Error fetching from get_dealer_downloads:', downloadError);
+      throw downloadError;
+    }
+    
+    // Filter for requested application ids
+    const filteredDownloads = Array.isArray(downloadedApps) 
+      ? downloadedApps.filter((app: any) => applicationIds.includes(app.applicationId))
+      : [];
+    
+    if (filteredDownloads.length > 0) {
+      console.log(`✅ Retrieved ${filteredDownloads.length} application details from downloads`);
+      return filteredDownloads;
+    }
+    
+    console.error('❌ Could not find application data in any table');
+    toast.error('Could not find application data. Please try downloading the application again.');
+    return [];
   } catch (error) {
     console.error('❌ Error in fetchFullApplicationDetails:', error);
+    toast.error('Error retrieving application details');
     return [];
   }
 };
 
 // Helper function to format application data for display
-const formatApplicationData = (application: Application) => {
+const formatApplicationData = (application: any) => {
+  // Check if this is a downloaded application (has different field structure)
+  const isDownloadedApp = 'downloadId' in application;
+  
   // Format dates
-  const createdAt = application.created_at ? format(new Date(application.created_at), 'MMM d, yyyy') : 'N/A';
-  const updatedAt = application.updated_at ? format(new Date(application.updated_at), 'MMM d, yyyy') : 'N/A';
+  const createdAt = application.created_at || application.submissionDate
+    ? format(new Date(application.created_at || application.submissionDate), 'MMM d, yyyy')
+    : 'N/A';
+    
+  const updatedAt = application.updated_at 
+    ? format(new Date(application.updated_at), 'MMM d, yyyy')
+    : 'N/A';
   
   // Handle nullable fields
   const getValueOrNA = (value: any) => value !== null && value !== undefined ? String(value) : 'N/A';
   const getBooleanValue = (value: boolean | null | undefined) => value === true ? 'Yes' : 'No';
   
+  // If we have a downloaded app format, map fields differently
+  if (isDownloadedApp) {
+    return {
+      'Full Name': getValueOrNA(application.fullName),
+      'Email': getValueOrNA(application.email),
+      'Phone Number': getValueOrNA(application.phoneNumber),
+      'Address': getValueOrNA(application.address),
+      'City': getValueOrNA(application.city),
+      'Province': getValueOrNA(application.province),
+      'Postal Code': getValueOrNA(application.postalCode),
+      'Vehicle Type': getValueOrNA(application.vehicleType),
+      'Download Date': application.downloadDate
+        ? format(new Date(application.downloadDate), 'MMM d, yyyy')
+        : 'N/A',
+      'Application ID': getValueOrNA(application.applicationId)
+    };
+  }
+  
+  // Standard application format from applications table
   return {
     'Full Name': getValueOrNA(application.fullname),
     'Email': getValueOrNA(application.email),
@@ -60,7 +119,7 @@ const formatApplicationData = (application: Application) => {
     'Current Vehicle': getValueOrNA(application.currentvehicle),
     'Mileage': getValueOrNA(application.mileage),
     'Employment Status': getValueOrNA(application.employmentstatus),
-    'Monthly Income': getValueOrNA(application.monthlyIncome),
+    'Monthly Income': getValueOrNA(application.monthlyincome || application.monthlyIncome),
     'Additional Notes': getValueOrNA(application.additionalnotes),
     'Status': getValueOrNA(application.status),
     'Submission Date': createdAt,
@@ -76,6 +135,7 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
     const applications = await fetchFullApplicationDetails(applicationIds);
     if (!applications.length) {
       console.error('❌ No application data found for PDF generation');
+      toast.error('No application data found. Please try downloading again.');
       return;
     }
     
@@ -100,8 +160,9 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
       // Add application ID and date
       pdf.setFontSize(12);
       pdf.setTextColor(0, 0, 0);
-      pdf.text(`Application ID: ${application.id}`, 14, 25);
-      pdf.text(`Date: ${format(new Date(application.created_at || new Date()), 'MMMM d, yyyy')}`, 14, 32);
+      pdf.text(`Application ID: ${application.id || application.applicationId}`, 14, 25);
+      const dateValue = application.created_at || application.downloadDate || new Date();
+      pdf.text(`Date: ${format(new Date(dateValue), 'MMMM d, yyyy')}`, 14, 32);
       
       // Format data for PDF
       const formattedData = formatApplicationData(application);
@@ -139,13 +200,15 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
     
     // Save the PDF
     const fileName = applications.length === 1 
-      ? `application_${applications[0].id}.pdf`
+      ? `application_${applications[0].id || applications[0].applicationId}.pdf`
       : `applications_${new Date().getTime()}.pdf`;
     
     pdf.save(fileName);
     console.log('✅ PDF generated successfully');
+    toast.success('PDF downloaded successfully');
   } catch (error) {
     console.error('❌ Error generating PDF:', error);
+    toast.error('Error generating PDF');
   }
 };
 
@@ -157,6 +220,7 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
     const applications = await fetchFullApplicationDetails(applicationIds);
     if (!applications.length) {
       console.error('❌ No application data found for CSV generation');
+      toast.error('No application data found. Please try downloading again.');
       return;
     }
     
@@ -184,13 +248,15 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
     const csvContent = csvRows.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const fileName = applications.length === 1 
-      ? `application_${applications[0].id}.csv`
+      ? `application_${applications[0].id || applications[0].applicationId}.csv`
       : `applications_${new Date().getTime()}.csv`;
     
     saveAs(blob, fileName);
     console.log('✅ CSV generated successfully');
+    toast.success('CSV downloaded successfully');
   } catch (error) {
     console.error('❌ Error generating CSV:', error);
+    toast.error('Error generating CSV');
   }
 };
 
@@ -202,6 +268,7 @@ export const downloadAsExcel = async (applicationIds: string[]): Promise<void> =
     const applications = await fetchFullApplicationDetails(applicationIds);
     if (!applications.length) {
       console.error('❌ No application data found for Excel generation');
+      toast.error('No application data found. Please try downloading again.');
       return;
     }
     
@@ -221,12 +288,14 @@ export const downloadAsExcel = async (applicationIds: string[]): Promise<void> =
     
     // Generate Excel file
     const fileName = applications.length === 1 
-      ? `application_${applications[0].id}.xlsx`
+      ? `application_${applications[0].id || applications[0].applicationId}.xlsx`
       : `applications_${new Date().getTime()}.xlsx`;
     
     XLSX.writeFile(wb, fileName);
     console.log('✅ Excel file generated successfully');
+    toast.success('Excel file downloaded successfully');
   } catch (error) {
     console.error('❌ Error generating Excel file:', error);
+    toast.error('Error generating Excel file');
   }
 };

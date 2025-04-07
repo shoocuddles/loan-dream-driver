@@ -15,12 +15,12 @@ export interface ApplicationItem {
   fullName: string;
   city?: string;
   submissionDate: string;
-  status: string; // Changed from specific union type to string
+  status: string; // Changed from specific union type to string to accommodate any status from the backend
   lockInfo?: LockInfo;
   isDownloaded?: boolean;
   standardPrice?: number;
   discountedPrice?: number;
-  vehicleType?: string; // Added missing property to match the data returned from the backend
+  vehicleType?: string; // This field is now properly handled in the mapping function
 }
 
 export interface DownloadedApplication {

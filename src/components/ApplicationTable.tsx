@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -103,6 +102,26 @@ const ApplicationTable = ({
     return null;
   };
 
+  const renderStatus = (status: string | undefined) => {
+    if (!status) return null;
+    
+    let badgeClass = "bg-gray-50 text-gray-700 border-gray-200";
+    
+    if (status === "submitted") {
+      badgeClass = "bg-blue-50 text-blue-700 border-blue-200";
+    } else if (status === "approved") {
+      badgeClass = "bg-green-50 text-green-700 border-green-200";
+    } else if (status === "rejected") {
+      badgeClass = "bg-red-50 text-red-700 border-red-200";
+    }
+    
+    return (
+      <Badge variant="outline" className={badgeClass}>
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </Badge>
+    );
+  };
+
   const getPrice = (application: ApplicationItem) => {
     if (application.isDownloaded) {
       return 'Free';
@@ -117,16 +136,12 @@ const ApplicationTable = ({
   const allSelected = applications.length > 0 && selectedApplications.length === applications.length;
   const someSelected = selectedApplications.length > 0 && !allSelected;
 
-  // Helper function to safely format dates
   const safeFormatDate = (dateString: string) => {
     try {
-      // First check if the string is valid
       if (!dateString) return 'N/A';
       
-      // Parse the ISO string to a Date object
       const date = parseISO(dateString);
       
-      // Check if the date is valid before formatting
       if (!isValid(date)) return 'Invalid date';
       
       return format(date, 'MMM d, yyyy');
@@ -136,7 +151,6 @@ const ApplicationTable = ({
     }
   };
 
-  // Define table columns
   const columns: ColumnDef<ApplicationItem>[] = [
     {
       accessorKey: 'select',
@@ -167,13 +181,15 @@ const ApplicationTable = ({
     },
     {
       accessorKey: 'vehicleType',
-      header: 'Type'
+      header: 'Type',
+      cell: ({ row }) => row.original.vehicleType || 'N/A'
     },
     {
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => (
         <div className="flex flex-col gap-1">
+          {renderStatus(row.original.status)}
           {renderLockStatus(row.original)}
           {renderDownloadStatus(row.original)}
         </div>
@@ -257,7 +273,6 @@ const ApplicationTable = ({
     },
   ];
 
-  // For the header checkbox
   const allSelectCheckbox = (
     <div className="px-4 py-2 border-b">
       <Checkbox 

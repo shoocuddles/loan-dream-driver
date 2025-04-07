@@ -1,6 +1,6 @@
 
 import { supabase, rpcCall } from '@/integrations/supabase/client';
-import { ApplicationItem, DownloadedApplication, LockType, LockoutPeriod, SystemSettings } from './types/dealer-dashboard';
+import { ApplicationItem, DownloadedApplication, LockType, LockInfo, LockoutPeriod, SystemSettings } from './types/dealer-dashboard';
 import { toast } from 'sonner';
 
 /**
@@ -28,7 +28,7 @@ export const fetchAvailableApplications = async (): Promise<ApplicationItem[]> =
       // First make a copy of the application data
       const formattedApp = { ...app };
       
-      // Check if vehicletype exists in the raw data (from DB) and map it to vehicleType
+      // Handle vehicletype/vehicleType mapping
       if ((app as any).vehicletype !== undefined) {
         formattedApp.vehicleType = (app as any).vehicletype;
         console.log(`Mapped vehicletype -> vehicleType: ${(app as any).vehicletype}`);
@@ -38,13 +38,29 @@ export const fetchAvailableApplications = async (): Promise<ApplicationItem[]> =
         console.log('No vehicle type found, defaulting to N/A');
       }
 
-      // Ensure the status field is properly set
-      if ((app as any).status !== undefined && !formattedApp.status) {
+      // Handle status field mapping
+      if ((app as any).status !== undefined) {
         formattedApp.status = (app as any).status;
         console.log(`Mapped status: ${(app as any).status}`);
+      } else if (!formattedApp.status) {
+        formattedApp.status = 'unknown';
+        console.log('No status found, defaulting to "unknown"');
       }
-      
-      return formattedApp;
+
+      // Ensure all required fields exist
+      return {
+        id: formattedApp.id,
+        applicationId: formattedApp.applicationId,
+        fullName: formattedApp.fullName || 'Unknown',
+        city: formattedApp.city || '',
+        submissionDate: formattedApp.submissionDate,
+        status: formattedApp.status,
+        lockInfo: formattedApp.lockInfo || { isLocked: false },
+        isDownloaded: formattedApp.isDownloaded || false,
+        standardPrice: formattedApp.standardPrice,
+        discountedPrice: formattedApp.discountedPrice,
+        vehicleType: formattedApp.vehicleType || 'N/A'
+      };
     }) || [];
     
     console.log('Formatted applications with vehicleType and status:', formattedData);

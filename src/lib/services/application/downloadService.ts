@@ -67,7 +67,7 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
 // Helper function to format application data for display
 const formatApplicationData = (application: any) => {
   // Check if this is a downloaded application (has different field structure)
-  const isDownloadedApp = 'downloadId' in application;
+  const isDownloadedApp = 'downloadId' in application || 'applicationId' in application;
   
   // Format dates
   const createdAt = application.created_at || application.submissionDate
@@ -161,7 +161,7 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
       pdf.setFontSize(12);
       pdf.setTextColor(0, 0, 0);
       pdf.text(`Application ID: ${application.id || application.applicationId}`, 14, 25);
-      const dateValue = application.created_at || application.downloadDate || new Date();
+      const dateValue = application.created_at || application.submissionDate || application.downloadDate || new Date();
       pdf.text(`Date: ${format(new Date(dateValue), 'MMMM d, yyyy')}`, 14, 32);
       
       // Format data for PDF

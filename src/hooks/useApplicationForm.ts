@@ -33,6 +33,9 @@ const initialFormState: ApplicationForm = {
   // Step 4: Income Details
   employmentStatus: "",
   monthlyIncome: "",
+  employerName: "",  // Added new field with empty default
+  jobTitle: "",      // Added new field with empty default
+  employmentDuration: "", // Added new field with empty default
   additionalNotes: ""
 };
 

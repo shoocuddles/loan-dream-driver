@@ -35,6 +35,9 @@ export type Application = {
   employmentStatus?: string;
   monthlyIncome?: string;
   additionalNotes?: string;
+  employerName?: string; // Added field
+  jobTitle?: string; // Added field
+  employmentDuration?: string; // Added field
   
   // lowercase versions (from database)
   fullname?: string;
@@ -57,6 +60,9 @@ export type Application = {
   amountowed?: string;
   currentvehicle?: string;
   additionalnotes?: string;
+  employer_name?: string; // Added field
+  job_title?: string; // Added field
+  employment_duration?: string; // Added field
   creditScore?: string;
   
   status: 'draft' | 'submitted' | 'approved' | 'rejected';

@@ -103,11 +103,14 @@ export type Database = {
           currentpayment: string | null
           currentvehicle: string | null
           email: string | null
+          employer_name: string | null
+          employment_duration: string | null
           employmentstatus: string | null
           fullname: string
           hasexistingloan: boolean | null
           id: string
           iscomplete: boolean | null
+          job_title: string | null
           mileage: string | null
           monthlyincome: string | null
           phonenumber: string | null
@@ -130,11 +133,14 @@ export type Database = {
           currentpayment?: string | null
           currentvehicle?: string | null
           email?: string | null
+          employer_name?: string | null
+          employment_duration?: string | null
           employmentstatus?: string | null
           fullname: string
           hasexistingloan?: boolean | null
           id?: string
           iscomplete?: boolean | null
+          job_title?: string | null
           mileage?: string | null
           monthlyincome?: string | null
           phonenumber?: string | null
@@ -157,11 +163,14 @@ export type Database = {
           currentpayment?: string | null
           currentvehicle?: string | null
           email?: string | null
+          employer_name?: string | null
+          employment_duration?: string | null
           employmentstatus?: string | null
           fullname?: string
           hasexistingloan?: boolean | null
           id?: string
           iscomplete?: boolean | null
+          job_title?: string | null
           mileage?: string | null
           monthlyincome?: string | null
           phonenumber?: string | null

@@ -102,6 +102,13 @@ const ApplicationFormStep4 = ({
     if (!formData.monthlyIncome) newErrors.monthlyIncome = "Monthly income is required";
     if (!acceptTerms) newErrors.acceptTerms = "You must accept the terms and conditions";
     
+    // Validate employer fields if employmentStatus is 'Employed'
+    if (formData.employmentStatus === 'Employed') {
+      if (!formData.employerName) newErrors.employerName = "Employer name is required";
+      if (!formData.jobTitle) newErrors.jobTitle = "Position/Title is required";
+      if (!formData.employmentDuration) newErrors.employmentDuration = "Employment duration is required";
+    }
+    
     console.log("Form validation errors:", newErrors);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -186,6 +193,9 @@ const ApplicationFormStep4 = ({
     }
   }, [isSubmitting, errors]);
 
+  // Check if employment status is "Employed" to show additional fields
+  const isEmployed = formData.employmentStatus === 'Employed';
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="text-2xl font-bold text-center text-ontario-blue mb-6">Income Details</h2>
@@ -215,6 +225,45 @@ const ApplicationFormStep4 = ({
           </Select>
           {errors.employmentStatus && <p className="text-red-500 text-sm mt-1">{errors.employmentStatus}</p>}
         </div>
+        
+        {/* Conditionally render employer fields when employment status is "Employed" */}
+        {isEmployed && (
+          <>
+            <div>
+              <Label htmlFor="employerName">Name of Employer</Label>
+              <Input
+                id="employerName"
+                value={formData.employerName || ''}
+                onChange={(e) => updateFormData({ employerName: e.target.value })}
+                className={errors.employerName ? "border-red-500" : ""}
+              />
+              {errors.employerName && <p className="text-red-500 text-sm mt-1">{errors.employerName}</p>}
+            </div>
+            
+            <div>
+              <Label htmlFor="jobTitle">Position / Title</Label>
+              <Input
+                id="jobTitle"
+                value={formData.jobTitle || ''}
+                onChange={(e) => updateFormData({ jobTitle: e.target.value })}
+                className={errors.jobTitle ? "border-red-500" : ""}
+              />
+              {errors.jobTitle && <p className="text-red-500 text-sm mt-1">{errors.jobTitle}</p>}
+            </div>
+            
+            <div>
+              <Label htmlFor="employmentDuration">How long have you worked there?</Label>
+              <Input
+                id="employmentDuration"
+                value={formData.employmentDuration || ''}
+                onChange={(e) => updateFormData({ employmentDuration: e.target.value })}
+                placeholder="e.g. 2 years, 6 months"
+                className={errors.employmentDuration ? "border-red-500" : ""}
+              />
+              {errors.employmentDuration && <p className="text-red-500 text-sm mt-1">{errors.employmentDuration}</p>}
+            </div>
+          </>
+        )}
         
         <div>
           <Label htmlFor="monthlyIncome">Monthly Income ($)</Label>

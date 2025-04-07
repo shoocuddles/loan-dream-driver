@@ -31,6 +31,10 @@ export function mapFormToDbSchema(formData: ApplicationForm, isDraft = true): an
     employmentstatus: formData.employmentStatus,
     monthlyincome: formData.monthlyIncome,
     additionalnotes: formData.additionalNotes,
+    // New employer fields
+    employer_name: formData.employerName,
+    job_title: formData.jobTitle,
+    employment_duration: formData.employmentDuration,
     updated_at: new Date().toISOString(),
     status: isDraft ? 'draft' : 'submitted',
     iscomplete: !isDraft

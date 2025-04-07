@@ -25,6 +25,9 @@ export type ApplicationForm = {
   // Step 4: Income Details
   employmentStatus: 'Employed' | 'Unemployed' | 'Self-Employed' | 'Student' | 'Retired' | 'Disability' | '';
   monthlyIncome: string;
+  employerName?: string; // New field for employer name
+  jobTitle?: string; // New field for job title
+  employmentDuration?: string; // New field for employment duration
   additionalNotes: string;
   
   // Metadata

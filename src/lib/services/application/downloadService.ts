@@ -81,13 +81,13 @@ const formatApplicationData = (application: ApplicationData) => {
     }
   } else {
     const standardApp = application as Application;
-    if (standardApp.created_at) {
+    if ('created_at' in standardApp && standardApp.created_at) {
       createdDate = format(new Date(standardApp.created_at), 'MMM d, yyyy');
     }
   }
     
   // Get updated date (only for standard applications)
-  const updatedDate = !isDownloadedApp && (application as Application).updated_at 
+  const updatedDate = !isDownloadedApp && ('updated_at' in application) && (application as Application).updated_at 
     ? format(new Date((application as Application).updated_at), 'MMM d, yyyy')
     : 'N/A';
   
@@ -134,7 +134,7 @@ const formatApplicationData = (application: ApplicationData) => {
     'Current Vehicle': getValueOrNA(standardApp.currentvehicle),
     'Mileage': getValueOrNA(standardApp.mileage),
     'Employment Status': getValueOrNA(standardApp.employmentstatus),
-    'Monthly Income': getValueOrNA(standardApp.monthlyIncome || standardApp.monthlyincome), // Fixed line - check both versions
+    'Monthly Income': getValueOrNA(standardApp.monthlyIncome || standardApp.monthlyincome), // Access both camelCase and lowercase versions
     'Additional Notes': getValueOrNA(standardApp.additionalnotes),
     'Status': getValueOrNA(standardApp.status),
     'Submission Date': createdDate,

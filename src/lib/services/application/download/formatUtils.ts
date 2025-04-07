@@ -66,12 +66,20 @@ export const formatApplicationData = async (application: ApplicationData) => {
     if ('applicationId' in downloadedApp) {
       formattedData['Application ID'] = getValueOrNA(downloadedApp.applicationId);
     }
+    
+    // Make sure ALL columns from metadata are included, even if missing in the downloadedApp
+    columnMetadata.forEach(column => {
+      const displayName = column.displayName;
+      if (!(displayName in formattedData)) {
+        formattedData[displayName] = 'N/A';
+      }
+    });
   } 
   // For standard applications directly from the database
   else {
     const standardApp = application as any;
     
-    // Process ALL database columns systematically
+    // Process ALL database columns systematically, including all empty fields
     columnMetadata.forEach(column => {
       const key = column.name;
       const displayName = column.displayName;
@@ -100,8 +108,8 @@ export const formatApplicationData = async (application: ApplicationData) => {
             ? standardApp[camelCaseKey] 
             : null;
             
-        formattedData[displayName] = key === 'id' 
-          ? getValueOrNA(value) // ID should be shown as-is
+        formattedData[displayName] = key === 'id' || typeof value !== 'boolean'
+          ? getValueOrNA(value) // Non-booleans should show as-is
           : getBooleanValue(value); // Booleans should show as Yes/No
       }
     });

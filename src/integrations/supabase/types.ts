@@ -437,6 +437,12 @@ export type Database = {
         }
         Returns: Json
       }
+      export_applications_as_csv: {
+        Args: {
+          p_application_ids: string[]
+        }
+        Returns: string
+      }
       get_all_applications: {
         Args: Record<PropertyKey, never>
         Returns: Json

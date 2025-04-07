@@ -3,6 +3,7 @@ import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { generateFilename } from './formatUtils';
+import { SupabaseCSVResponse } from './types';
 
 // Download as CSV directly from Supabase
 export const downloadFullCsv = async (applicationIds: string[]): Promise<void> => {
@@ -19,7 +20,7 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
     const idList = applicationIds.map(id => `'${id}'`).join(',');
     
     // Query to get all applications data in CSV format directly from Supabase
-    const { data, error } = await supabase.rpc(
+    const { data, error } = await supabase.rpc<string>(
       'export_applications_as_csv',
       { p_application_ids: applicationIds }
     );

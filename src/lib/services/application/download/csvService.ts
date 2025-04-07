@@ -14,13 +14,14 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
-    // Convert UUID strings to an array of UUIDs for the Supabase function
-    const uuidArray = applicationIds.map(id => id);
-    console.log('🔍 Calling Supabase export_applications_as_csv with IDs:', uuidArray);
+    // The Supabase function expects an array of UUIDs, not bigints
+    console.log('🔍 Calling Supabase export_applications_as_csv with IDs:', applicationIds);
     
-    // Call the Supabase export_applications_as_csv function
+    // Call the Supabase export_applications_as_csv function with UUID array
     const { data, error } = await supabase
-      .rpc('export_applications_as_csv', { app_ids: uuidArray });
+      .rpc('export_applications_as_csv', { 
+        p_application_ids: applicationIds 
+      });
     
     if (error) {
       console.error('❌ Supabase CSV export error:', error);

@@ -1,4 +1,3 @@
-
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 
@@ -49,8 +48,8 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
     console.log('📊 CSV data length:', csvData.length);
     console.log('📊 First 100 characters of CSV:', csvData.substring(0, 100));
     
-    // Fix CSV formatting issues
-    csvData = formatCsvData(csvData);
+    // Clean up CSV formatting issues
+    csvData = cleanCsvData(csvData);
     
     // Create blob directly from the CSV text data
     const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
@@ -71,68 +70,70 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
   }
 };
 
-// Helper function to correctly format CSV data from Supabase
-const formatCsvData = (rawData: string): string => {
-  // Replace literal "\n" with actual line breaks
-  let formattedData = rawData.replace(/\\n/g, '\n');
+// New function to completely clean up the CSV data
+const cleanCsvData = (rawData: string): string => {
+  if (!rawData) return '';
   
-  // Split the data into header and content parts
-  const parts = formattedData.split('\n', 2);
+  // Split into header and data parts
+  const parts = rawData.split('\n');
   if (parts.length < 2) {
-    console.warn('⚠️ CSV data doesn\'t contain expected format with headers');
-    return formattedData;
+    return rawData;
   }
   
-  const headers = parts[0];
-  let content = parts.slice(1).join('\n');
+  // Get the header row (no need to modify it much)
+  const header = parts[0];
+  
+  // Get the data rows (needs cleanup)
+  let dataContent = parts.slice(1).join('');
   
   // Remove surrounding parentheses
-  if (content.startsWith('(') && content.endsWith(')')) {
-    content = content.substring(1, content.length - 1);
+  if (dataContent.startsWith('(') && dataContent.endsWith(')')) {
+    dataContent = dataContent.substring(1, dataContent.length - 1);
   }
   
-  // Clean up escape characters while preserving properly quoted fields
-  content = cleanupCsvEscapes(content);
+  // Clean up all unnecessary quotation marks 
+  // But be careful to keep actual commas within fields intact
+  const cleanedData = processCSVFields(dataContent);
   
-  return headers + '\n' + content;
+  // Return the properly formatted CSV
+  return header + '\n' + cleanedData;
 };
 
-// Helper function to clean up CSV escaping issues
-const cleanupCsvEscapes = (csvContent: string): string => {
+// Process CSV fields to remove unnecessary quotes but preserve commas in fields
+const processCSVFields = (csvContent: string): string => {
+  const fields = [];
+  let currentField = '';
   let inQuote = false;
-  let result = '';
-  let i = 0;
   
-  while (i < csvContent.length) {
+  for (let i = 0; i < csvContent.length; i++) {
     const char = csvContent[i];
+    const nextChar = i < csvContent.length - 1 ? csvContent[i + 1] : '';
     
+    // Handle quotes
     if (char === '"') {
-      // Check if this is an escaped quote (double quote inside a quoted field)
-      if (inQuote && i + 1 < csvContent.length && csvContent[i + 1] === '"') {
-        result += '"';
-        i += 2; // Skip both quotes
-        continue;
-      }
-      
-      // Toggle the quote state
+      // Toggle quote state but don't add the quote to our output
       inQuote = !inQuote;
-      result += char;
-    } 
-    else if (char === '\\' && i + 1 < csvContent.length && csvContent[i + 1] === '"') {
-      // Handle escaped quotes from the database
-      if (!inQuote) {
-        result += '"';
-        i += 2;
+    }
+    // Handle comma - only treat as field separator if not inside quotes
+    else if (char === ',' && !inQuote) {
+      fields.push(currentField);
+      currentField = '';
+    }
+    // Handle all other characters - add them to current field
+    else {
+      // Skip escape character but include the actual character
+      if (char === '\\' && (nextChar === '"' || nextChar === '\\')) {
         continue;
       }
-      result += char;
+      currentField += char;
     }
-    else {
-      result += char;
-    }
-    
-    i++;
   }
   
-  return result;
+  // Add the last field
+  if (currentField) {
+    fields.push(currentField);
+  }
+  
+  // Join fields back with commas
+  return fields.join(',');
 };

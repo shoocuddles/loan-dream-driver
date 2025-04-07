@@ -40,7 +40,7 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
       pdf.setTextColor(0, 0, 0);
       pdf.text('Ontario Loans - Lead Details', 105, 15, { align: 'center' });
       
-      // Define PDF categories with field mappings
+      // Define PDF categories with field mappings - Updated to match the specific database fields
       const categories: Record<string, PDFCategory> = {
         'Contact Details': {
           title: 'Contact Details',
@@ -87,6 +87,7 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
           title: 'Additional Information',
           fields: [
             'Additional Notes',
+            'Application ID',
             'Submission Date'
           ]
         }
@@ -198,6 +199,7 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
         'Job Title',
         'Employment Duration',
         'Additional Notes',
+        'Application ID',
         'Submission Date'
       ];
       

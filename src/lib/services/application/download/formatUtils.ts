@@ -79,8 +79,8 @@ export const formatApplicationData = async (application: ApplicationData) => {
   // Log the application object keys to help with debugging
   console.log('Application object keys:', Object.keys(application));
   
-  // DIRECT MAPPING FROM DATABASE FIELDS - Using the exact field names from Supabase
-  // This ensures we get the data regardless of camelCase vs snake_case issues
+  // DIRECT MAPPING FROM DATABASE FIELDS - Updated to match the exact field names from Supabase
+  // Using the specific field names provided by the user
   formattedData['Full Name'] = getValueOrNA(application.fullname || application.fullName);
   formattedData['City'] = getValueOrNA(application.city);
   formattedData['Address'] = getValueOrNA(application.streetaddress || application.streetAddress);
@@ -89,38 +89,30 @@ export const formatApplicationData = async (application: ApplicationData) => {
   formattedData['Email'] = getValueOrNA(application.email);
   formattedData['Phone Number'] = getValueOrNA(application.phonenumber || application.phoneNumber);
   
-  // Vehicle information - using the specific field names from Supabase
-  formattedData['Vehicle Type'] = getValueOrNA(application.vehicletype || application.vehicleType);
-  formattedData['Unwanted Colors'] = getValueOrNA(application.unwantedcolors || application.unwantedColors);
-  formattedData['Required Features'] = getValueOrNA(application.requiredfeatures || application.requiredFeatures);
-  formattedData['Preferred Make/Model'] = getValueOrNA(application.preferredmakemodel || application.preferredMakeModel);
+  // Vehicle information - using the specific field names from Supabase as specified by the user
+  formattedData['Vehicle Type'] = getValueOrNA(application.vehicletype);
+  formattedData['Unwanted Colors'] = getValueOrNA(application.unwantedcolors);
+  formattedData['Required Features'] = getValueOrNA(application.requiredfeatures);
+  formattedData['Preferred Make/Model'] = getValueOrNA(application.preferredmakemodel);
   
-  // Loan information - use getBooleanValue for boolean fields
-  // Try multiple field name variations to ensure we capture the data
-  let hasExistingLoan = 'N/A';
-  
-  if ('hasexistingloan' in application && application.hasexistingloan !== undefined) {
-    hasExistingLoan = getBooleanValue(application.hasexistingloan);
-  } else if ('hasExistingLoan' in application && (application as any).hasExistingLoan !== undefined) {
-    hasExistingLoan = getBooleanValue((application as any).hasExistingLoan);
-  }
-  
-  formattedData['Has Existing Loan'] = hasExistingLoan;
-  formattedData['Current Vehicle'] = getValueOrNA(application.currentvehicle || (application as any).currentVehicle);
-  formattedData['Current Payment'] = getValueOrNA(application.currentpayment || (application as any).currentPayment);
-  formattedData['Amount Owed'] = getValueOrNA(application.amountowed || (application as any).amountOwed);
+  // Loan information - directly use the database field names as specified
+  formattedData['Has Existing Loan'] = getBooleanValue(application.hasexistingloan);
+  formattedData['Current Vehicle'] = getValueOrNA(application.currentvehicle);
+  formattedData['Current Payment'] = getValueOrNA(application.currentpayment);
+  formattedData['Amount Owed'] = getValueOrNA(application.amountowed);
   formattedData['Mileage'] = getValueOrNA(application.mileage);
   
-  // Income information - ensuring all possible field name variations are checked
-  formattedData['Employment Status'] = getValueOrNA(application.employmentstatus || (application as any).employmentStatus);
-  formattedData['Monthly Income'] = getValueOrNA(application.monthlyincome || (application as any).monthlyIncome);
-  formattedData['Employer Name'] = getValueOrNA(application.employer_name || (application as any).employerName);
-  formattedData['Job Title'] = getValueOrNA(application.job_title || (application as any).jobTitle);
-  formattedData['Employment Duration'] = getValueOrNA(application.employment_duration || (application as any).employmentDuration);
+  // Income information - directly use the database field names as specified
+  formattedData['Employment Status'] = getValueOrNA(application.employmentstatus);
+  formattedData['Monthly Income'] = getValueOrNA(application.monthlyincome);
+  formattedData['Employer Name'] = getValueOrNA(application.employer_name);
+  formattedData['Job Title'] = getValueOrNA(application.job_title);
+  formattedData['Employment Duration'] = getValueOrNA(application.employment_duration);
   
   // Additional information
-  formattedData['Additional Notes'] = getValueOrNA(application.additionalnotes || (application as any).additionalNotes);
+  formattedData['Additional Notes'] = getValueOrNA(application.additionalnotes);
   formattedData['Submission Date'] = createdDate;
+  formattedData['Application ID'] = getValueOrNA(application.id || application.applicationId);
   
   // Log the formatted data for all key fields to confirm values are being properly assigned
   console.log('Formatted data for key fields:');
@@ -129,7 +121,7 @@ export const formatApplicationData = async (application: ApplicationData) => {
     'Vehicle Type', 'Unwanted Colors', 'Required Features', 'Preferred Make/Model',
     'Has Existing Loan', 'Current Vehicle', 'Current Payment', 'Amount Owed', 'Mileage',
     'Employment Status', 'Monthly Income', 'Employer Name', 'Job Title', 'Employment Duration',
-    'Additional Notes', 'Submission Date'
+    'Additional Notes', 'Submission Date', 'Application ID'
   ].forEach(key => {
     console.log(`${key}: '${formattedData[key]}'`);
   });
@@ -167,12 +159,8 @@ export const formatApplicationData = async (application: ApplicationData) => {
     );
     
     if (!hasField) {
-      // Try to find the value using various naming conventions
-      const camelCaseKey = toCamelCase(columnName);
-      const value = application[columnName] ?? 
-                   application[camelCaseKey] ?? 
-                   application[columnName.toLowerCase()] ?? 
-                   application[camelCaseKey.toLowerCase()];
+      // Try to find the value using the exact database field name
+      const value = application[columnName];
       
       if (value !== undefined) {
         const isBooleanField = typeof value === 'boolean';

@@ -1,3 +1,4 @@
+
 import { ApplicationItem, DownloadedApplication } from '@/lib/types/dealer-dashboard';
 import { supabase, rpcCall } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -54,7 +55,7 @@ export const fetchAvailableApplications = async (): Promise<ApplicationItem[]> =
         lockInfo: formattedApp.lockInfo || { isLocked: false },
         isDownloaded: formattedApp.isDownloaded || false,
         standardPrice: formattedApp.standardPrice,
-        discountedPrice: formattedApp.discountPrice,
+        discountedPrice: formattedApp.discountedPrice, // Fixed: using discountedPrice instead of discountPrice
         vehicleType: formattedApp.vehicleType
       };
     }) || [];

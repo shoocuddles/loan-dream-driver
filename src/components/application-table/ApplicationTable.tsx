@@ -46,6 +46,13 @@ const ApplicationTable = ({
   const allSelected = applications.length > 0 && selectedApplications.length === applications.length;
   const someSelected = selectedApplications.length > 0 && !allSelected;
 
+  // Log vehicle type data for debugging
+  console.log('Applications with vehicleType:', applications.map(app => ({ 
+    id: app.applicationId,
+    vehicleType: app.vehicleType,
+    status: app.status
+  })));
+
   const columns: ColumnDef<ApplicationItem>[] = [
     {
       accessorKey: 'select',
@@ -77,18 +84,26 @@ const ApplicationTable = ({
     {
       accessorKey: 'vehicleType',
       header: 'Type',
-      cell: ({ row }) => row.original.vehicleType || 'N/A'
+      cell: ({ row }) => {
+        // Add debugging log
+        console.log(`Rendering vehicleType for ${row.original.applicationId}: ${row.original.vehicleType}`);
+        return row.original.vehicleType || 'N/A';
+      }
     },
     {
       accessorKey: 'status',
       header: 'Status',
-      cell: ({ row }) => (
-        <div className="flex flex-col gap-1">
-          <StatusBadge status={row.original.status} />
-          <LockStatusBadge lockInfo={row.original.lockInfo} />
-          <DownloadStatusBadge isDownloaded={!!row.original.isDownloaded} />
-        </div>
-      )
+      cell: ({ row }) => {
+        // Add debugging log
+        console.log(`Rendering status for ${row.original.applicationId}: ${row.original.status}`);
+        return (
+          <div className="flex flex-col gap-1">
+            <StatusBadge status={row.original.status} />
+            <LockStatusBadge lockInfo={row.original.lockInfo} />
+            <DownloadStatusBadge isDownloaded={!!row.original.isDownloaded} />
+          </div>
+        );
+      }
     },
     {
       accessorKey: 'price',

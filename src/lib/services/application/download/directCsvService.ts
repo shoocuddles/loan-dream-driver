@@ -49,32 +49,8 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
     console.log('📊 CSV data length:', csvData.length);
     console.log('📊 First 100 characters of CSV:', csvData.substring(0, 100));
     
-    // Process the returned data to convert it to proper CSV format
-    // The data comes in format: "header1,header2,header3\n(value1,value2,value3)"
-    // We need to extract and reformat it properly
-    
-    // Check if the data follows the expected pattern
-    const headerMatch = csvData.match(/^(.*?)\n/);
-    if (headerMatch) {
-      const headers = headerMatch[1]; // Extract headers
-      
-      // Extract data part (remove header row and parentheses)
-      let dataRows = csvData.substring(csvData.indexOf('\n') + 1);
-      if (dataRows.startsWith('(')) {
-        dataRows = dataRows.substring(1);
-      }
-      if (dataRows.endsWith(')')) {
-        dataRows = dataRows.substring(0, dataRows.length - 1);
-      }
-      
-      // Reconstruct proper CSV with headers and data rows
-      csvData = headers + '\n' + dataRows;
-      
-      console.log('✅ CSV data reformatted successfully');
-      console.log('📊 Reformatted CSV first 100 chars:', csvData.substring(0, 100));
-    } else {
-      console.warn('⚠️ CSV format unexpected, using raw data');
-    }
+    // Fix CSV formatting issues
+    csvData = formatCsvData(csvData);
     
     // Create blob directly from the CSV text data
     const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
@@ -92,4 +68,70 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
     console.error('❌ Error generating CSV:', error);
     toast.error('Error generating CSV');
   }
+};
+
+// Helper function to correctly format CSV data from Supabase
+const formatCsvData = (rawData: string): string => {
+  // Replace literal "\n" with actual line breaks
+  let formattedData = rawData.replace(/\\n/g, '\n');
+  
+  // Split the data into header and content parts
+  const parts = formattedData.split('\n', 2);
+  if (parts.length < 2) {
+    console.warn('⚠️ CSV data doesn\'t contain expected format with headers');
+    return formattedData;
+  }
+  
+  const headers = parts[0];
+  let content = parts.slice(1).join('\n');
+  
+  // Remove surrounding parentheses
+  if (content.startsWith('(') && content.endsWith(')')) {
+    content = content.substring(1, content.length - 1);
+  }
+  
+  // Clean up escape characters while preserving properly quoted fields
+  content = cleanupCsvEscapes(content);
+  
+  return headers + '\n' + content;
+};
+
+// Helper function to clean up CSV escaping issues
+const cleanupCsvEscapes = (csvContent: string): string => {
+  let inQuote = false;
+  let result = '';
+  let i = 0;
+  
+  while (i < csvContent.length) {
+    const char = csvContent[i];
+    
+    if (char === '"') {
+      // Check if this is an escaped quote (double quote inside a quoted field)
+      if (inQuote && i + 1 < csvContent.length && csvContent[i + 1] === '"') {
+        result += '"';
+        i += 2; // Skip both quotes
+        continue;
+      }
+      
+      // Toggle the quote state
+      inQuote = !inQuote;
+      result += char;
+    } 
+    else if (char === '\\' && i + 1 < csvContent.length && csvContent[i + 1] === '"') {
+      // Handle escaped quotes from the database
+      if (!inQuote) {
+        result += '"';
+        i += 2;
+        continue;
+      }
+      result += char;
+    }
+    else {
+      result += char;
+    }
+    
+    i++;
+  }
+  
+  return result;
 };

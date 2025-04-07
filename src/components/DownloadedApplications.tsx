@@ -1,9 +1,8 @@
-
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { Download, Eye, Search } from 'lucide-react';
 import { DownloadedApplication } from '@/lib/types/dealer-dashboard';
 
@@ -27,6 +26,21 @@ const DownloadedApplications = ({
     (app.email && app.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (app.city && app.city.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  const safeFormatDate = (dateString: string) => {
+    try {
+      if (!dateString) return 'N/A';
+      
+      const date = parseISO(dateString);
+      
+      if (!isValid(date)) return 'Invalid date';
+      
+      return format(date, 'MMM d, yyyy');
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return 'Invalid date';
+    }
+  };
 
   return (
     <Card>
@@ -94,7 +108,7 @@ const DownloadedApplications = ({
                       </div>
                     </TableCell>
                     <TableCell>{application.vehicleType || 'N/A'}</TableCell>
-                    <TableCell>{format(new Date(application.downloadDate), 'MMM d, yyyy')}</TableCell>
+                    <TableCell>{safeFormatDate(application.downloadDate)}</TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-2">
                         <Button

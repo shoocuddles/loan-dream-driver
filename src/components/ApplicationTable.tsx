@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Lock, Unlock, Download, Eye, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { ApplicationItem, LockType } from '@/lib/types/dealer-dashboard';
 import { formatDistanceToNow } from 'date-fns';
 import { SortableTable, ColumnDef } from '@/components/ui/sortable-table';
@@ -117,6 +117,25 @@ const ApplicationTable = ({
   const allSelected = applications.length > 0 && selectedApplications.length === applications.length;
   const someSelected = selectedApplications.length > 0 && !allSelected;
 
+  // Helper function to safely format dates
+  const safeFormatDate = (dateString: string) => {
+    try {
+      // First check if the string is valid
+      if (!dateString) return 'N/A';
+      
+      // Parse the ISO string to a Date object
+      const date = parseISO(dateString);
+      
+      // Check if the date is valid before formatting
+      if (!isValid(date)) return 'Invalid date';
+      
+      return format(date, 'MMM d, yyyy');
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return 'Invalid date';
+    }
+  };
+
   // Define table columns
   const columns: ColumnDef<ApplicationItem>[] = [
     {
@@ -152,7 +171,7 @@ const ApplicationTable = ({
       header: 'Date',
       cell: ({ row }) => {
         const app = row as unknown as ApplicationItem;
-        return format(new Date(app.submissionDate), 'MMM d, yyyy');
+        return safeFormatDate(app.submissionDate);
       }
     },
     {

@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SortableTable, ColumnDef } from "@/components/ui/sortable-table";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { isValid, parseISO, format } from 'date-fns';
 
 interface DealerPurchase {
   id: string;
@@ -72,6 +72,25 @@ const DealerPurchases = () => {
     }
   };
 
+  // Helper function to safely format dates
+  const safeFormatDate = (dateString: string) => {
+    try {
+      // First check if the string is valid
+      if (!dateString) return 'N/A';
+      
+      // Parse the ISO string to a Date object
+      const date = parseISO(dateString);
+      
+      // Check if the date is valid before formatting
+      if (!isValid(date)) return 'Invalid date';
+      
+      return format(date, 'MMM d, yyyy h:mm a');
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return 'Invalid date';
+    }
+  };
+
   const columns: ColumnDef<DealerPurchase>[] = [
     {
       accessorKey: 'dealerName',
@@ -127,6 +146,9 @@ const DealerPurchases = () => {
     {
       accessorKey: 'purchaseDate',
       header: 'Purchase Date',
+      cell: ({ row }) => {
+        return safeFormatDate(row.original.purchaseDate);
+      },
     },
     {
       accessorKey: 'paymentAmount',

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -21,8 +20,8 @@ import {
   unlockApplication,
   generateApplicationPDF
 } from "@/lib/supabase";
+import { isValid, parseISO, format } from 'date-fns';
 
-// Application type definition
 interface ApplicationItem {
   applicationId: string;
   fullName: string;
@@ -44,8 +43,22 @@ const AdminDashboard = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  const safeFormatDate = (dateString: string) => {
+    try {
+      if (!dateString) return 'N/A';
+      
+      const date = parseISO(dateString);
+      
+      if (!isValid(date)) return 'Invalid date';
+      
+      return format(date, 'MMM d, yyyy');
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return 'Invalid date';
+    }
+  };
+
   useEffect(() => {
-    // Check if user is admin
     const isAdmin = localStorage.getItem('isAdmin') === 'true';
     
     if (!isAdmin) {
@@ -60,14 +73,13 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       const allApps = await getAllApplications();
-      // Format application data for display
       const formattedApps = allApps.map(app => ({
-        applicationId: app.id, // Ensure ID is mapped correctly
+        applicationId: app.id,
         fullName: app.fullName || app.fullname || 'Unknown',
         email: app.email || 'N/A',
         city: app.city || 'N/A',
         vehicleType: app.vehicleType || app.vehicletype || 'N/A',
-        submissionDate: app.created_at, // Map dates correctly
+        submissionDate: app.created_at,
         status: app.status || 'pending',
         isLocked: app.isLocked,
         lockExpiresAt: app.lockExpiresAt,
@@ -90,27 +102,22 @@ const AdminDashboard = () => {
     try {
       setProcessingId(applicationId);
       
-      // Get application details
       const details = await getApplicationDetails(applicationId);
       
       if (!details) {
         throw new Error("Application details not found");
       }
       
-      // Generate PDF with admin flag set to true
       const pdfBlob = generateApplicationPDF(details, true);
       
-      // Create a URL for the Blob
       const url = URL.createObjectURL(pdfBlob);
       
-      // Create a temporary link and trigger download
       const link = document.createElement('a');
       link.href = url;
       link.download = `ontario-loans-admin-${applicationId}.pdf`;
       document.body.appendChild(link);
       link.click();
       
-      // Clean up
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
@@ -134,10 +141,8 @@ const AdminDashboard = () => {
     try {
       setProcessingId(`unlock-${applicationId}`);
       
-      // Unlock the application
       await unlockApplication(applicationId);
       
-      // Update local state
       setApplications(prev => 
         prev.map(app => 
           app.applicationId === applicationId
@@ -163,21 +168,18 @@ const AdminDashboard = () => {
   };
 
   const handleViewDetails = (applicationId: string) => {
-    // Placeholder for view details functionality
     toast({
       title: "View Details",
       description: `Viewing details for application ${applicationId}`,
     });
   };
 
-  // Define columns for the applications table
   const applicationColumns: ColumnDef<ApplicationItem>[] = [
     {
       accessorKey: 'submissionDate',
       header: 'Date',
       cell: ({ row }) => {
-        const date = new Date(row.original.submissionDate);
-        return date.toLocaleDateString();
+        return safeFormatDate(row.original.submissionDate);
       }
     },
     {

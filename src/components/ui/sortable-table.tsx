@@ -85,6 +85,24 @@ export function SortableTable<T>({
     });
   };
 
+  // Helper function to safely get a value from an object
+  const safeGetValue = (obj: any, key: string): any => {
+    if (!obj || typeof obj !== 'object') return undefined;
+    
+    // Handle nested keys with dot notation (e.g., "user.name")
+    if (key.includes('.')) {
+      const keys = key.split('.');
+      let value = obj;
+      for (const k of keys) {
+        if (value === null || value === undefined) return undefined;
+        value = value[k];
+      }
+      return value;
+    }
+    
+    return obj[key];
+  };
+
   // Filter and sort data
   const filteredAndSortedData = React.useMemo(() => {
     // First apply filters
@@ -93,7 +111,7 @@ export function SortableTable<T>({
     Object.entries(filters).forEach(([key, filterValue]) => {
       if (filterValue) {
         result = result.filter(item => {
-          const value = String(item[key as keyof typeof item] || '').toLowerCase();
+          const value = String(safeGetValue(item, key) || '').toLowerCase();
           return value.includes(filterValue.toLowerCase());
         });
       }
@@ -102,8 +120,12 @@ export function SortableTable<T>({
     // Then apply sorting
     if (sorting.column) {
       result.sort((a, b) => {
-        const aValue = a[sorting.column as keyof typeof a];
-        const bValue = b[sorting.column as keyof typeof b];
+        const aValue = safeGetValue(a, sorting.column as string);
+        const bValue = safeGetValue(b, sorting.column as string);
+        
+        // Handle null, undefined, or invalid values
+        if (aValue === null || aValue === undefined) return sorting.direction === 'asc' ? -1 : 1;
+        if (bValue === null || bValue === undefined) return sorting.direction === 'asc' ? 1 : -1;
         
         if (typeof aValue === 'string' && typeof bValue === 'string') {
           return sorting.direction === 'asc' 
@@ -127,7 +149,7 @@ export function SortableTable<T>({
   // Create enhanced row objects that include the original data and getValue function
   const enhancedRows = filteredAndSortedData.map(rowData => ({
     original: rowData,
-    getValue: (key: string) => rowData[key as keyof typeof rowData]
+    getValue: (key: string) => safeGetValue(rowData, key)
   }));
 
   return (

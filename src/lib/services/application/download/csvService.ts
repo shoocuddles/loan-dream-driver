@@ -15,8 +15,8 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
-    // Call the Supabase function with the correct parameter name 'app_ids' as per the schema
-    console.log('🔍 Calling Supabase export_applications_as_csv with IDs:', applicationIds);
+    // Direct SQL query approach to call the export_applications_as_csv function
+    // This matches more closely with the example provided
     const { data, error } = await supabase.rpc(
       'export_applications_as_csv', 
       { 

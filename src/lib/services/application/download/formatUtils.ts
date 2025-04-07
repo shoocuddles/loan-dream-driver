@@ -86,9 +86,8 @@ export const formatApplicationData = async (application: ApplicationData) => {
     formattedData['Postal Code'] = getValueOrNA(downloadedApp.postalCode || downloadedApp.postalcode);
     formattedData['Email'] = getValueOrNA(downloadedApp.email);
     formattedData['Phone Number'] = getValueOrNA(downloadedApp.phoneNumber || downloadedApp.phonenumber || downloadedApp.phone);
-    formattedData['Download Id'] = getValueOrNA(downloadedApp.downloadId || downloadedApp.id);
     
-    // Vehicle information
+    // Vehicle information - using the correct field names from Supabase
     formattedData['Vehicle Type'] = getValueOrNA(downloadedApp.vehicleType || downloadedApp.vehicletype);
     formattedData['Unwanted Colors'] = getValueOrNA(downloadedApp.unwantedColors || downloadedApp.unwantedcolors);
     formattedData['Required Features'] = getValueOrNA(downloadedApp.requiredFeatures || downloadedApp.requiredfeatures);
@@ -98,7 +97,6 @@ export const formatApplicationData = async (application: ApplicationData) => {
     formattedData['Has Existing Loan'] = getBooleanValue(downloadedApp.hasExistingLoan || downloadedApp.hasexistingloan);
     formattedData['Current Vehicle'] = getValueOrNA(downloadedApp.currentVehicle || downloadedApp.currentvehicle);
     formattedData['Current Payment'] = getValueOrNA(downloadedApp.currentPayment || downloadedApp.currentpayment);
-    formattedData['Payment Amount'] = getValueOrNA(downloadedApp.paymentAmount || downloadedApp.payment_amount); // Added payment amount
     formattedData['Amount Owed'] = getValueOrNA(downloadedApp.amountOwed || downloadedApp.amountowed);
     formattedData['Mileage'] = getValueOrNA(downloadedApp.mileage);
     
@@ -108,13 +106,10 @@ export const formatApplicationData = async (application: ApplicationData) => {
     formattedData['Employer Name'] = getValueOrNA(downloadedApp.employerName || downloadedApp.employer_name);
     formattedData['Job Title'] = getValueOrNA(downloadedApp.jobTitle || downloadedApp.job_title);
     formattedData['Employment Duration'] = getValueOrNA(downloadedApp.employmentDuration || downloadedApp.employment_duration);
-    formattedData['Status'] = getValueOrNA(downloadedApp.status);
     
-    // Add additional fields
-    formattedData['Application ID'] = getValueOrNA(downloadedApp.applicationId || downloadedApp.id);
-    formattedData['Submission Date'] = createdDate;
-    formattedData['Last Updated'] = updatedDate;
+    // Additional information
     formattedData['Additional Notes'] = getValueOrNA(downloadedApp.additionalNotes || downloadedApp.additionalnotes);
+    formattedData['Submission Date'] = createdDate;
     
     // Log the field mapping for debugging
     console.log('Field mapping for downloaded app - Has Existing Loan:', {
@@ -159,7 +154,7 @@ export const formatApplicationData = async (application: ApplicationData) => {
     formattedData['Email'] = getValueOrNA(standardApp.email);
     formattedData['Phone Number'] = getValueOrNA(standardApp.phonenumber || standardApp.phone);
     
-    // Vehicle information
+    // Vehicle information - using the correct field names from Supabase
     formattedData['Vehicle Type'] = getValueOrNA(standardApp.vehicletype);
     formattedData['Unwanted Colors'] = getValueOrNA(standardApp.unwantedcolors);
     formattedData['Required Features'] = getValueOrNA(standardApp.requiredfeatures);
@@ -169,7 +164,6 @@ export const formatApplicationData = async (application: ApplicationData) => {
     formattedData['Has Existing Loan'] = getBooleanValue(standardApp.hasexistingloan);
     formattedData['Current Vehicle'] = getValueOrNA(standardApp.currentvehicle);
     formattedData['Current Payment'] = getValueOrNA(standardApp.currentpayment);
-    formattedData['Payment Amount'] = getValueOrNA(standardApp.payment_amount);
     formattedData['Amount Owed'] = getValueOrNA(standardApp.amountowed);
     formattedData['Mileage'] = getValueOrNA(standardApp.mileage);
     
@@ -179,13 +173,10 @@ export const formatApplicationData = async (application: ApplicationData) => {
     formattedData['Employer Name'] = getValueOrNA(standardApp.employer_name);
     formattedData['Job Title'] = getValueOrNA(standardApp.job_title);
     formattedData['Employment Duration'] = getValueOrNA(standardApp.employment_duration);
-    formattedData['Status'] = getValueOrNA(standardApp.status);
     
-    // Add additional fields
-    formattedData['Application ID'] = getValueOrNA(standardApp.id);
-    formattedData['Submission Date'] = createdDate;
-    formattedData['Last Updated'] = updatedDate;
+    // Additional information
     formattedData['Additional Notes'] = getValueOrNA(standardApp.additionalnotes);
+    formattedData['Submission Date'] = createdDate;
     
     // Log the field mapping for debugging
     console.log('Field mapping for standard app - Has Existing Loan:', {

@@ -51,8 +51,7 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
             'Province', 
             'Postal Code', 
             'Email', 
-            'Phone Number',
-            'Download Id'
+            'Phone Number'
           ]
         },
         'Vehicle Wanted': {
@@ -70,7 +69,6 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
             'Has Existing Loan',
             'Current Vehicle',
             'Current Payment',
-            'Payment Amount',
             'Amount Owed',
             'Mileage'
           ]
@@ -82,8 +80,14 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
             'Monthly Income',
             'Employer Name',
             'Job Title',
-            'Employment Duration',
-            'Status'
+            'Employment Duration'
+          ]
+        },
+        'Additional Information': {
+          title: 'Additional Information',
+          fields: [
+            'Additional Notes',
+            'Submission Date'
           ]
         }
       };
@@ -156,10 +160,24 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
       }
       
       // Create "Other Details" category with remaining fields
+      // Excluding specific fields that should not appear in the PDF
+      const excludedFields = [
+        'payment amount',
+        'status',
+        'application id',
+        'id',
+        'user id',
+        'street address', // Removed as requested
+        'is complete',
+        'last updated',
+        'download id'
+      ];
+      
       const usedFields = Object.values(categories).flatMap(cat => cat.fields).map(f => f.toLowerCase().replace(/\s+/g, ''));
       const otherFields = Object.keys(formattedData).filter(key => {
         const normalizedKey = key.toLowerCase().replace(/\s+/g, '');
-        return !usedFields.some(f => f === normalizedKey || f.includes(normalizedKey) || normalizedKey.includes(f));
+        return !usedFields.some(f => f === normalizedKey || f.includes(normalizedKey) || normalizedKey.includes(f)) &&
+               !excludedFields.some(f => normalizedKey.includes(f));
       });
       
       if (otherFields.length > 0) {
@@ -204,12 +222,6 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
           tableWidth: 'auto',
         });
       }
-      
-      // Add application ID and date
-      const appId = 'applicationId' in application ? application.applicationId : application.id;
-      pdf.setFontSize(8);
-      pdf.setTextColor(100, 100, 100);
-      pdf.text(`Application ID: ${appId}`, 195, 285, { align: 'right' });
       
       // Add footer with page number
       const pageCount = pdf.getNumberOfPages();

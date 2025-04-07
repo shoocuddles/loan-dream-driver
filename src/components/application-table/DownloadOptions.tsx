@@ -39,6 +39,7 @@ const DownloadOptions = ({
     
     try {
       toast.info(`Preparing ${type} download...`);
+      console.log(`Downloading application(s) as ${type}:`, applicationIds);
       
       switch (type) {
         case 'PDF':

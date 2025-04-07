@@ -1,3 +1,4 @@
+
 import { Application, UserProfile } from './supabase';
 
 export interface LockInfo {
@@ -36,6 +37,8 @@ export interface DownloadedApplication {
   vehicleType?: string;
   downloadDate: string; // This field is used instead of submissionDate
   paymentAmount?: number;
+  // Allow any other fields that might be returned from the database
+  [key: string]: any;
 }
 
 export interface LockoutPeriod {

@@ -1,20 +1,12 @@
 
-// Common type for application data regardless of source
-export type ApplicationData = Record<string, any>;
+export interface ApplicationData {
+  id?: string;
+  applicationId?: string;
+  downloadId?: string;
+  [key: string]: any; // Allow any other fields dynamically
+}
 
-// Database column metadata
 export interface ColumnMetadata {
   name: string;
   displayName: string;
-}
-
-// Add this interface if not already present
-export interface SupabaseCSVResponse {
-  csv: string;
-}
-
-// PDF category mapping for organizing data in the PDF output
-export interface PDFCategory {
-  title: string;
-  fields: string[];
 }

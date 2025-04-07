@@ -82,7 +82,7 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
         console.log('📄 RAW DOWNLOAD RPC DATA:', JSON.stringify(downloadedApps, null, 2));
         
         const filteredDownloads = downloadedApps.filter((app: any) => 
-          applicationIds.includes(app.applicationId)
+          applicationIds.includes(app.applicationId || app.id)
         );
         
         if (filteredDownloads.length > 0) {
@@ -97,43 +97,28 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
             const { data: appData, error: appError } = await supabase
               .from('applications')
               .select('*')
-              .eq('id', download.applicationId)
+              .eq('id', download.applicationId || download.id)
               .single();
               
             if (appError) {
-              console.warn(`⚠️ Could not fetch complete data for ${download.applicationId}:`, appError);
+              console.warn(`⚠️ Could not fetch complete data for ${download.applicationId || download.id}:`, appError);
               return download; // Return what we have if we can't get complete data
             }
             
             // Log the raw application data
-            console.log(`🔍 COMPLETE RAW APPLICATION DATA for ${download.applicationId}:`);
+            console.log(`🔍 COMPLETE RAW APPLICATION DATA for ${download.applicationId || download.id}:`);
             console.log(JSON.stringify(appData, null, 2));
             
             // Log EVERY field to help debugging
-            console.log(`📄 COMPLETE FIELD MAPPING FOR APPLICATION ${download.applicationId}:`);
+            console.log(`📄 COMPLETE FIELD MAPPING FOR APPLICATION ${download.applicationId || download.id}:`);
             Object.keys(appData).forEach(key => {
               console.log(`Field: ${key} | Value: ${JSON.stringify(appData[key])} | Type: ${typeof appData[key]}`);
             });
             
-            // Log specific fields we're looking for
-            console.log(`Application ${download.applicationId} field check:`);
-            console.log('hasexistingloan:', appData.hasexistingloan, 'type:', typeof appData.hasexistingloan);
-            console.log('currentvehicle:', appData.currentvehicle, 'type:', typeof appData.currentvehicle);
-            console.log('currentpayment:', appData.currentpayment, 'type:', typeof appData.currentpayment);
-            console.log('amountowed:', appData.amountowed, 'type:', typeof appData.amountowed);
-            console.log('mileage:', appData.mileage, 'type:', typeof appData.mileage);
-            console.log('employmentstatus:', appData.employmentstatus, 'type:', typeof appData.employmentstatus);
-            console.log('monthlyincome:', appData.monthlyincome, 'type:', typeof appData.monthlyincome);
-            console.log('employer_name:', appData.employer_name, 'type:', typeof appData.employer_name);
-            console.log('job_title:', appData.job_title, 'type:', typeof appData.job_title);
-            console.log('employment_duration:', appData.employment_duration, 'type:', typeof appData.employment_duration);
-            console.log('additionalnotes:', appData.additionalnotes, 'type:', typeof appData.additionalnotes);
-            
-            // Merge the download record with the full application data
-            // Keep download fields as they may have updated/override values
-            const mergedData = { ...appData, ...download };
-            
-            return mergedData;
+            // We use the download data as priority, but fill in any missing fields from appData
+            // This way we preserve the downloadId, downloadDate, paymentAmount, while getting all the application data
+            // Return the combined data, with download fields taking precedence
+            return { ...appData, ...download };
           }));
           
           return completeApplications as DownloadedApplication[];

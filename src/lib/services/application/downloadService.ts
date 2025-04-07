@@ -5,11 +5,14 @@ import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { Application } from '@/lib/types/supabase';
+import { DownloadedApplication } from '@/lib/types/dealer-dashboard';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+type ApplicationData = Application | DownloadedApplication;
+
 // Get full application details once purchased
-export const fetchFullApplicationDetails = async (applicationIds: string[]): Promise<Application[]> => {
+export const fetchFullApplicationDetails = async (applicationIds: string[]): Promise<ApplicationData[]> => {
   try {
     console.log('🔍 Fetching full application details for:', applicationIds);
     
@@ -29,7 +32,7 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
     // If we got data from the regular applications table, return it
     if (lowerCaseData && lowerCaseData.length > 0) {
       console.log(`✅ Retrieved ${lowerCaseData.length} full application details from applications table`);
-      return lowerCaseData;
+      return lowerCaseData as Application[];
     }
     
     // If we didn't get data from applications table, try fetching from downloaded applications
@@ -51,7 +54,7 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
     
     if (filteredDownloads.length > 0) {
       console.log(`✅ Retrieved ${filteredDownloads.length} application details from downloads`);
-      return filteredDownloads;
+      return filteredDownloads as DownloadedApplication[];
     }
     
     console.error('❌ Could not find application data in any table');
@@ -65,14 +68,16 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
 };
 
 // Helper function to format application data for display
-const formatApplicationData = (application: any) => {
+const formatApplicationData = (application: ApplicationData) => {
   // Check if this is a downloaded application (has different field structure)
   const isDownloadedApp = 'downloadId' in application || 'applicationId' in application;
   
   // Format dates
-  const createdAt = application.created_at || application.submissionDate
-    ? format(new Date(application.created_at || application.submissionDate), 'MMM d, yyyy')
-    : 'N/A';
+  const createdAt = application.created_at 
+    ? format(new Date(application.created_at), 'MMM d, yyyy')
+    : isDownloadedApp && (application as DownloadedApplication).downloadDate
+      ? format(new Date((application as DownloadedApplication).downloadDate), 'MMM d, yyyy')
+      : 'N/A';
     
   const updatedAt = application.updated_at 
     ? format(new Date(application.updated_at), 'MMM d, yyyy')
@@ -84,19 +89,20 @@ const formatApplicationData = (application: any) => {
   
   // If we have a downloaded app format, map fields differently
   if (isDownloadedApp) {
+    const downloadedApp = application as DownloadedApplication;
     return {
-      'Full Name': getValueOrNA(application.fullName),
-      'Email': getValueOrNA(application.email),
-      'Phone Number': getValueOrNA(application.phoneNumber),
-      'Address': getValueOrNA(application.address),
-      'City': getValueOrNA(application.city),
-      'Province': getValueOrNA(application.province),
-      'Postal Code': getValueOrNA(application.postalCode),
-      'Vehicle Type': getValueOrNA(application.vehicleType),
-      'Download Date': application.downloadDate
-        ? format(new Date(application.downloadDate), 'MMM d, yyyy')
+      'Full Name': getValueOrNA(downloadedApp.fullName),
+      'Email': getValueOrNA(downloadedApp.email),
+      'Phone Number': getValueOrNA(downloadedApp.phoneNumber),
+      'Address': getValueOrNA(downloadedApp.address),
+      'City': getValueOrNA(downloadedApp.city),
+      'Province': getValueOrNA(downloadedApp.province),
+      'Postal Code': getValueOrNA(downloadedApp.postalCode),
+      'Vehicle Type': getValueOrNA(downloadedApp.vehicleType),
+      'Download Date': downloadedApp.downloadDate
+        ? format(new Date(downloadedApp.downloadDate), 'MMM d, yyyy')
         : 'N/A',
-      'Application ID': getValueOrNA(application.applicationId)
+      'Application ID': getValueOrNA(downloadedApp.applicationId)
     };
   }
   
@@ -125,6 +131,25 @@ const formatApplicationData = (application: any) => {
     'Submission Date': createdAt,
     'Last Updated': updatedAt
   };
+};
+
+// Get a formatted date string from application data
+const getDateFromApplication = (application: ApplicationData): string => {
+  if ('downloadDate' in application && application.downloadDate) {
+    return format(new Date(application.downloadDate), 'MMMM d, yyyy');
+  }
+  
+  if (application.created_at) {
+    return format(new Date(application.created_at), 'MMMM d, yyyy');
+  }
+  
+  return format(new Date(), 'MMMM d, yyyy');
+};
+
+// Generate a filename for download
+const generateFilename = (application: ApplicationData, extension: string): string => {
+  const id = 'applicationId' in application ? application.applicationId : application.id;
+  return `application_${id}.${extension}`;
 };
 
 // Download as PDF
@@ -160,9 +185,9 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
       // Add application ID and date
       pdf.setFontSize(12);
       pdf.setTextColor(0, 0, 0);
-      pdf.text(`Application ID: ${application.id || application.applicationId}`, 14, 25);
-      const dateValue = application.created_at || application.submissionDate || application.downloadDate || new Date();
-      pdf.text(`Date: ${format(new Date(dateValue), 'MMMM d, yyyy')}`, 14, 32);
+      const appId = 'applicationId' in application ? application.applicationId : application.id;
+      pdf.text(`Application ID: ${appId}`, 14, 25);
+      pdf.text(`Date: ${getDateFromApplication(application)}`, 14, 32);
       
       // Format data for PDF
       const formattedData = formatApplicationData(application);
@@ -200,7 +225,7 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
     
     // Save the PDF
     const fileName = applications.length === 1 
-      ? `application_${applications[0].id || applications[0].applicationId}.pdf`
+      ? generateFilename(applications[0], 'pdf')
       : `applications_${new Date().getTime()}.pdf`;
     
     pdf.save(fileName);
@@ -248,7 +273,7 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
     const csvContent = csvRows.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const fileName = applications.length === 1 
-      ? `application_${applications[0].id || applications[0].applicationId}.csv`
+      ? generateFilename(applications[0], 'csv')
       : `applications_${new Date().getTime()}.csv`;
     
     saveAs(blob, fileName);
@@ -288,7 +313,7 @@ export const downloadAsExcel = async (applicationIds: string[]): Promise<void> =
     
     // Generate Excel file
     const fileName = applications.length === 1 
-      ? `application_${applications[0].id || applications[0].applicationId}.xlsx`
+      ? generateFilename(applications[0], 'xlsx')
       : `applications_${new Date().getTime()}.xlsx`;
     
     XLSX.writeFile(wb, fileName);

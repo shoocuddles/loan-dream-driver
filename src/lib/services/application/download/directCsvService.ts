@@ -16,40 +16,67 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
       return;
     }
     
-    // Create a comma-separated string of UUIDs in single quotes
-    const idList = applicationIds.map(id => `'${id}'`).join(',');
-    
-    // Query to get all applications data in CSV format directly from Supabase
-    // Use the correct generic type syntax for rpc with both return type and params type
-    const { data, error } = await supabase.rpc<string, { p_application_ids: string[] }>(
-      'export_applications_as_csv',
-      { p_application_ids: applicationIds }
-    );
+    // Instead of using the problematic export_applications_as_csv function,
+    // we'll directly fetch the application data and format it as CSV ourselves
+    const { data, error } = await supabase
+      .from('applications')
+      .select('*')
+      .in('id', applicationIds);
     
     if (error) {
-      console.error('❌ Supabase CSV export error:', error);
-      toast.error('Failed to generate full CSV export.');
+      console.error('❌ Supabase data fetch error:', error);
+      toast.error('Failed to fetch application data for CSV export.');
       return;
     }
     
-    if (!data) {
-      console.error('❌ No CSV data returned from Supabase');
-      toast.error('No data found for CSV export.');
+    if (!data || data.length === 0) {
+      console.error('❌ No application data found');
+      toast.error('No application data found for CSV export.');
       return;
     }
     
-    // Create blob from the returned CSV string
-    // Fix: Explicitly cast data to string before creating the Blob
-    const blob = new Blob([data as string], { type: 'text/csv;charset=utf-8;' });
+    // Get all unique headers from the data
+    const allKeys = new Set<string>();
+    data.forEach(row => {
+      Object.keys(row).forEach(key => allKeys.add(key));
+    });
+    const headers = Array.from(allKeys);
     
-    // Generate filename - use a different approach since we don't have ApplicationData
+    // Create CSV content
+    let csvContent = headers.join(',') + '\n';
+    
+    data.forEach(row => {
+      const rowValues = headers.map(header => {
+        const value = row[header];
+        // Handle different data types and ensure proper CSV formatting
+        if (value === null || value === undefined) {
+          return '';
+        } else if (typeof value === 'string') {
+          // Escape quotes and wrap in quotes if contains comma, quote or newline
+          const needsQuotes = value.includes(',') || value.includes('"') || value.includes('\n');
+          const escaped = value.replace(/"/g, '""');
+          return needsQuotes ? `"${escaped}"` : escaped;
+        } else if (typeof value === 'object') {
+          // Convert objects to JSON strings
+          const jsonStr = JSON.stringify(value);
+          return `"${jsonStr.replace(/"/g, '""')}"`;
+        }
+        return String(value);
+      });
+      csvContent += rowValues.join(',') + '\n';
+    });
+    
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    // Generate filename
     const fileName = applicationIds.length === 1 
       ? `full_${applicationIds[0]}.csv`
       : `full_applications_${new Date().getTime()}.csv`;
     
     // Save the file
     saveAs(blob, fileName);
-    console.log('✅ Full CSV generated successfully via Supabase');
+    console.log('✅ Full CSV generated successfully');
     toast.success('Full CSV downloaded successfully');
     
   } catch (error) {

@@ -1,70 +1,51 @@
 
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
-import { fetchFullApplicationDetails } from './fetchService';
+import { supabase } from '@/integrations/supabase/client';
 
-// Download as CSV with minimal formatting/transformation
+// Download as CSV using the Supabase export_applications_as_csv function
 export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => {
   try {
-    console.log('📊 Generating CSV for applications with direct data transfer:', applicationIds);
+    console.log('📊 Generating CSV using Supabase export function for applications:', applicationIds);
     
-    const applications = await fetchFullApplicationDetails(applicationIds);
-    if (!applications.length) {
-      console.error('❌ No application data found for CSV generation');
-      toast.error('No application data found. Please try downloading again.');
+    if (!applicationIds.length) {
+      console.error('❌ No application IDs provided for CSV generation');
+      toast.error('No applications selected for download.');
       return;
     }
     
-    // Log the raw application data from Supabase
-    console.log('Raw Supabase data for CSV (first application):');
-    console.log(JSON.stringify(applications[0], null, 2));
+    // Convert UUID strings to an array of UUIDs for the Supabase function
+    const uuidArray = applicationIds.map(id => id);
+    console.log('🔍 Calling Supabase export_applications_as_csv with IDs:', uuidArray);
     
-    // Get all unique headers across all applications directly from the data
-    const allHeaders = new Set<string>();
-    applications.forEach(app => {
-      Object.keys(app).forEach(header => allHeaders.add(header));
-    });
+    // Call the Supabase export_applications_as_csv function
+    const { data, error } = await supabase
+      .rpc('export_applications_as_csv', { app_ids: uuidArray });
     
-    // Convert to array and sort for consistent output
-    const headers = Array.from(allHeaders).sort();
-    console.log('🏷️ CSV Headers (direct from Supabase):', headers);
+    if (error) {
+      console.error('❌ Supabase CSV export error:', error);
+      toast.error('Error generating CSV');
+      return;
+    }
     
-    // Create CSV content - direct mapping from Supabase data
-    const csvRows = [
-      // Header row
-      headers.join(','),
-      
-      // Data rows - minimal transformation, just for CSV format compliance
-      ...applications.map(app => 
-        headers.map(header => {
-          // Get raw value directly from Supabase
-          let value = app[header] !== undefined && app[header] !== null 
-            ? app[header] 
-            : '';
-            
-          // Convert to string if not already
-          value = String(value);
-          
-          // Only escape quotes for CSV format compliance
-          value = value.replace(/"/g, '""');
-          
-          // Wrap in quotes if it contains comma, quote or newline (CSV format requirement)
-          return /[",\n\r]/.test(value) ? `"${value}"` : value;
-        }).join(',')
-      )
-    ];
+    if (!data) {
+      console.error('❌ No CSV data returned from Supabase');
+      toast.error('No data returned from export function');
+      return;
+    }
     
-    // Create blob and save
-    const csvContent = csvRows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    console.log('✅ Received CSV data from Supabase function');
+    
+    // Create blob and save as CSV file
+    const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
     
     // Simple filename generation
-    const fileName = applications.length === 1 
-      ? `application_${applications[0].id}.csv`
+    const fileName = applicationIds.length === 1 
+      ? `application_${applicationIds[0]}.csv`
       : `applications_${new Date().getTime()}.csv`;
     
     saveAs(blob, fileName);
-    console.log('✅ CSV generated successfully with direct data transfer');
+    console.log('✅ CSV file saved successfully using Supabase export function');
     toast.success('CSV downloaded successfully');
   } catch (error) {
     console.error('❌ Error generating CSV:', error);

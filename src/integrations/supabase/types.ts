@@ -455,7 +455,7 @@ export type Database = {
           }
         | {
             Args: {
-              p_application_ids: string[]
+              app_ids: string[]
             }
             Returns: string
           }

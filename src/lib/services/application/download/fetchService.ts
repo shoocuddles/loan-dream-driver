@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Application } from '@/lib/types/supabase';
@@ -32,22 +33,6 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
       const app = lowerCaseData[0];
       Object.keys(app).forEach(key => {
         console.log(`Field: ${key} | Value: ${JSON.stringify(app[key])} | Type: ${typeof app[key]}`);
-      });
-      
-      // Log specific fields we're looking for
-      lowerCaseData.forEach(app => {
-        console.log(`Application ID ${app.id} field check:`);
-        console.log('hasexistingloan:', app.hasexistingloan, 'type:', typeof app.hasexistingloan);
-        console.log('currentvehicle:', app.currentvehicle, 'type:', typeof app.currentvehicle);
-        console.log('currentpayment:', app.currentpayment, 'type:', typeof app.currentpayment);
-        console.log('amountowed:', app.amountowed, 'type:', typeof app.amountowed);
-        console.log('mileage:', app.mileage, 'type:', typeof app.mileage);
-        console.log('employmentstatus:', app.employmentstatus, 'type:', typeof app.employmentstatus);
-        console.log('monthlyincome:', app.monthlyincome, 'type:', typeof app.monthlyincome);
-        console.log('employer_name:', app.employer_name, 'type:', typeof app.employer_name);
-        console.log('job_title:', app.job_title, 'type:', typeof app.job_title);
-        console.log('employment_duration:', app.employment_duration, 'type:', typeof app.employment_duration);
-        console.log('additionalnotes:', app.additionalnotes, 'type:', typeof app.additionalnotes);
       });
       
       console.log('✅ Retrieved full application details from applications table');
@@ -91,157 +76,46 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
           console.log('🔍 RAW DATA FROM DOWNLOADS:');
           console.log(JSON.stringify(filteredDownloads, null, 2));
           
-          // NEW CODE: Use the downloads data directly if it has all the fields we need
-          const fieldsToCheck = [
-            'vehicleType', 'requiredFeatures', 'unwantedColors', 'preferredMakeModel', 
-            'hasExistingLoan', 'currentVehicle', 'currentPayment', 'amountOwed', 'mileage',
-            'employmentStatus', 'monthlyIncome', 'employerName', 'jobTitle', 'employmentDuration'
-          ];
-
-          // Check if all necessary fields are present in the download data
-          const hasAllFields = filteredDownloads.every((download: any) => {
-            const camelCaseFields = Object.keys(download).map(k => k.toLowerCase());
-            const lowerCaseFieldsToCheck = fieldsToCheck.map(f => f.toLowerCase());
+          // Use the downloads data directly without limiting fields
+          // Important change: Instead of mapping specific fields, preserve ALL fields from download
+          const mappedDownloads = filteredDownloads.map((download: any) => {
+            // Get all keys from the download object for dynamic mapping
+            const allKeys = Object.keys(download);
+            const mapped: any = {};
             
-            // Check if we have at least some of the expected fields
-            const hasEnoughFields = lowerCaseFieldsToCheck.some(field => {
-              // Try different variations of the field name (camelCase, snake_case, lowercase)
-              const camelVariation = field;
-              const snakeVariation = field.replace(/([A-Z])/g, '_$1').toLowerCase();
+            // Ensure critical IDs are always present
+            mapped.id = download.applicationId || download.id;
+            mapped.applicationId = download.applicationId || download.id;
+            mapped.downloadId = download.downloadId;
+            mapped.downloadDate = download.downloadDate;
+            
+            // Dynamically map ALL fields from download to mapped object
+            // This ensures we don't lose any fields from the database
+            allKeys.forEach(key => {
+              // Skip keys we already handled
+              if (['applicationId', 'downloadId', 'downloadDate'].includes(key)) {
+                return;
+              }
               
-              return camelCaseFields.includes(camelVariation) || 
-                     camelCaseFields.includes(snakeVariation) ||
-                     Object.keys(download).some(k => k.toLowerCase() === field);
+              // Add the field to our result object - preserves ALL fields
+              // We'll convert camelCase to lowercase for consistency with database
+              const lowercaseKey = key.charAt(0).toLowerCase() + key.slice(1);
+              mapped[lowercaseKey] = download[key];
+              
+              // Also preserve the original camelCase key if it exists
+              if (key !== lowercaseKey) {
+                mapped[key] = download[key];
+              }
             });
             
-            return hasEnoughFields;
+            // Debug log the mapped object
+            console.log('📄 DYNAMICALLY MAPPED DOWNLOAD DATA:');
+            console.log(JSON.stringify(mapped, null, 2));
+            
+            return mapped;
           });
-
-          if (hasAllFields) {
-            console.log('✅ Downloads data contains all necessary fields, using it directly');
-            
-            // Map field names for consistency
-            const mappedDownloads = filteredDownloads.map((download: any) => {
-              // Create a standardized object
-              const mapped: any = {
-                id: download.applicationId || download.id,
-                applicationId: download.applicationId || download.id,
-                downloadId: download.downloadId,
-                downloadDate: download.downloadDate,
-                created_at: download.created_at || download.downloadDate,
-                // Map all fields explicitly to ensure consistency
-                fullname: download.fullName || download.fullname,
-                email: download.email,
-                phonenumber: download.phoneNumber || download.phonenumber,
-                streetaddress: download.address || download.streetaddress || download.streetAddress,
-                city: download.city,
-                province: download.province,
-                postalcode: download.postalCode || download.postalcode,
-                // Vehicle details
-                vehicletype: download.vehicleType || download.vehicletype,
-                requiredfeatures: download.requiredFeatures || download.requiredfeatures,
-                unwantedcolors: download.unwantedColors || download.unwantedcolors,
-                preferredmakemodel: download.preferredMakeModel || download.preferredmakemodel,
-                // Loan details
-                hasexistingloan: download.hasExistingLoan || download.hasexistingloan,
-                currentvehicle: download.currentVehicle || download.currentvehicle,
-                currentpayment: download.currentPayment || download.currentpayment,
-                amountowed: download.amountOwed || download.amountowed,
-                mileage: download.mileage,
-                // Employment details
-                employmentstatus: download.employmentStatus || download.employmentstatus,
-                monthlyincome: download.monthlyIncome || download.monthlyincome,
-                employer_name: download.employerName || download.employer_name,
-                job_title: download.jobTitle || download.job_title,
-                employment_duration: download.employmentDuration || download.employment_duration,
-                // Other
-                additionalnotes: download.additionalNotes || download.additionalnotes
-              };
-              
-              // Debug log the mapped object
-              console.log('📄 MAPPED DOWNLOAD DATA:');
-              console.log(JSON.stringify(mapped, null, 2));
-              
-              return mapped;
-            });
-            
-            return mappedDownloads as ApplicationData[];
-          }
           
-          // If we don't have all fields, continue with the original approach
-          console.log('⚠️ Downloads data is missing some fields, trying to fetch complete application data');
-          
-          // For each download, fetch the full application data to ensure we have ALL fields
-          const completeApplications = await Promise.all(filteredDownloads.map(async (download: any) => {
-            const { data: appData, error: appError } = await supabase
-              .from('applications')
-              .select('*')
-              .eq('id', download.applicationId || download.id)
-              .single();
-              
-            if (appError) {
-              console.warn(`⚠️ Could not fetch complete data for ${download.applicationId || download.id}:`, appError);
-              
-              // IMPORTANT NEW CODE: Instead of just returning what we have,
-              // Map all the fields properly from the download data to match the database field names
-              const mappedDownload: any = {
-                id: download.applicationId || download.id,
-                downloadId: download.downloadId,
-                downloadDate: download.downloadDate,
-                created_at: download.created_at || download.downloadDate,
-                // Map the fields explicitly to ensure they match the database structure
-                fullname: download.fullName || download.fullname,
-                email: download.email,
-                phonenumber: download.phoneNumber || download.phonenumber,
-                streetaddress: download.address || download.streetaddress || download.streetAddress,
-                city: download.city,
-                province: download.province,
-                postalcode: download.postalCode || download.postalcode,
-                // Vehicle details - map from camelCase to lowercase
-                vehicletype: download.vehicleType || download.vehicletype,
-                requiredfeatures: download.requiredFeatures || download.requiredfeatures,
-                unwantedcolors: download.unwantedColors || download.unwantedcolors,
-                preferredmakemodel: download.preferredMakeModel || download.preferredmakemodel,
-                // Loan details - map from camelCase to lowercase
-                hasexistingloan: download.hasExistingLoan || download.hasexistingloan,
-                currentvehicle: download.currentVehicle || download.currentvehicle,
-                currentpayment: download.currentPayment || download.currentpayment,
-                amountowed: download.amountOwed || download.amountowed,
-                mileage: download.mileage,
-                // Employment details - map from camelCase to lowercase
-                employmentstatus: download.employmentStatus || download.employmentstatus,
-                monthlyincome: download.monthlyIncome || download.monthlyincome,
-                employer_name: download.employerName || download.employer_name,
-                job_title: download.jobTitle || download.job_title,
-                employment_duration: download.employmentDuration || download.employment_duration,
-                // Other fields
-                additionalnotes: download.additionalNotes || download.additionalnotes
-              };
-              
-              // Log the mapped data for debugging
-              console.log(`📄 MAPPED DOWNLOAD DATA FOR APPLICATION ${mappedDownload.id}:`);
-              console.log(JSON.stringify(mappedDownload, null, 2));
-              
-              return mappedDownload;
-            }
-            
-            // Log the raw application data
-            console.log(`🔍 COMPLETE RAW APPLICATION DATA for ${download.applicationId || download.id}:`);
-            console.log(JSON.stringify(appData, null, 2));
-            
-            // Log EVERY field to help debugging
-            console.log(`📄 COMPLETE FIELD MAPPING FOR APPLICATION ${download.applicationId || download.id}:`);
-            Object.keys(appData).forEach(key => {
-              console.log(`Field: ${key} | Value: ${JSON.stringify(appData[key])} | Type: ${typeof appData[key]}`);
-            });
-            
-            // We use the download data as priority, but fill in any missing fields from appData
-            // This way we preserve the downloadId, downloadDate, paymentAmount, while getting all the application data
-            // Return the combined data, with download fields taking precedence
-            return { ...appData, ...download };
-          }));
-          
-          return completeApplications as DownloadedApplication[];
+          return mappedDownloads as ApplicationData[];
         }
       }
     } catch (rpcError) {
@@ -288,19 +162,21 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
           console.log(`🔍 COMPLETE RAW APPLICATION DATA for ${record.application_id}:`);
           console.log(JSON.stringify(appDetails, null, 2));
           
-          // Log EVERY field to help debugging
-          console.log(`📄 COMPLETE FIELD MAPPING FOR APPLICATION ${record.application_id}:`);
-          Object.keys(appDetails).forEach(key => {
-            console.log(`Field: ${key} | Value: ${JSON.stringify(appDetails[key])} | Type: ${typeof appDetails[key]}`);
-          });
-          
-          return {
+          // Return ALL fields from the application 
+          // Changed: Just merge download info with all application fields without limiting
+          const result = {
             downloadId: record.id,
             downloadDate: record.downloaded_at,
             applicationId: record.application_id,
             paymentAmount: record.payment_amount,
-            ...appDetails // Include all fields from the application
+            ...appDetails // Include ALL fields from the application
           };
+          
+          // Log the complete data with all fields
+          console.log(`📄 COMPLETE APPLICATION WITH ALL FIELDS FOR ${record.application_id}:`);
+          console.log(JSON.stringify(result, null, 2));
+          
+          return result;
         }));
         
         // Filter out any null results

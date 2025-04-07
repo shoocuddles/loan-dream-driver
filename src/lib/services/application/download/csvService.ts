@@ -1,3 +1,4 @@
+
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 
@@ -70,70 +71,88 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
   }
 };
 
-// New function to completely clean up the CSV data
+// Updated function to completely clean up the CSV data
 const cleanCsvData = (rawData: string): string => {
   if (!rawData) return '';
+  
+  console.log('🔄 Starting CSV cleaning process');
   
   // Split into header and data parts
   const parts = rawData.split('\n');
   if (parts.length < 2) {
+    console.log('⚠️ CSV data didn\'t contain multiple lines, returning as is');
     return rawData;
   }
   
-  // Get the header row (no need to modify it much)
+  // Get the header row
   const header = parts[0];
+  console.log('📋 Header row:', header);
   
-  // Get the data rows (needs cleanup)
-  let dataContent = parts.slice(1).join('');
+  // Join all data rows
+  let dataContent = parts.slice(1).join('\n');
+  console.log('📊 Data rows length before processing:', dataContent.length);
   
-  // Remove surrounding parentheses
+  // Remove surrounding parentheses if present
   if (dataContent.startsWith('(') && dataContent.endsWith(')')) {
     dataContent = dataContent.substring(1, dataContent.length - 1);
+    console.log('🔄 Removed surrounding parentheses');
   }
   
-  // Clean up all unnecessary quotation marks 
-  // But be careful to keep actual commas within fields intact
-  const cleanedData = processCSVFields(dataContent);
+  // Remove all quotation marks from the entire dataset
+  dataContent = removeAllQuotes(dataContent);
+  console.log('🔄 Removed all quotation marks');
   
   // Return the properly formatted CSV
-  return header + '\n' + cleanedData;
+  return header + '\n' + dataContent;
 };
 
-// Process CSV fields to remove unnecessary quotes but preserve commas in fields
-const processCSVFields = (csvContent: string): string => {
-  const fields = [];
-  let currentField = '';
-  let inQuote = false;
+// New function to completely remove all quotes and handle escaping
+const removeAllQuotes = (csvContent: string): string => {
+  // Split into individual rows if there are multiple entries
+  const rows = csvContent.includes('\n') ? csvContent.split('\n') : [csvContent];
   
-  for (let i = 0; i < csvContent.length; i++) {
-    const char = csvContent[i];
-    const nextChar = i < csvContent.length - 1 ? csvContent[i + 1] : '';
+  // Process each row
+  const processedRows = rows.map((row) => {
+    // Create an array to hold processed fields
+    const fields = [];
+    let currentField = '';
+    let inQuote = false;
     
-    // Handle quotes
-    if (char === '"') {
-      // Toggle quote state but don't add the quote to our output
-      inQuote = !inQuote;
-    }
-    // Handle comma - only treat as field separator if not inside quotes
-    else if (char === ',' && !inQuote) {
-      fields.push(currentField);
-      currentField = '';
-    }
-    // Handle all other characters - add them to current field
-    else {
-      // Skip escape character but include the actual character
-      if (char === '\\' && (nextChar === '"' || nextChar === '\\')) {
+    // Go through each character in the row
+    for (let i = 0; i < row.length; i++) {
+      const char = row[i];
+      const nextChar = i < row.length - 1 ? row[i + 1] : '';
+      
+      // Handle quotes - we'll skip them completely
+      if (char === '"') {
+        // Toggle quote state but don't add the quote to output
+        inQuote = !inQuote;
         continue;
       }
-      currentField += char;
+      // Handle comma - only treat as field separator if not inside quotes
+      else if (char === ',' && !inQuote) {
+        fields.push(currentField);
+        currentField = '';
+      }
+      // Handle all other characters - add them to current field
+      else {
+        // Skip escape character but include the actual character
+        if (char === '\\' && (nextChar === '"' || nextChar === '\\')) {
+          continue;
+        }
+        currentField += char;
+      }
     }
-  }
+    
+    // Add the last field
+    if (currentField || fields.length > 0) {
+      fields.push(currentField);
+    }
+    
+    // Join fields back with commas
+    return fields.join(',');
+  });
   
-  // Add the last field
-  if (currentField) {
-    fields.push(currentField);
-  }
-  
-  // Join fields back with commas
-  return fields.join(',');
+  // Join all rows back together with newlines
+  return processedRows.join('\n');
 };

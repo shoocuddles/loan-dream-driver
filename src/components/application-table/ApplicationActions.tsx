@@ -82,7 +82,10 @@ export const ApplicationActions = ({
           </Button>
           
           {showLockOptions && (
-            <div className="absolute right-0 mt-1 bg-white shadow-lg rounded-md border border-gray-200 z-10 w-48 py-1">
+            <div className="absolute right-0 mt-1 bg-white shadow-lg rounded-md border border-gray-200 z-10 w-64 py-1">
+              <div className="px-4 py-2 bg-blue-50 text-xs text-blue-700 border-b border-blue-100">
+                Lock this application to avoid other dealers being able to view. 24-hr lockout period automatic for every download.
+              </div>
               {lockOptions.map(option => (
                 <button
                   key={option.id}

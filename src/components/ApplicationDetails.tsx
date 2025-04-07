@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -60,7 +59,6 @@ const ApplicationDetails = ({
   const isLocked = isApplicationItem(application) && application.lockInfo?.isLocked;
   const isOwnLock = isApplicationItem(application) && application.lockInfo?.isOwnLock;
   
-  // Get the date to display (submission date or download date)
   const getDisplayDate = () => {
     if (isApplicationItem(application)) {
       return application.submissionDate;
@@ -138,7 +136,10 @@ const ApplicationDetails = ({
                   </Button>
                   
                   {showLockOptions && (
-                    <div className="absolute right-0 mt-1 bg-white shadow-lg rounded-md border border-gray-200 z-10 w-48 py-1">
+                    <div className="absolute right-0 mt-1 bg-white shadow-lg rounded-md border border-gray-200 z-10 w-64 py-1">
+                      <div className="px-4 py-2 bg-blue-50 text-xs text-blue-700 border-b border-blue-100">
+                        Lock this application to avoid other dealers being able to view. 24-hr lockout period automatic for every download.
+                      </div>
                       <button
                         className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
                         onClick={() => handleLock('24hours')}

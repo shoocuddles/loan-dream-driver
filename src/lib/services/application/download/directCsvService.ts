@@ -7,6 +7,10 @@ import { SupabaseCSVResponse } from './types';
 import { fetchFullApplicationDetails } from './fetchService';
 import { directFetchApplicationDetails } from '@/lib/directApiClient';
 
+// Use environment variables from .env file
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://kgtfpuvksmqyaraijoal.supabase.co";
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtndGZwdXZrc21xeWFyYWlqb2FsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MjAxMjksImV4cCI6MjA1OTM5NjEyOX0._fj5EqjZBmS_fHB5Z2p2lDJdXilePMUrbf3If_wGBz0";
+
 // Download as CSV directly from Supabase
 export const downloadFullCsv = async (applicationIds: string[]): Promise<void> => {
   try {
@@ -51,11 +55,12 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
     // Approach 3: Try the direct API client as a last resort
     if (!applications || applications.length === 0) {
       try {
-        const response = await fetch(`${supabase.supabaseUrl}/rest/v1/applications?select=*&id=in.(${applicationIds.join(',')})`, {
+        // Use the constants defined at the top instead of accessing protected properties
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/applications?select=*&id=in.(${applicationIds.join(',')})`, {
           method: 'GET',
           headers: {
-            'apikey': supabase.supabaseKey,
-            'Authorization': `Bearer ${supabase.supabaseKey}`,
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
             'Content-Type': 'application/json',
             'Prefer': 'return=representation'
           }
@@ -77,7 +82,7 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
     
     // If we still don't have data, show an error
     if (!applications || applications.length === 0) {
-      console.error('❌ No application data found after multiple attempts');
+      console.error('❌ No application data found');
       
       // Create a simple CSV with just the IDs as a fallback
       const fallbackData = applicationIds.map(id => ({ id }));

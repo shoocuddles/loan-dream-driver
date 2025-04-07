@@ -7,7 +7,7 @@ import { downloadFullCsv } from './directCsvService';
 // Download as CSV using the Supabase export_applications_as_csv function
 export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => {
   try {
-    console.log('📊 Generating CSV using Supabase export function for applications:', applicationIds);
+    console.log('📊 Requesting CSV directly from Supabase for applications:', applicationIds);
     
     if (!applicationIds.length) {
       console.error('❌ No application IDs provided for CSV generation');
@@ -15,8 +15,7 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
-    // Direct SQL query approach to call the export_applications_as_csv function
-    // This matches more closely with the example provided
+    // Call the Supabase RPC function without any client-side processing
     const { data, error } = await supabase.rpc(
       'export_applications_as_csv', 
       { 
@@ -39,9 +38,9 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
-    console.log('✅ CSV data received from Supabase:', data.substring(0, 100) + '...');
+    console.log('✅ Raw CSV data received from Supabase, length:', data.length);
     
-    // Create blob from the CSV data
+    // Create a blob directly from the raw data returned by Supabase
     const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
     
     // Generate filename based on number of applications
@@ -49,12 +48,13 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       ? `application_${applicationIds[0]}.csv`
       : `applications_${new Date().getTime()}.csv`;
     
+    // Save the blob directly as a file without any processing
     saveAs(blob, fileName);
-    console.log('✅ CSV file saved successfully');
+    console.log('✅ Raw CSV file saved successfully');
     toast.success('CSV downloaded successfully');
     
   } catch (error) {
-    console.error('❌ Error generating CSV:', error);
+    console.error('❌ Error during CSV download:', error);
     toast.error('Error generating CSV');
     
     // Attempt fallback to direct CSV generation

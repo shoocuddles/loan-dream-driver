@@ -134,7 +134,7 @@ const formatApplicationData = (application: ApplicationData) => {
     'Current Vehicle': getValueOrNA(standardApp.currentvehicle),
     'Mileage': getValueOrNA(standardApp.mileage),
     'Employment Status': getValueOrNA(standardApp.employmentstatus),
-    'Monthly Income': getValueOrNA(standardApp.monthlyincome || standardApp.monthlyIncome),
+    'Monthly Income': getValueOrNA(standardApp.monthlyIncome || standardApp.monthlyincome), // Fixed line - check both versions
     'Additional Notes': getValueOrNA(standardApp.additionalnotes),
     'Status': getValueOrNA(standardApp.status),
     'Submission Date': createdDate,
@@ -149,8 +149,8 @@ const getDateFromApplication = (application: ApplicationData): string => {
     return format(new Date(application.downloadDate), 'MMMM d, yyyy');
   }
   
-  if ((application as Application).created_at) {
-    return format(new Date((application as Application).created_at), 'MMMM d, yyyy');
+  if ('created_at' in application && application.created_at) {
+    return format(new Date(application.created_at), 'MMMM d, yyyy');
   }
   
   return format(new Date(), 'MMMM d, yyyy');

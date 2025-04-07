@@ -7,3 +7,9 @@ export type ApplicationData = Application | DownloadedApplication;
 
 // Format options for downloads
 export type DownloadFormat = 'PDF' | 'CSV' | 'Excel';
+
+// Type for dynamic column data
+export interface ColumnMetadata {
+  name: string;
+  displayName: string;
+}

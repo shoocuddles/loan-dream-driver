@@ -44,7 +44,7 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
       pdf.text(`Date: ${getDateFromApplication(application)}`, 14, 32);
       
       // Format data for PDF
-      const formattedData = formatApplicationData(application);
+      const formattedData = await formatApplicationData(application);
       
       // Convert to rows for autoTable
       const rows = Object.entries(formattedData).map(([key, value]) => [key, value]);

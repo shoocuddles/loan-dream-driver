@@ -17,7 +17,8 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
     }
     
     // Format all applications
-    const formattedApplications = applications.map(formatApplicationData);
+    const formattedApplicationsPromises = applications.map(app => formatApplicationData(app));
+    const formattedApplications = await Promise.all(formattedApplicationsPromises);
     
     // Create CSV content
     const headers = Object.keys(formattedApplications[0]);

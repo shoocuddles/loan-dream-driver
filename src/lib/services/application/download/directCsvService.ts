@@ -20,10 +20,11 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
     const idList = applicationIds.map(id => `'${id}'`).join(',');
     
     // Query to get all applications data in CSV format directly from Supabase
-    // Use the correct generic type syntax for rpc
-    const { data, error } = await supabase.rpc<string>('export_applications_as_csv', {
-      p_application_ids: applicationIds
-    });
+    // Use the correct generic type syntax for rpc with both return type and params type
+    const { data, error } = await supabase.rpc<string, { p_application_ids: string[] }>(
+      'export_applications_as_csv',
+      { p_application_ids: applicationIds }
+    );
     
     if (error) {
       console.error('❌ Supabase CSV export error:', error);

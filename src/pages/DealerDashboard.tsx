@@ -1,3 +1,5 @@
+
+// We only need to update the import for ApplicationTable
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useAuth } from '@/hooks/use-auth';
@@ -6,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { ApplicationItem, DownloadedApplication, LockType, LockoutPeriod, SystemSettings } from '@/lib/types/dealer-dashboard';
 import DealerDashboardLayout from '@/components/DealerDashboardLayout';
-import ApplicationTable from '@/components/ApplicationTable';
+import ApplicationTable from '@/components/application-table';
 import DownloadedApplications from '@/components/DownloadedApplications';
 import DealerProfile from '@/components/DealerProfile';
 import PaymentSettings from '@/components/PaymentSettings';

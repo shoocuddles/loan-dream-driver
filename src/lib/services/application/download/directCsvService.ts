@@ -131,39 +131,55 @@ const processMultipleApplications = (header: string, dataContent: string): strin
     return row;
   }).filter(row => row.trim().length > 0);
 
-  // Join all rows into a single string to check for IDs
+  // Join all rows into a single string to begin insertion of line breaks
   let combinedContent = processedRows.join('\n');
   
   // Find all UUIDs in the content
-  const uuids = combinedContent.match(uuidPattern);
+  let matches;
+  const uuids = [];
+  while ((matches = uuidPattern.exec(combinedContent)) !== null) {
+    uuids.push({
+      uuid: matches[0],
+      index: matches.index
+    });
+  }
   
-  if (uuids && uuids.length > 1) {
-    console.log('🔍 Found multiple application IDs:', uuids.length);
+  // Reset pattern index
+  uuidPattern.lastIndex = 0;
+  
+  // Sort UUIDs by their position in the content (ascending order)
+  uuids.sort((a, b) => a.index - b.index);
+  
+  console.log(`🔍 Found ${uuids.length} UUIDs in the CSV content`);
+  
+  if (uuids.length > 1) {
+    // Create a new string with line breaks inserted before UUIDs
+    // But skip the first UUID as it's already at the start of the data
+    let result = combinedContent;
     
-    // For each UUID except the first one (which should be at the start of a row)
+    // Process UUIDs backwards to avoid index shifting
+    // Start from the second UUID (index 1)
     for (let i = 1; i < uuids.length; i++) {
-      // Insert a line break before each UUID that's in the middle of a row
-      const uuid = uuids[i];
-      const uuidPos = combinedContent.indexOf(uuid);
+      const { uuid, index } = uuids[i];
       
-      // Check if UUID is at the start of a line
-      const isAtStart = uuidPos === 0 || 
-                        combinedContent[uuidPos - 1] === '\n' ||
-                        combinedContent.substring(uuidPos - 10, uuidPos).includes('\n');
+      // Calculate position of previous characters to check if UUID is at the beginning of a line
+      const prevChars = result.substring(Math.max(0, index - 10), index);
+      const isAlreadyAtLineStart = /\n/.test(prevChars);
       
-      if (!isAtStart) {
-        // Replace the UUID with a line break + the UUID
-        combinedContent = combinedContent.substring(0, uuidPos) + 
-                          '\n' + 
-                          combinedContent.substring(uuidPos);
+      if (!isAlreadyAtLineStart) {
+        // Insert a line break before the UUID
+        result = result.substring(0, index) + '\n' + result.substring(index);
       }
     }
     
-    console.log('🔄 CSV data cleaned with proper application line breaks');
-    return cleanHeader + '\n' + combinedContent.trim();
+    combinedContent = result;
   }
   
-  // If no multiple UUIDs found or they're already at the start of lines
+  // Log results for debugging
+  console.log('📊 Number of UUIDs found:', uuids.length);
+  const lineBreakCount = (combinedContent.match(/\n/g) || []).length;
+  console.log('📊 Number of line breaks in cleaned data:', lineBreakCount);
+  
   return cleanHeader + '\n' + combinedContent.trim();
 };
 

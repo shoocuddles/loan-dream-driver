@@ -24,6 +24,7 @@ export const formatApplicationData = async (application: ApplicationData) => {
   
   // Log the application data for debugging
   console.log('Raw application data (first 300 chars):', JSON.stringify(application).substring(0, 300) + '...');
+  console.log('All keys in application:', Object.keys(application).join(', '));
   
   // Format dates - handle different date field locations based on application type
   let createdDate = 'N/A';
@@ -97,31 +98,169 @@ export const formatApplicationData = async (application: ApplicationData) => {
   // Debug log the unified object
   console.log('Unified application object with multiple case versions:', Object.keys(unifiedApp));
   
-  // IMPORTANT: For Excel and CSV exports, preserve the original field names from the database
-  // This ensures data is passed through with minimal transformation
-  Object.keys(application).forEach(key => {
-    // Use the original key name but with nice formatting for display
-    const displayKey = formatColumnName(key);
-    formattedData[displayKey] = getValueOrNA(application[key]);
+  // Special handling for boolean fields like hasExistingLoan
+  if ('hasexistingloan' in application || 'hasExistingLoan' in application || 'has_existing_loan' in application) {
+    const hasLoan = unifiedApp.hasexistingloan || unifiedApp.hasExistingLoan || unifiedApp.has_existing_loan;
+    formattedData['Has Existing Loan'] = getBooleanValue(hasLoan);
+    console.log('Has Existing Loan field detected:', hasLoan, '→', formattedData['Has Existing Loan']);
+  }
+  
+  // Map standard field names to display names
+  const fieldMappings = {
+    // Contact Details
+    'fullname': 'Full Name',
+    'fullName': 'Full Name',
+    'full_name': 'Full Name',
+    'city': 'City',
+    'streetaddress': 'Address',
+    'streetAddress': 'Address',
+    'street_address': 'Address',
+    'address': 'Address',
+    'province': 'Province',
+    'postalcode': 'Postal Code',
+    'postalCode': 'Postal Code',
+    'postal_code': 'Postal Code',
+    'email': 'Email',
+    'phonenumber': 'Phone Number',
+    'phoneNumber': 'Phone Number',
+    'phone_number': 'Phone Number',
+    'phone': 'Phone Number',
+    
+    // Vehicle Details
+    'vehicletype': 'Vehicle Type',
+    'vehicleType': 'Vehicle Type',
+    'vehicle_type': 'Vehicle Type',
+    'unwantedcolors': 'Unwanted Colors',
+    'unwantedColors': 'Unwanted Colors',
+    'unwanted_colors': 'Unwanted Colors',
+    'requiredfeatures': 'Required Features',
+    'requiredFeatures': 'Required Features',
+    'required_features': 'Required Features',
+    'preferredmakemodel': 'Preferred Make/Model',
+    'preferredMakeModel': 'Preferred Make/Model',
+    'preferred_make_model': 'Preferred Make/Model',
+    
+    // Loan Details
+    'hasexistingloan': 'Has Existing Loan',
+    'hasExistingLoan': 'Has Existing Loan',
+    'has_existing_loan': 'Has Existing Loan',
+    'currentvehicle': 'Current Vehicle',
+    'currentVehicle': 'Current Vehicle',
+    'current_vehicle': 'Current Vehicle',
+    'currentpayment': 'Current Payment',
+    'currentPayment': 'Current Payment',
+    'current_payment': 'Current Payment',
+    'amountowed': 'Amount Owed',
+    'amountOwed': 'Amount Owed',
+    'amount_owed': 'Amount Owed',
+    'mileage': 'Mileage',
+    
+    // Employment Details
+    'employmentstatus': 'Employment Status',
+    'employmentStatus': 'Employment Status',
+    'employment_status': 'Employment Status',
+    'monthlyincome': 'Monthly Income',
+    'monthlyIncome': 'Monthly Income',
+    'monthly_income': 'Monthly Income',
+    'income': 'Monthly Income',
+    'employername': 'Employer Name',
+    'employerName': 'Employer Name',
+    'employer_name': 'Employer Name',
+    'jobtitle': 'Job Title',
+    'jobTitle': 'Job Title',
+    'job_title': 'Job Title',
+    'employmentduration': 'Employment Duration',
+    'employmentDuration': 'Employment Duration',
+    'employment_duration': 'Employment Duration',
+    
+    // Additional Info
+    'additionalnotes': 'Additional Notes',
+    'additionalNotes': 'Additional Notes',
+    'additional_notes': 'Additional Notes',
+    'notes': 'Additional Notes',
+    'id': 'Application ID',
+    'applicationid': 'Application ID',
+    'applicationId': 'Application ID',
+    'application_id': 'Application ID',
+    'created_at': 'Submission Date',
+    'createdAt': 'Submission Date',
+    'submitted_at': 'Submission Date',
+    'submittedAt': 'Submission Date',
+    'download_date': 'Download Date',
+    'downloadDate': 'Download Date',
+    'downloaded_at': 'Download Date'
+  };
+  
+  // Add each application property to formattedData using mappings
+  Object.entries(unifiedApp).forEach(([key, value]) => {
+    // Skip null values and certain technical fields
+    if (value === null || ['iscomplete', 'user_id', 'status', 'download_id'].includes(key.toLowerCase())) {
+      return;
+    }
+    
+    // Get the display name for this field
+    const displayKey = fieldMappings[key] || formatColumnName(key);
+    
+    // Format specific field types
+    if (key.toLowerCase().includes('date')) {
+      // Format dates
+      try {
+        const date = new Date(value as string);
+        if (!isNaN(date.getTime())) {
+          formattedData[displayKey] = format(date, 'MMM d, yyyy');
+        } else {
+          formattedData[displayKey] = getValueOrNA(value);
+        }
+      } catch (e) {
+        formattedData[displayKey] = getValueOrNA(value);
+      }
+    } else if (typeof value === 'boolean' || key.toLowerCase().startsWith('has') || key.toLowerCase().startsWith('is')) {
+      // Format boolean fields
+      formattedData[displayKey] = getBooleanValue(value);
+    } else {
+      // Format all other fields
+      formattedData[displayKey] = getValueOrNA(value);
+    }
+    
+    // Special case for 'hasexistingloan' as it appears in your PDF
+    if (key.toLowerCase() === 'hasexistingloan' || key.toLowerCase() === 'hasexistingloan') {
+      formattedData['Has Existing Loan'] = getBooleanValue(value);
+    }
   });
   
-  // Add some computed/special fields that might be needed
-  formattedData['Submission Date'] = createdDate;
-  
-  if (isDownloadedApp) {
-    formattedData['Download Date'] = getValueOrNA(unifiedApp.downloadDate);
+  // Ensure special fields that might be nested or require special processing are included
+  if (!('Has Existing Loan' in formattedData) && 
+      ('hasexistingloan' in application || 'hasExistingLoan' in application)) {
+    const hasLoan = application.hasexistingloan || (application as any).hasExistingLoan;
+    formattedData['Has Existing Loan'] = getBooleanValue(hasLoan);
   }
   
-  // Ensure Application ID is always included
-  if (!formattedData['Application ID'] && !formattedData['Id']) {
-    const id = unifiedApp.id || unifiedApp.applicationId;
-    if (id) {
-      formattedData['Application ID'] = id;
-    }
+  // Make sure Application ID is present
+  if (!formattedData['Application ID']) {
+    formattedData['Application ID'] = getValueOrNA(application.id || (application as any).applicationId);
   }
   
-  // Log the formatted data for all key fields to confirm values are being properly assigned
-  console.log('Formatted data:', formattedData);
+  // Make sure submission date is present
+  if (!formattedData['Submission Date']) {
+    formattedData['Submission Date'] = createdDate;
+  }
+  
+  // Log the final formatted data
+  console.log('Formatted data keys:', Object.keys(formattedData));
+  console.log('Formatted data for key fields:', {
+    'fullName': formattedData['Full Name'],
+    'vehicleType': formattedData['Vehicle Type'],
+    'hasExistingLoan': formattedData['Has Existing Loan'],
+    'unwantedColors': formattedData['Unwanted Colors'],
+    'requiredFeatures': formattedData['Required Features'],
+    'preferredMakeModel': formattedData['Preferred Make/Model'],
+    'employmentStatus': formattedData['Employment Status'],
+    'monthlyIncome': formattedData['Monthly Income'],
+    'employerName': formattedData['Employer Name'],
+    'jobTitle': formattedData['Job Title'],
+    'employmentDuration': formattedData['Employment Duration'],
+  });
+  
   return formattedData;
 };
 

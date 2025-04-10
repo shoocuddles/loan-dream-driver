@@ -18,6 +18,9 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
+    // Log the raw application data for debugging
+    console.log('Raw application data received:', JSON.stringify(applications[0]).substring(0, 300) + '...');
+    
     // Create PDF document
     const pdf = new jsPDF();
     let isFirstPage = true;
@@ -31,16 +34,16 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
         isFirstPage = false;
       }
       
-      // Format data for PDF
+      // Format data for PDF with improved logging
       const formattedData = await formatApplicationData(application);
-      console.log('Formatted application data for PDF:', formattedData);
+      console.log('Formatted application data keys for PDF:', Object.keys(formattedData));
       
       // Add header
       pdf.setFontSize(16);
       pdf.setTextColor(0, 0, 0);
       pdf.text('Ontario Loans - Lead Details', 105, 15, { align: 'center' });
       
-      // Define PDF categories with field mappings - Updated to match the specific database fields
+      // Define PDF categories with field mappings - Updated to be more lenient with case and spaces
       const categories: Record<string, PDFCategory> = {
         'Contact Details': {
           title: 'Contact Details',
@@ -101,21 +104,90 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
       for (const category of Object.values(categories)) {
         // Create rows for the current category
         const rows = category.fields.map(field => {
-          // Look for the field in formattedData (case insensitive)
-          const key = Object.keys(formattedData).find(k => 
-            k.toLowerCase() === field.toLowerCase() || 
-            k.replace(/\s+/g, '').toLowerCase() === field.replace(/\s+/g, '').toLowerCase()
-          );
+          // Create a more flexible field mapping with case insensitivity and normalization
+          const normalizedField = field.toLowerCase().replace(/\s+/g, '');
           
-          // Log the field mapping for debugging
-          console.log(`Looking for field "${field}" in formattedData, found key: "${key || 'not found'}"`);
+          // Try to find the field in formattedData using multiple approaches
+          let value = null;
+          let matchedKey = null;
           
-          // Log value for debugging
-          if (key) {
-            console.log(`Value for ${field}: "${formattedData[key]}"`);
+          // First try exact key match
+          if (formattedData[field] !== undefined) {
+            value = formattedData[field];
+            matchedKey = field;
+          } 
+          // Then try case-insensitive match
+          else {
+            // Look for matching keys with normalized casing and spacing
+            matchedKey = Object.keys(formattedData).find(k => {
+              const normalizedKey = k.toLowerCase().replace(/\s+/g, '');
+              return normalizedKey === normalizedField || 
+                     normalizedKey.includes(normalizedField) ||
+                     normalizedField.includes(normalizedKey);
+            });
+            
+            if (matchedKey) {
+              value = formattedData[matchedKey];
+            }
+            // Special case handling for fields that might be in different formats
+            else if (normalizedField === 'phoneNumber' || normalizedField === 'phonenumber') {
+              matchedKey = Object.keys(formattedData).find(k => 
+                k.toLowerCase().includes('phone') || k.toLowerCase().includes('mobile'));
+              if (matchedKey) value = formattedData[matchedKey];
+            }
+            else if (normalizedField === 'address') {
+              matchedKey = Object.keys(formattedData).find(k => 
+                k.toLowerCase().includes('street') || 
+                k.toLowerCase().includes('address') || 
+                k.toLowerCase().includes('addr'));
+              if (matchedKey) value = formattedData[matchedKey];
+            }
           }
           
-          return [field, key ? formattedData[key] : 'N/A'];
+          // Special case for fields with database field naming
+          if (value === null) {
+            // Try common database field names
+            const possibleDbFields = {
+              'Full Name': ['fullname', 'fullName', 'full_name', 'name'],
+              'City': ['city'],
+              'Address': ['streetaddress', 'streetAddress', 'street_address', 'address'],
+              'Province': ['province', 'state', 'region'],
+              'Postal Code': ['postalcode', 'postalCode', 'postal_code', 'zip', 'zipcode'],
+              'Email': ['email', 'emailaddress', 'email_address'],
+              'Phone Number': ['phonenumber', 'phoneNumber', 'phone_number', 'phone'],
+              'Vehicle Type': ['vehicletype', 'vehicleType', 'vehicle_type'],
+              'Unwanted Colors': ['unwantedcolors', 'unwantedColors', 'unwanted_colors'],
+              'Required Features': ['requiredfeatures', 'requiredFeatures', 'required_features'],
+              'Preferred Make/Model': ['preferredmakemodel', 'preferredMakeModel', 'preferred_make_model'],
+              'Has Existing Loan': ['hasexistingloan', 'hasExistingLoan', 'has_existing_loan'],
+              'Current Vehicle': ['currentvehicle', 'currentVehicle', 'current_vehicle'],
+              'Current Payment': ['currentpayment', 'currentPayment', 'current_payment'],
+              'Amount Owed': ['amountowed', 'amountOwed', 'amount_owed'],
+              'Mileage': ['mileage'],
+              'Employment Status': ['employmentstatus', 'employmentStatus', 'employment_status'],
+              'Monthly Income': ['monthlyincome', 'monthlyIncome', 'monthly_income', 'income'],
+              'Employer Name': ['employerName', 'employername', 'employer_name'],
+              'Job Title': ['jobtitle', 'jobTitle', 'job_title'],
+              'Employment Duration': ['employmentduration', 'employmentDuration', 'employment_duration'],
+              'Additional Notes': ['additionalnotes', 'additionalNotes', 'additional_notes', 'notes']
+            };
+            
+            // Look for these fields directly in the application object
+            if (field in possibleDbFields) {
+              for (const dbField of possibleDbFields[field]) {
+                if (dbField in application) {
+                  value = application[dbField];
+                  matchedKey = dbField;
+                  break;
+                }
+              }
+            }
+          }
+          
+          // Log the field mapping for debugging
+          console.log(`Field mapping: "${field}" -> "${matchedKey || 'not found'}" = "${value || 'N/A'}"`);
+          
+          return [field, value !== null && value !== undefined ? value : 'N/A'];
         });
         
         // Add category header

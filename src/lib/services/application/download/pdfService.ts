@@ -151,7 +151,7 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
             overflow: 'linebreak',
             cellPadding: 1, // Reduced padding
             fontSize: 8.5, // Slightly smaller font
-            lineHeight: 1.1 // Reduced line height
+            cellHeight: 0.8 // This controls the line height effectively
           },
           columnStyles: {
             0: { 

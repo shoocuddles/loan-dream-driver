@@ -1,4 +1,3 @@
-
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
@@ -109,8 +108,17 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
         
         // Create rows for this category
         const rows = category.fields.map(field => {
-          // Get field value from application with fallback to camelCase variants
-          let value = extractFieldValueFromApplication(application, field.dbField);
+          // Now we can directly access fields from our enhanced SQL function response
+          // The field names match exactly what's in the database
+          let value = application[field.dbField];
+          
+          // Also check for camelCase variants for backward compatibility
+          if (value === undefined) {
+            const camelCaseField = toCamelCase(field.dbField);
+            if (application[camelCaseField] !== undefined) {
+              value = application[camelCaseField];
+            }
+          }
           
           // Format boolean values
           if (typeof value === 'boolean') {
@@ -196,6 +204,11 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
   }
 };
 
+// Helper function to convert snake_case to camelCase
+const toCamelCase = (str: string): string => {
+  return str.replace(/_([a-z])/g, (_, char) => char.toUpperCase());
+};
+
 // Helper function to extract field value from application
 const extractFieldValueFromApplication = (application: ApplicationData, fieldName: string): any => {
   console.log(`Looking for field "${fieldName}" in application`);
@@ -257,11 +270,6 @@ const extractFieldValueFromApplication = (application: ApplicationData, fieldNam
 };
 
 // Convert snake_case to camelCase
-const toCamelCase = (str: string): string => {
-  return str.replace(/_([a-z])/g, (_, char) => char.toUpperCase());
-};
-
-// Convert camelCase to snake_case
 const toSnakeCase = (str: string): string => {
   return str.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
 };

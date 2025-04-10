@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Application } from '@/lib/types/supabase';
@@ -44,7 +43,7 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
       throw new Error('User not authenticated');
     }
     
-    // Try the RPC function first
+    // Try the RPC function first - now returns JSON!
     try {
       const { data: downloadedApps, error: downloadError } = await supabase
         .rpc('get_dealer_downloads', {
@@ -54,41 +53,23 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
       if (downloadError) {
         console.error('❌ Error fetching from get_dealer_downloads:', downloadError);
       }
-      else if (downloadedApps && downloadedApps.length > 0) {
+      else if (downloadedApps) {
         console.log('✅ Retrieved data from downloads RPC');
-        console.log('📄 DOWNLOADS DATA STRUCTURE:', Object.keys(downloadedApps[0]));
         
-        const filteredDownloads = downloadedApps.filter((app: any) => 
+        // The response is now directly a JSON array, no need to parse
+        const downloads = Array.isArray(downloadedApps) ? downloadedApps : [downloadedApps];
+        console.log('📄 DOWNLOADS DATA STRUCTURE:', downloads.length > 0 ? Object.keys(downloads[0]) : 'Empty array');
+        
+        const filteredDownloads = downloads.filter((app: any) => 
           applicationIds.includes(app.applicationId || app.id)
         );
         
         if (filteredDownloads.length > 0) {
           console.log(`✅ Found ${filteredDownloads.length} matching downloaded applications`);
+          console.log('📄 SAMPLE DOWNLOAD DATA:', filteredDownloads[0]);
           
-          // For each download, try to fetch the full application details
-          const fullApplications = await Promise.all(
-            filteredDownloads.map(async (download: any) => {
-              const appId = download.applicationId || download.id;
-              const { data: appData } = await supabase
-                .from('applications')
-                .select('*')
-                .eq('id', appId)
-                .single();
-              
-              // Merge download data with application data to ensure we have all fields
-              return {
-                ...appData,
-                ...download,
-                // Ensure these keys are always present
-                id: appId,
-                downloadId: download.downloadId,
-                downloadDate: download.downloadDate
-              };
-            })
-          );
-          
-          console.log('📄 MERGED APPLICATION DATA:', fullApplications[0]);
-          return fullApplications.filter(Boolean) as ApplicationData[];
+          // With the enhanced SQL function, we now get all application fields directly
+          return filteredDownloads as ApplicationData[];
         }
       }
     } catch (error) {

@@ -468,7 +468,7 @@ export type Database = {
       }
       get_dealer_downloads: {
         Args: { p_dealer_id: string }
-        Returns: Json
+        Returns: string
       }
       get_default_pin: {
         Args: { p_dealer_id: string }

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useAuth } from '@/hooks/use-auth';
@@ -82,10 +83,18 @@ const DealerDashboard = () => {
       setApplications(appsData);
 
       const downloadedData = await fetchDownloadedApplications();
-      setDownloadedApps(downloadedData);
+      // Ensure downloadedData is always an array
+      setDownloadedApps(Array.isArray(downloadedData) ? downloadedData : []);
+      
+      if (!Array.isArray(downloadedData)) {
+        console.error("Downloaded applications data is not an array:", downloadedData);
+        toast.error("Error loading downloaded applications data");
+      }
     } catch (error) {
       console.error("Error loading data:", error);
       toast.error("Failed to load data. Please try again.");
+      // Ensure downloadedApps is at least an empty array if there's an error
+      setDownloadedApps([]);
     } finally {
       setIsLoading(false);
       setIsLoadingDownloaded(false);
@@ -175,7 +184,8 @@ const DealerDashboard = () => {
     try {
       setProcessingId(applicationId);
       
-      const isDownloaded = downloadedApps.some(app => app.applicationId === applicationId);
+      // Ensure downloadedApps is an array before using some()
+      const isDownloaded = Array.isArray(downloadedApps) && downloadedApps.some(app => app.applicationId === applicationId);
       
       if (!isDownloaded) {
         setPendingAction({
@@ -187,7 +197,7 @@ const DealerDashboard = () => {
       }
       
       const application = applications.find(app => app.applicationId === applicationId) || 
-                        downloadedApps.find(app => app.applicationId === applicationId);
+                        (Array.isArray(downloadedApps) ? downloadedApps.find(app => app.applicationId === applicationId) : undefined);
       
       if (!application) {
         toast.error("Application not found");
@@ -206,9 +216,10 @@ const DealerDashboard = () => {
   const handleBulkDownload = async () => {
     if (!user || selectedApplications.length === 0) return;
 
-    const notDownloaded = selectedApplications.filter(
-      id => !downloadedApps.some(app => app.applicationId === id)
-    );
+    // Ensure downloadedApps is an array before using some()
+    const notDownloaded = Array.isArray(downloadedApps) ? 
+      selectedApplications.filter(id => !downloadedApps.some(app => app.applicationId === id)) :
+      selectedApplications;
 
     if (notDownloaded.length > 0) {
       setPendingAction({
@@ -379,7 +390,7 @@ const DealerDashboard = () => {
             application={detailsApplication as ApplicationItem}
             isOpen={showDetails}
             onClose={() => setShowDetails(false)}
-            isDownloaded={downloadedApps.some(app => app.applicationId === detailsApplication?.applicationId)}
+            isDownloaded={Array.isArray(downloadedApps) && downloadedApps.some(app => app.applicationId === detailsApplication?.applicationId)}
             onDownload={handleDownload}
             onLock={handleLockApplication}
             onUnlock={handleUnlockApplication}
@@ -430,7 +441,7 @@ const DealerDashboard = () => {
       }
       downloadedApplications={
         <DownloadedApplications
-          applications={downloadedApps}
+          applications={Array.isArray(downloadedApps) ? downloadedApps : []}
           isLoading={isLoadingDownloaded}
           onDownload={handleDownload}
           onViewDetails={handleViewDetails}

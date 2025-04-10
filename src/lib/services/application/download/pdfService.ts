@@ -138,7 +138,7 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
           return [field.label, value || 'N/A'];
         });
         
-        // Add table with the data for this category
+        // Add table with more compact settings for this category
         autoTable(pdf, {
           startY: startY + 6,
           head: [], // No header row
@@ -149,8 +149,9 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
           },
           styles: { 
             overflow: 'linebreak',
-            cellPadding: 2,
-            fontSize: 9
+            cellPadding: 1, // Reduced padding
+            fontSize: 8.5, // Slightly smaller font
+            lineHeight: 1.1 // Reduced line height
           },
           columnStyles: {
             0: { 
@@ -163,8 +164,8 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
           tableWidth: 'auto',
         });
         
-        // Update startY for the next category
-        startY = (pdf as any).lastAutoTable.finalY + 10;
+        // Update startY for the next category with less spacing
+        startY = (pdf as any).lastAutoTable.finalY + 3; // Reduced spacing between categories
         
         // If close to page bottom, add a new page
         if (startY > pdf.internal.pageSize.height - 40 && 

@@ -107,7 +107,7 @@ const processMultipleApplications = (header: string, dataContent: string): strin
   
   // Look for UUID patterns that indicate the start of a new application record
   // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-  const uuidPattern = /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi;
+  const uuidPattern = /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/g;
   
   // First split by any existing line breaks
   let rows = dataContent.split('\n');
@@ -131,16 +131,48 @@ const processMultipleApplications = (header: string, dataContent: string): strin
 
   // Further processing for multiple applications - look for ID patterns
   let result = '';
-  for (let i = 0; i < processedRows.length; i++) {
-    const row = processedRows[i];
+  
+  // Join all rows into a single string to check for IDs
+  let combinedContent = processedRows.join('\n');
+  
+  // Find all UUIDs in the content
+  const uuids = combinedContent.match(uuidPattern);
+  
+  if (uuids && uuids.length > 1) {
+    console.log('🔍 Found multiple application IDs:', uuids.length);
     
-    // If this isn't the first row and starts with a UUID, add a line break before it
-    const matches = row.match(uuidPattern);
-    if (i > 0 && matches && matches.length && row.trimStart().startsWith(matches[0])) {
-      result += '\n';
+    // For each UUID except the first one (which should be at the start of a row)
+    for (let i = 1; i < uuids.length; i++) {
+      // Insert a line break before each UUID that's in the middle of a row
+      const uuid = uuids[i];
+      const uuidPos = combinedContent.indexOf(uuid);
+      
+      // Check if UUID is at the start of a line
+      const isAtStart = uuidPos === 0 || 
+                        combinedContent[uuidPos - 1] === '\n' ||
+                        combinedContent.substring(uuidPos - 10, uuidPos).includes('\n');
+      
+      if (!isAtStart) {
+        // Replace the UUID with a line break + the UUID
+        combinedContent = combinedContent.substring(0, uuidPos) + 
+                          '\n' + 
+                          combinedContent.substring(uuidPos);
+        
+        // Since we added a character, adjust positions of remaining UUIDs
+        for (let j = i + 1; j < uuids.length; j++) {
+          const nextPos = combinedContent.indexOf(uuids[j]);
+          if (nextPos > uuidPos) {
+            // This UUID comes after the one we just modified
+            // No need to do anything as indexOf will find the new position
+          }
+        }
+      }
     }
     
-    result += row + '\n';
+    result = combinedContent;
+  } else {
+    // If no multiple UUIDs found, just join the processed rows
+    result = processedRows.join('\n');
   }
   
   console.log('🔄 CSV data cleaned successfully with proper application line breaks');

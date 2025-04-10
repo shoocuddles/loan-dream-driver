@@ -12,43 +12,39 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
     
     if (!applicationIds.length) return [];
     
-    // First attempt with lowercase column names (database standard)
-    const { data: lowerCaseData, error: lowerCaseError } = await supabase
+    // Try to fetch directly from applications table first (with ALL fields)
+    const { data: applications, error } = await supabase
       .from('applications')
       .select('*')
       .in('id', applicationIds);
     
-    if (lowerCaseError) {
-      console.error('❌ Error fetching full application details with lowercase names:', lowerCaseError);
-      // Don't throw yet, we'll try with the downloaded applications table
-    }
+    // Log raw data from Supabase for debugging purposes
+    console.log('🔍 APPLICATIONS QUERY RESPONSE:', error || 'Success');
     
-    // Log the raw data from Supabase for debugging
-    if (lowerCaseData && lowerCaseData.length > 0) {
-      console.log('🔍 RAW DATA FROM SUPABASE:');
-      console.log(JSON.stringify(lowerCaseData, null, 2));
+    if (applications && applications.length > 0) {
+      console.log(`✅ Retrieved ${applications.length} applications from applications table`);
+      console.log('🔍 SAMPLE DATA STRUCTURE:', Object.keys(applications[0]));
       
-      // Log EVERY field for the first application to help debugging
-      console.log('📄 COMPLETE FIELD MAPPING FOR FIRST APPLICATION:');
-      const app = lowerCaseData[0];
+      // Log every field from the first application for debugging
+      const app = applications[0];
+      console.log('📄 COMPLETE APPLICATION FIELDS:');
       Object.keys(app).forEach(key => {
         console.log(`Field: ${key} | Value: ${JSON.stringify(app[key])} | Type: ${typeof app[key]}`);
       });
       
-      console.log('✅ Retrieved full application details from applications table');
-      return lowerCaseData as Application[];
+      return applications;
     }
     
-    // If we didn't get data from applications table, try fetching from downloaded applications
-    console.log('🔄 Attempting to fetch from application_downloads and join with applications');
+    // If applications not found, try looking in downloaded applications
+    console.log('🔄 Attempting to fetch from downloaded applications');
     
-    // Get the current user's ID for the dealer_id parameter
+    // Get the current user's ID
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       throw new Error('User not authenticated');
     }
     
-    // Try calling the RPC function first
+    // Try the RPC function first
     try {
       const { data: downloadedApps, error: downloadError } = await supabase
         .rpc('get_dealer_downloads', {
@@ -57,151 +53,107 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
       
       if (downloadError) {
         console.error('❌ Error fetching from get_dealer_downloads:', downloadError);
-        throw downloadError;
       }
-      
-      // If we got data, filter for requested application ids
-      if (Array.isArray(downloadedApps) && downloadedApps.length > 0) {
-        console.log('✅ Retrieved application details from downloads RPC, now filtering');
-        console.log('📄 RAW DOWNLOAD RPC DATA:', JSON.stringify(downloadedApps, null, 2));
+      else if (downloadedApps && downloadedApps.length > 0) {
+        console.log('✅ Retrieved data from downloads RPC');
+        console.log('📄 DOWNLOADS DATA STRUCTURE:', Object.keys(downloadedApps[0]));
         
         const filteredDownloads = downloadedApps.filter((app: any) => 
           applicationIds.includes(app.applicationId || app.id)
         );
         
         if (filteredDownloads.length > 0) {
-          console.log(`✅ Found ${filteredDownloads.length} application details from downloads`);
+          console.log(`✅ Found ${filteredDownloads.length} matching downloaded applications`);
           
-          // Log raw data for debugging
-          console.log('🔍 RAW DATA FROM DOWNLOADS:');
-          console.log(JSON.stringify(filteredDownloads, null, 2));
-          
-          // Use the downloads data directly without limiting fields
-          // Important change: Instead of mapping specific fields, preserve ALL fields from download
-          const mappedDownloads = filteredDownloads.map((download: any) => {
-            // Get all keys from the download object for dynamic mapping
-            const allKeys = Object.keys(download);
-            const mapped: any = {};
-            
-            // Ensure critical IDs are always present
-            mapped.id = download.applicationId || download.id;
-            mapped.applicationId = download.applicationId || download.id;
-            mapped.downloadId = download.downloadId;
-            mapped.downloadDate = download.downloadDate;
-            
-            // Dynamically map ALL fields from download to mapped object
-            // This ensures we don't lose any fields from the database
-            allKeys.forEach(key => {
-              // Skip keys we already handled
-              if (['applicationId', 'downloadId', 'downloadDate'].includes(key)) {
-                return;
-              }
+          // For each download, try to fetch the full application details
+          const fullApplications = await Promise.all(
+            filteredDownloads.map(async (download: any) => {
+              const appId = download.applicationId || download.id;
+              const { data: appData } = await supabase
+                .from('applications')
+                .select('*')
+                .eq('id', appId)
+                .single();
               
-              // Add the field to our result object - preserves ALL fields
-              // We'll convert camelCase to lowercase for consistency with database
-              const lowercaseKey = key.charAt(0).toLowerCase() + key.slice(1);
-              mapped[lowercaseKey] = download[key];
-              
-              // Also preserve the original camelCase key if it exists
-              if (key !== lowercaseKey) {
-                mapped[key] = download[key];
-              }
-            });
-            
-            // Debug log the mapped object
-            console.log('📄 DYNAMICALLY MAPPED DOWNLOAD DATA:');
-            console.log(JSON.stringify(mapped, null, 2));
-            
-            return mapped;
-          });
+              // Merge download data with application data to ensure we have all fields
+              return {
+                ...appData,
+                ...download,
+                // Ensure these keys are always present
+                id: appId,
+                downloadId: download.downloadId,
+                downloadDate: download.downloadDate
+              };
+            })
+          );
           
-          return mappedDownloads as ApplicationData[];
+          console.log('📄 MERGED APPLICATION DATA:', fullApplications[0]);
+          return fullApplications.filter(Boolean) as ApplicationData[];
         }
       }
-    } catch (rpcError) {
-      console.error('❌ Error fetching from get_dealer_downloads:', rpcError);
-      // Continue to fallback query
+    } catch (error) {
+      console.error('❌ Error in download application fetch:', error);
     }
     
-    // Attempt a direct join query as fallback
+    // Fall back to direct join query
+    console.log('🔄 Attempting direct join query');
     try {
-      // First get the download records
-      const { data: downloadRecords, error: downloadError } = await supabase
+      // Get download records
+      const { data: downloadRecords } = await supabase
         .from('application_downloads')
-        .select('id, downloaded_at, application_id, payment_amount, dealer_id')
-        .in('application_id', applicationIds)
-        .eq('dealer_id', userData.user.id);
-      
-      if (downloadError) throw downloadError;
+        .select('*')
+        .in('application_id', applicationIds);
       
       if (downloadRecords && downloadRecords.length > 0) {
         console.log(`✅ Found ${downloadRecords.length} download records`);
-        console.log('📄 RAW DOWNLOAD RECORDS:', JSON.stringify(downloadRecords, null, 2));
         
-        // Now fetch the full application details for each download
-        const appData = await Promise.all(downloadRecords.map(async (record) => {
-          const { data: appDetails, error: appError } = await supabase
-            .from('applications')
-            .select('*')
-            .eq('id', record.application_id)
-            .single();
-          
-          if (appError) {
-            console.error(`❌ Error fetching application details for ${record.application_id}:`, appError);
-            // Return a basic record with download info if we can't get app details
+        // For each download, fetch the full application
+        const fullData = await Promise.all(
+          downloadRecords.map(async (record) => {
+            const { data: appDetails } = await supabase
+              .from('applications')
+              .select('*')
+              .eq('id', record.application_id)
+              .single();
+            
+            if (!appDetails) {
+              console.warn(`⚠️ No application details found for ${record.application_id}`);
+              return {
+                id: record.application_id,
+                downloadId: record.id,
+                downloadDate: record.downloaded_at
+              };
+            }
+            
+            // Merge all data from both tables
             return {
+              ...appDetails,
               downloadId: record.id,
               downloadDate: record.downloaded_at,
-              applicationId: record.application_id,
-              paymentAmount: record.payment_amount,
-              id: record.application_id
+              applicationId: record.application_id
             };
-          }
-          
-          // Log the raw application data
-          console.log(`🔍 COMPLETE RAW APPLICATION DATA for ${record.application_id}:`);
-          console.log(JSON.stringify(appDetails, null, 2));
-          
-          // Return ALL fields from the application 
-          // Changed: Just merge download info with all application fields without limiting
-          const result = {
-            downloadId: record.id,
-            downloadDate: record.downloaded_at,
-            applicationId: record.application_id,
-            paymentAmount: record.payment_amount,
-            ...appDetails // Include ALL fields from the application
-          };
-          
-          // Log the complete data with all fields
-          console.log(`📄 COMPLETE APPLICATION WITH ALL FIELDS FOR ${record.application_id}:`);
-          console.log(JSON.stringify(result, null, 2));
-          
-          return result;
-        }));
+          })
+        );
         
-        // Filter out any null results
-        const validAppData = appData.filter(item => item !== null) as DownloadedApplication[];
-        
-        if (validAppData.length > 0) {
-          console.log(`✅ Transformed ${validAppData.length} application records`);
-          return validAppData;
-        }
+        const validData = fullData.filter(Boolean) as ApplicationData[];
+        console.log(`✅ Processed ${validData.length} applications with download data`);
+        return validData;
       }
-    } catch (fallbackError) {
-      console.error('❌ Error with fallback query:', fallbackError);
+    } catch (error) {
+      console.error('❌ Error in fallback query:', error);
     }
     
     console.error('❌ Could not find application data in any table');
-    toast.error('Could not find application data. Please try downloading the application again.');
+    toast.error('Could not find application data. Please try again.');
     return [];
   } catch (error) {
     console.error('❌ Error in fetchFullApplicationDetails:', error);
-    toast.error('Error retrieving application details');
+    toast.error(`Error retrieving application details: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return [];
   }
 };
 
-// Fetch all column metadata from the applications table
+// Fetch column metadata for applications table
 export const fetchApplicationColumnMetadata = async (): Promise<ColumnMetadata[]> => {
   try {
     console.log('🔍 Fetching column metadata for applications table');
@@ -212,8 +164,6 @@ export const fetchApplicationColumnMetadata = async (): Promise<ColumnMetadata[]
     
     if (error) {
       console.error('❌ Error fetching column metadata:', error);
-      
-      // Fallback to hardcoded list if RPC fails
       return getDefaultColumnMetadata();
     }
     
@@ -239,7 +189,6 @@ export const fetchApplicationColumnMetadata = async (): Promise<ColumnMetadata[]
     return getDefaultColumnMetadata();
   } catch (error) {
     console.error('❌ Error in fetchApplicationColumnMetadata:', error);
-    // Fallback to hardcoded list on error
     return getDefaultColumnMetadata();
   }
 };
@@ -255,8 +204,8 @@ const formatColumnName = (columnName: string): string => {
 
 // Fallback column metadata in case the database query fails
 const getDefaultColumnMetadata = (): ColumnMetadata[] => {
-  // Include ALL known database columns, even if they might not be used
-  const columns = [
+  // Include ALL known database columns
+  return [
     // Standard application fields
     { name: 'id', displayName: 'ID' },
     { name: 'user_id', displayName: 'User ID' },
@@ -294,6 +243,4 @@ const getDefaultColumnMetadata = (): ColumnMetadata[] => {
     { name: 'applicationId', displayName: 'Application ID' },
     { name: 'paymentAmount', displayName: 'Payment Amount' }
   ];
-  
-  return columns;
 };

@@ -2,9 +2,9 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
-import { formatApplicationData, getDateFromApplication, generateFilename } from './formatUtils';
+import { generateFilename } from './formatUtils';
 import { fetchFullApplicationDetails } from './fetchService';
-import { ApplicationData, PDFCategory } from './types';
+import { ApplicationData } from './types';
 
 // Download as PDF
 export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => {
@@ -19,7 +19,7 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
     }
     
     // Log the raw application data for debugging
-    console.log('Raw application data received:', JSON.stringify(applications[0]).substring(0, 300) + '...');
+    console.log('Raw application data received for PDF:', applications[0]);
     
     // Create PDF document
     const pdf = new jsPDF();
@@ -34,168 +34,109 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
         isFirstPage = false;
       }
       
-      // Format data for PDF with improved logging
-      const formattedData = await formatApplicationData(application);
-      console.log('Formatted application data keys for PDF:', Object.keys(formattedData));
-      
       // Add header
       pdf.setFontSize(16);
       pdf.setTextColor(0, 0, 0);
       pdf.text('Ontario Loans - Lead Details', 105, 15, { align: 'center' });
       
-      // Define PDF categories with field mappings - Updated to be more lenient with case and spaces
-      const categories: Record<string, PDFCategory> = {
-        'Contact Details': {
+      // Define the categories and their fields with direct mapping to database column names
+      const categories = [
+        {
           title: 'Contact Details',
           fields: [
-            'Full Name', 
-            'City', 
-            'Address', 
-            'Province', 
-            'Postal Code', 
-            'Email', 
-            'Phone Number'
+            { label: 'Full Name', dbField: 'fullname' },
+            { label: 'City', dbField: 'city' },
+            { label: 'Address', dbField: 'streetaddress' },
+            { label: 'Province', dbField: 'province' },
+            { label: 'Postal Code', dbField: 'postalcode' },
+            { label: 'Email', dbField: 'email' },
+            { label: 'Phone Number', dbField: 'phonenumber' },
+            { label: 'Download Id', dbField: 'downloadId' }
           ]
         },
-        'Vehicle Wanted': {
+        {
           title: 'Vehicle Wanted',
           fields: [
-            'Vehicle Type', 
-            'Unwanted Colors', 
-            'Required Features', 
-            'Preferred Make/Model'
+            { label: 'Vehicle Type', dbField: 'vehicletype' },
+            { label: 'Unwanted Colors', dbField: 'unwantedcolors' },
+            { label: 'Required Features', dbField: 'requiredfeatures' },
+            { label: 'Preferred Make/Model', dbField: 'preferredmakemodel' }
           ]
         },
-        'Existing Loan': {
+        {
           title: 'Existing Loan',
           fields: [
-            'Has Existing Loan',
-            'Current Vehicle',
-            'Current Payment',
-            'Amount Owed',
-            'Mileage'
+            { label: 'Has Existing Loan', dbField: 'hasexistingloan' },
+            { label: 'Current Vehicle', dbField: 'currentvehicle' },
+            { label: 'Current Payment', dbField: 'currentpayment' },
+            { label: 'Amount Owed', dbField: 'amountowed' },
+            { label: 'Mileage', dbField: 'mileage' }
           ]
         },
-        'Income Details': {
-          title: 'Income Details',
+        {
+          title: 'Employment Details',
           fields: [
-            'Employment Status',
-            'Monthly Income',
-            'Employer Name',
-            'Job Title',
-            'Employment Duration'
+            { label: 'Employment Status', dbField: 'employmentstatus' },
+            { label: 'Monthly Income', dbField: 'monthlyincome' },
+            { label: 'Employer Name', dbField: 'employer_name' },
+            { label: 'Job Title', dbField: 'job_title' },
+            { label: 'Employment Duration', dbField: 'employment_duration' },
+            { label: 'Additional Notes', dbField: 'additionalnotes' }
           ]
         },
-        'Additional Information': {
-          title: 'Additional Information',
+        {
+          title: 'Other Details',
           fields: [
-            'Additional Notes',
-            'Application ID',
-            'Submission Date'
+            { label: 'Download Date', dbField: 'downloadDate' },
+            { label: 'Application Id', dbField: 'id' },
+            { label: 'Submission Date', dbField: 'created_at' }
           ]
         }
-      };
+      ];
       
       // Starting Y position for first category
       let startY = 25;
       const margin = 14;
       
       // Process each category
-      for (const category of Object.values(categories)) {
-        // Create rows for the current category
-        const rows = category.fields.map(field => {
-          // Create a more flexible field mapping with case insensitivity and normalization
-          const normalizedField = field.toLowerCase().replace(/\s+/g, '');
-          
-          // Try to find the field in formattedData using multiple approaches
-          let value = null;
-          let matchedKey = null;
-          
-          // First try exact key match
-          if (formattedData[field] !== undefined) {
-            value = formattedData[field];
-            matchedKey = field;
-          } 
-          // Then try case-insensitive match
-          else {
-            // Look for matching keys with normalized casing and spacing
-            matchedKey = Object.keys(formattedData).find(k => {
-              const normalizedKey = k.toLowerCase().replace(/\s+/g, '');
-              return normalizedKey === normalizedField || 
-                     normalizedKey.includes(normalizedField) ||
-                     normalizedField.includes(normalizedKey);
-            });
-            
-            if (matchedKey) {
-              value = formattedData[matchedKey];
-            }
-            // Special case handling for fields that might be in different formats
-            else if (normalizedField === 'phoneNumber' || normalizedField === 'phonenumber') {
-              matchedKey = Object.keys(formattedData).find(k => 
-                k.toLowerCase().includes('phone') || k.toLowerCase().includes('mobile'));
-              if (matchedKey) value = formattedData[matchedKey];
-            }
-            else if (normalizedField === 'address') {
-              matchedKey = Object.keys(formattedData).find(k => 
-                k.toLowerCase().includes('street') || 
-                k.toLowerCase().includes('address') || 
-                k.toLowerCase().includes('addr'));
-              if (matchedKey) value = formattedData[matchedKey];
-            }
-          }
-          
-          // Special case for fields with database field naming
-          if (value === null) {
-            // Try common database field names
-            const possibleDbFields = {
-              'Full Name': ['fullname', 'fullName', 'full_name', 'name'],
-              'City': ['city'],
-              'Address': ['streetaddress', 'streetAddress', 'street_address', 'address'],
-              'Province': ['province', 'state', 'region'],
-              'Postal Code': ['postalcode', 'postalCode', 'postal_code', 'zip', 'zipcode'],
-              'Email': ['email', 'emailaddress', 'email_address'],
-              'Phone Number': ['phonenumber', 'phoneNumber', 'phone_number', 'phone'],
-              'Vehicle Type': ['vehicletype', 'vehicleType', 'vehicle_type'],
-              'Unwanted Colors': ['unwantedcolors', 'unwantedColors', 'unwanted_colors'],
-              'Required Features': ['requiredfeatures', 'requiredFeatures', 'required_features'],
-              'Preferred Make/Model': ['preferredmakemodel', 'preferredMakeModel', 'preferred_make_model'],
-              'Has Existing Loan': ['hasexistingloan', 'hasExistingLoan', 'has_existing_loan'],
-              'Current Vehicle': ['currentvehicle', 'currentVehicle', 'current_vehicle'],
-              'Current Payment': ['currentpayment', 'currentPayment', 'current_payment'],
-              'Amount Owed': ['amountowed', 'amountOwed', 'amount_owed'],
-              'Mileage': ['mileage'],
-              'Employment Status': ['employmentstatus', 'employmentStatus', 'employment_status'],
-              'Monthly Income': ['monthlyincome', 'monthlyIncome', 'monthly_income', 'income'],
-              'Employer Name': ['employerName', 'employername', 'employer_name'],
-              'Job Title': ['jobtitle', 'jobTitle', 'job_title'],
-              'Employment Duration': ['employmentduration', 'employmentDuration', 'employment_duration'],
-              'Additional Notes': ['additionalnotes', 'additionalNotes', 'additional_notes', 'notes']
-            };
-            
-            // Look for these fields directly in the application object
-            if (field in possibleDbFields) {
-              for (const dbField of possibleDbFields[field]) {
-                if (dbField in application) {
-                  value = application[dbField];
-                  matchedKey = dbField;
-                  break;
-                }
-              }
-            }
-          }
-          
-          // Log the field mapping for debugging
-          console.log(`Field mapping: "${field}" -> "${matchedKey || 'not found'}" = "${value || 'N/A'}"`);
-          
-          return [field, value !== null && value !== undefined ? value : 'N/A'];
-        });
-        
-        // Add category header
+      for (const category of categories) {
+        // Add category header with blue background
         pdf.setFontSize(10);
         pdf.setTextColor(255, 255, 255);
         pdf.setFillColor(0, 0, 255); // Blue background for category header
         pdf.rect(margin, startY, pdf.internal.pageSize.width - 2 * margin, 6, 'F');
         pdf.text(category.title, margin + 2, startY + 4);
+        
+        // Create rows for this category
+        const rows = category.fields.map(field => {
+          // Get field value from application with fallback to camelCase variants
+          let value = extractFieldValueFromApplication(application, field.dbField);
+          
+          // Format boolean values
+          if (typeof value === 'boolean') {
+            value = value ? 'Yes' : 'No';
+          }
+          // Format date values
+          else if (field.dbField === 'created_at' || field.dbField === 'downloadDate') {
+            try {
+              const date = new Date(value);
+              if (!isNaN(date.getTime())) {
+                value = date.toLocaleDateString('en-CA', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                });
+              }
+            } catch (e) {
+              console.error(`Error formatting date for ${field.dbField}:`, e);
+            }
+          }
+          
+          // Log the field mapping for debugging
+          console.log(`Field mapping: "${field.label}" (${field.dbField}) = "${value || 'N/A'}"`);
+          
+          return [field.label, value || 'N/A'];
+        });
         
         // Add table with the data for this category
         autoTable(pdf, {
@@ -203,11 +144,6 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
           head: [], // No header row
           body: rows,
           theme: 'striped',
-          headStyles: {
-            fillColor: [0, 51, 102],
-            textColor: [255, 255, 255],
-            fontStyle: 'bold'
-          },
           alternateRowStyles: {
             fillColor: [240, 240, 240]
           },
@@ -227,116 +163,15 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
           tableWidth: 'auto',
         });
         
-        // Update startY for the next category (get the final Y position from autoTable)
+        // Update startY for the next category
         startY = (pdf as any).lastAutoTable.finalY + 10;
         
-        // If we're close to the page bottom, start a new page
-        if (startY > pdf.internal.pageSize.height - 40 && Object.values(categories).indexOf(category) < Object.values(categories).length - 1) {
+        // If close to page bottom, add a new page
+        if (startY > pdf.internal.pageSize.height - 40 && 
+            categories.indexOf(category) < categories.length - 1) {
           pdf.addPage();
           startY = 15;
         }
-      }
-      
-      // Create "Other Details" category with remaining fields
-      // Excluding specific fields that should not appear in the PDF
-      const excludedFields = [
-        'payment amount',
-        'status',
-        'application id',
-        'id',
-        'user id',
-        'street address',
-        'is complete',
-        'last updated',
-        'download id',
-        'Full Name', 
-        'City', 
-        'Address', 
-        'Province', 
-        'Postal Code', 
-        'Email', 
-        'Phone Number',
-        'Vehicle Type', 
-        'Unwanted Colors', 
-        'Required Features', 
-        'Preferred Make/Model',
-        'Has Existing Loan',
-        'Current Vehicle',
-        'Current Payment',
-        'Amount Owed',
-        'Mileage',
-        'Employment Status',
-        'Monthly Income',
-        'Employer Name',
-        'Job Title',
-        'Employment Duration',
-        'Additional Notes',
-        'Application ID',
-        'Submission Date'
-      ];
-      
-      const usedFields = Object.values(categories)
-        .flatMap(cat => cat.fields)
-        .map(f => f.toLowerCase().replace(/\s+/g, ''));
-      
-      const otherFields = Object.keys(formattedData).filter(key => {
-        const normalizedKey = key.toLowerCase().replace(/\s+/g, '');
-        // Check if this field is already included in a category or should be excluded
-        const isUsed = usedFields.some(f => 
-          f === normalizedKey || 
-          f.includes(normalizedKey) || 
-          normalizedKey.includes(f)
-        );
-        
-        const isExcluded = excludedFields.some(f => 
-          normalizedKey === f.toLowerCase().replace(/\s+/g, '') ||
-          normalizedKey.includes(f.toLowerCase().replace(/\s+/g, ''))
-        );
-        
-        return !isUsed && !isExcluded;
-      });
-      
-      if (otherFields.length > 0) {
-        // Check if we need a new page for other details
-        if (startY > pdf.internal.pageSize.height - 60) {
-          pdf.addPage();
-          startY = 15;
-        }
-        
-        // Add "Other Details" header
-        pdf.setFontSize(10);
-        pdf.setTextColor(255, 255, 255);
-        pdf.setFillColor(0, 0, 255);
-        pdf.rect(margin, startY, pdf.internal.pageSize.width - 2 * margin, 6, 'F');
-        pdf.text('Other Details', margin + 2, startY + 4);
-        
-        // Create rows for other fields
-        const otherRows = otherFields.map(key => [key, formattedData[key]]);
-        
-        // Add table for other fields
-        autoTable(pdf, {
-          startY: startY + 6,
-          head: [], // No header row
-          body: otherRows,
-          theme: 'striped',
-          alternateRowStyles: {
-            fillColor: [240, 240, 240]
-          },
-          styles: { 
-            overflow: 'linebreak',
-            cellPadding: 2,
-            fontSize: 9
-          },
-          columnStyles: {
-            0: { 
-              cellWidth: 50,
-              fontStyle: 'bold'
-            },
-            1: { cellWidth: 'auto' }
-          },
-          margin: { left: margin, right: margin },
-          tableWidth: 'auto',
-        });
       }
       
       // Add footer with page number
@@ -356,6 +191,76 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
     toast.success('PDF downloaded successfully');
   } catch (error) {
     console.error('❌ Error generating PDF:', error);
-    toast.error('Error generating PDF');
+    toast.error(`Error generating PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
+};
+
+// Helper function to extract field value from application
+const extractFieldValueFromApplication = (application: ApplicationData, fieldName: string): any => {
+  console.log(`Looking for field "${fieldName}" in application`);
+  
+  // Direct match first
+  if (fieldName in application) {
+    return application[fieldName];
+  }
+  
+  // Try various casing patterns
+  const camelCaseField = toCamelCase(fieldName);
+  if (camelCaseField in application) {
+    return application[camelCaseField];
+  }
+  
+  const snakeCaseField = toSnakeCase(fieldName);
+  if (snakeCaseField in application) {
+    return application[snakeCaseField];
+  }
+  
+  // Handle special cases
+  if (fieldName === 'downloadId' && 'download_id' in application) {
+    return application.download_id;
+  }
+  
+  if (fieldName === 'downloadDate') {
+    return application.downloadDate || application.downloaded_at || application.download_date;
+  }
+  
+  // For application ID, check multiple possible fields
+  if (fieldName === 'id') {
+    return application.id || application.applicationId || application.application_id;
+  }
+  
+  // Try normalized search (lowercase, no spaces)
+  const normalizedField = fieldName.toLowerCase().replace(/[_\s]/g, '');
+  for (const key in application) {
+    const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+    if (normalizedKey === normalizedField || 
+        normalizedKey.includes(normalizedField) || 
+        normalizedField.includes(normalizedKey)) {
+      return application[key];
+    }
+  }
+  
+  // Log the keys we have in the application for this field
+  const relevantKeys = Object.keys(application).filter(k => 
+    k.toLowerCase().includes(fieldName.toLowerCase()) || 
+    fieldName.toLowerCase().includes(k.toLowerCase())
+  );
+  
+  if (relevantKeys.length > 0) {
+    console.log(`Potential matches for "${fieldName}":`, relevantKeys);
+  } else {
+    console.log(`No matches found for "${fieldName}" in application`);
+  }
+  
+  return null;
+};
+
+// Convert snake_case to camelCase
+const toCamelCase = (str: string): string => {
+  return str.replace(/_([a-z])/g, (_, char) => char.toUpperCase());
+};
+
+// Convert camelCase to snake_case
+const toSnakeCase = (str: string): string => {
+  return str.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
 };

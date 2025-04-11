@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, Lock, Trash } from 'lucide-react';
+import { Download, Lock, ShoppingCart, Trash } from 'lucide-react';
 import { LockType } from '@/lib/types/dealer-dashboard';
 import DownloadOptions from './application-table/DownloadOptions';
 
@@ -12,6 +12,9 @@ interface BulkActionsBarProps {
   onClearSelection: () => void;
   isProcessing: boolean;
   selectedApplicationIds: string[];
+  unpurchasedCount?: number;
+  totalPurchaseCost?: number;
+  onPurchaseSelected?: () => void;
 }
 
 const BulkActionsBar = ({
@@ -20,7 +23,10 @@ const BulkActionsBar = ({
   onBulkLock,
   onClearSelection,
   isProcessing,
-  selectedApplicationIds
+  selectedApplicationIds,
+  unpurchasedCount = 0,
+  totalPurchaseCost = 0,
+  onPurchaseSelected
 }: BulkActionsBarProps) => {
   const [showLockOptions, setShowLockOptions] = useState(false);
 
@@ -88,12 +94,25 @@ const BulkActionsBar = ({
             )}
           </div>
           
-          <DownloadOptions
-            applicationIds={selectedApplicationIds}
-            isProcessing={isProcessing}
-            label={isProcessing ? "Processing..." : "Download selected"}
-            size="sm"
-          />
+          {unpurchasedCount > 0 && onPurchaseSelected ? (
+            <Button 
+              variant="default"
+              size="sm"
+              onClick={onPurchaseSelected}
+              disabled={isProcessing}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Purchase ({unpurchasedCount}) for ${totalPurchaseCost.toFixed(2)}
+            </Button>
+          ) : (
+            <DownloadOptions
+              applicationIds={selectedApplicationIds}
+              isProcessing={isProcessing}
+              label={isProcessing ? "Processing..." : "Download selected"}
+              size="sm"
+            />
+          )}
         </div>
       </div>
     </div>

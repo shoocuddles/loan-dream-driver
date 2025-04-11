@@ -82,7 +82,6 @@ const DealerDashboard = () => {
   
   useEffect(() => {
     const handlePaymentResult = async () => {
-      // Clear URL parameters after processing to avoid duplicate handling
       const shouldClearParams = paymentSuccess || paymentCancelled;
       
       if (paymentSuccess && sessionId) {
@@ -95,7 +94,7 @@ const DealerDashboard = () => {
             toast.error("There was an issue processing your payment confirmation. Please contact support.");
           } else {
             toast.success("Payment processed successfully. Your applications are now available.");
-            await loadData(); // Reload data to show newly purchased applications
+            await loadData();
           }
         } catch (error) {
           console.error("Exception completing purchase:", error);
@@ -110,7 +109,6 @@ const DealerDashboard = () => {
         toast.info("Payment was cancelled. You can try again when you're ready.");
       }
       
-      // Remove the URL parameters to prevent duplicate processing
       if (shouldClearParams) {
         setSearchParams(prev => {
           const newParams = new URLSearchParams(prev);
@@ -239,7 +237,6 @@ const DealerDashboard = () => {
     try {
       setProcessingId(applicationId);
       
-      // Check if application has already been purchased
       const isDownloaded = Array.isArray(downloadedApps) && downloadedApps.some(app => app.applicationId === applicationId);
       
       if (!isDownloaded) {
@@ -263,7 +260,6 @@ const DealerDashboard = () => {
   const handleBulkDownload = async () => {
     if (!user || selectedApplications.length === 0) return;
 
-    // Find applications that haven't been downloaded yet
     const notDownloaded = Array.isArray(downloadedApps) ? 
       selectedApplications.filter(id => !downloadedApps.some(app => app.applicationId === id)) :
       selectedApplications;
@@ -296,20 +292,17 @@ const DealerDashboard = () => {
 
     try {
       if (pendingAction.type === 'download') {
-        // Display loading state
         toast.loading("Creating checkout session...");
         
-        // Create Stripe checkout session for application purchase
         const response = await createCheckoutSession({
           applicationIds: pendingAction.applicationIds,
-          priceType: 'standard' // You could determine this based on locked status
+          priceType: 'standard'
         });
         
         if (response.error) {
           console.error('Error response from checkout session:', response.error);
           
           if (response.error.message && response.error.message.includes('already purchased')) {
-            // Handle case where applications were already purchased
             toast.success("All selected applications have already been purchased");
             await loadData();
             setShowPaymentDialog(false);
@@ -321,24 +314,16 @@ const DealerDashboard = () => {
         }
         
         if (response.data?.url) {
-          // Show additional message before redirect
           toast.success("Checkout session created. Redirecting to payment page...");
           
-          // Add a small delay to ensure the toast is visible
           await new Promise(resolve => setTimeout(resolve, 1000));
           
-          // Redirect to Stripe checkout
-          console.log('Redirecting to checkout URL:', response.data.url);
-          
-          // Use window.location.href for a full page redirect
           window.location.href = response.data.url;
           return;
         } else {
           throw new Error('No checkout URL returned from Stripe');
         }
       } else if (pendingAction.type === 'lock' && pendingAction.lockType) {
-        // Handle lock extension payment - currently using a simplified approach
-        // In a production environment, you'd want to create a Stripe checkout for this too
         toast.loading(`Locking ${pendingAction.applicationIds.length} application(s)...`);
         
         for (const appId of pendingAction.applicationIds) {
@@ -354,7 +339,7 @@ const DealerDashboard = () => {
         description: "Please check the console for more details and try again later."
       });
     } finally {
-      toast.dismiss(); // Clear any loading toasts
+      toast.dismiss();
       setShowPaymentDialog(false);
       setPendingAction(null);
       setIsProcessingPayment(false);
@@ -380,33 +365,29 @@ const DealerDashboard = () => {
     }
   };
 
-  const calculateTotalPrice = () => {
-    if (!pendingAction) return 0;
+  const getUnpurchasedApplications = () => {
+    if (!Array.isArray(downloadedApps) || !Array.isArray(selectedApplications)) {
+      return [];
+    }
+    
+    return selectedApplications.filter(id => 
+      !downloadedApps.some(app => app.applicationId === id)
+    );
+  };
+  
+  const calculateTotalPurchaseCost = (appIds: string[]) => {
+    if (!appIds.length) return 0;
     
     let total = 0;
-    
-    if (pendingAction.type === 'download') {
-      // Get apps that need to be purchased
-      const appsToPurchase = pendingAction.applicationIds.filter(id => 
-        !downloadedApps.some(app => app.applicationId === id)
-      );
-      
-      // Calculate price based on app count and whether they were locked
-      for (const appId of appsToPurchase) {
-        const app = applications.find(a => a.applicationId === appId);
-        if (!app) continue;
-        
-        const wasLocked = app.lockInfo?.isLocked && !app.lockInfo?.isOwnLock;
-        total += wasLocked ? (app.discountedPrice || 5.99) : (app.standardPrice || 10.99);
+    appIds.forEach(id => {
+      const app = applications.find(a => a.applicationId === id);
+      if (app) {
+        const isDiscounted = app.lockInfo?.isLocked && !app.lockInfo?.isOwnLock;
+        total += isDiscounted 
+          ? (app.discountedPrice || 5.99) 
+          : (app.standardPrice || 10.99);
       }
-    }
-    
-    if (pendingAction.type === 'lock' && pendingAction.lockType) {
-      const option = lockOptions.find(o => o.type === pendingAction.lockType);
-      if (option) {
-        total += option.fee * pendingAction.applicationIds.length;
-      }
-    }
+    });
     
     return total;
   };
@@ -441,6 +422,9 @@ const DealerDashboard = () => {
                 onClearSelection={() => setSelectedApplications([])}
                 isProcessing={!!processingId}
                 selectedApplicationIds={selectedApplications}
+                unpurchasedCount={getUnpurchasedApplications().length}
+                totalPurchaseCost={calculateTotalPurchaseCost(getUnpurchasedApplications())}
+                onPurchaseSelected={handleBulkPurchase}
               />
               
               <div className="mt-6 text-sm text-gray-500">
@@ -481,7 +465,7 @@ const DealerDashboard = () => {
                 <div className="border-t border-b py-3">
                   <div className="flex justify-between font-medium">
                     <span>Total:</span>
-                    <span>${calculateTotalPrice().toFixed(2)}</span>
+                    <span>${calculateTotalPurchaseCost(getUnpurchasedApplications()).toFixed(2)}</span>
                   </div>
                 </div>
                 <div className="flex gap-3">

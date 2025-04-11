@@ -18,33 +18,60 @@ interface StripeAccount {
 }
 
 /**
+ * Helper function to call Supabase Edge Functions with proper error handling
+ */
+const callStripeFunction = async <T>(
+  functionName: string,
+  body: any
+): Promise<StripeResponse<T>> => {
+  try {
+    console.log(`🔄 Calling Stripe function: ${functionName}`, body);
+    
+    const { data, error } = await supabase.functions.invoke(functionName, { body });
+    
+    if (error) {
+      console.error(`❌ Error from ${functionName}:`, error);
+      return {
+        error: {
+          message: error.message || `Error calling ${functionName}`,
+          code: error.code || 'unknown_error',
+          details: error.message
+        }
+      };
+    }
+    
+    if (!data) {
+      return {
+        error: {
+          message: `No data returned from ${functionName}`,
+          code: 'no_data',
+          details: 'The function returned successfully but no data was provided'
+        }
+      };
+    }
+    
+    console.log(`✅ ${functionName} successful:`, data);
+    return { data: data as T };
+  } catch (error: any) {
+    console.error(`❌ Exception in ${functionName}:`, error);
+    return {
+      error: {
+        message: error.message || `Unexpected error in ${functionName}`,
+        code: error.code || 'unexpected_error',
+        details: error.stack || error.message
+      }
+    };
+  }
+};
+
+/**
  * Synchronizes system settings prices with Stripe
  */
 export const syncPricesToStripe = async (
   standardPrice: number, 
   discountedPrice: number
 ): Promise<StripeResponse<{ success: boolean }>> => {
-  try {
-    console.log('🔄 Syncing prices to Stripe:', { standardPrice, discountedPrice });
-    
-    const { data, error } = await supabase.functions.invoke('sync-prices', {
-      body: { standardPrice, discountedPrice }
-    });
-    
-    if (error) throw error;
-    
-    console.log('✅ Successfully synced prices to Stripe:', data);
-    return { data: { success: true } };
-  } catch (error: any) {
-    console.error('❌ Error syncing prices to Stripe:', error.message);
-    return { 
-      error: { 
-        message: error.message, 
-        code: error.code,
-        details: error.details || error.message
-      } 
-    };
-  }
+  return callStripeFunction('sync-prices', { standardPrice, discountedPrice });
 };
 
 /**
@@ -53,77 +80,21 @@ export const syncPricesToStripe = async (
 export const createStripeCoupon = async (
   params: CreateCouponParams
 ): Promise<StripeResponse<{ id: string; name: string }>> => {
-  try {
-    console.log('🎟️ Creating new Stripe coupon:', params);
-    
-    const { data, error } = await supabase.functions.invoke('create-coupon', {
-      body: params
-    });
-    
-    if (error) throw error;
-    
-    console.log('✅ Successfully created coupon:', data);
-    return { data };
-  } catch (error: any) {
-    console.error('❌ Error creating coupon:', error.message);
-    return { 
-      error: { 
-        message: error.message, 
-        code: error.code,
-        details: error.details || error.message
-      } 
-    };
-  }
+  return callStripeFunction('create-coupon', params);
 };
 
 /**
  * Fetches all active coupons from Stripe
  */
 export const listStripeCoupons = async (): Promise<StripeResponse<StripeCoupon[]>> => {
-  try {
-    console.log('🔍 Fetching Stripe coupons');
-    
-    const { data, error } = await supabase.functions.invoke('list-coupons');
-    
-    if (error) throw error;
-    
-    console.log('✅ Successfully fetched coupons:', data);
-    return { data };
-  } catch (error: any) {
-    console.error('❌ Error fetching coupons:', error.message);
-    return { 
-      error: { 
-        message: error.message, 
-        code: error.code,
-        details: error.details || error.message
-      } 
-    };
-  }
+  return callStripeFunction('list-coupons', {});
 };
 
 /**
  * Fetches Stripe product prices
  */
 export const getStripePrices = async (): Promise<StripeResponse<StripePrice[]>> => {
-  try {
-    console.log('🔍 Fetching Stripe prices');
-    
-    const { data, error } = await supabase.functions.invoke('get-prices');
-    
-    if (error) throw error;
-    
-    console.log('✅ Successfully fetched prices:', data);
-    return { data };
-  } catch (error: any) {
-    console.error('❌ Error fetching prices:', error.message);
-    return { 
-      error: { 
-        message: error.message, 
-        code: error.code,
-        details: error.details || error.message
-      } 
-    };
-  }
+  return callStripeFunction('get-prices', {});
 };
 
 /**
@@ -132,27 +103,7 @@ export const getStripePrices = async (): Promise<StripeResponse<StripePrice[]>> 
  * Otherwise fetches the platform account information
  */
 export const getStripeAccountInfo = async (accountId?: string): Promise<StripeResponse<StripeAccount>> => {
-  try {
-    console.log(`🔍 Fetching Stripe account information${accountId ? ' for account: ' + accountId : ''}`);
-    
-    const { data, error } = await supabase.functions.invoke('get-account-info', {
-      body: accountId ? { accountId } : undefined
-    });
-    
-    if (error) throw error;
-    
-    console.log('✅ Successfully fetched Stripe account info:', data);
-    return { data };
-  } catch (error: any) {
-    console.error('❌ Error fetching Stripe account info:', error.message);
-    return { 
-      error: { 
-        message: error.message, 
-        code: error.code,
-        details: error.details || error.message
-      } 
-    };
-  }
+  return callStripeFunction('get-account-info', accountId ? { accountId } : {});
 };
 
 /**
@@ -164,20 +115,76 @@ export const createCheckoutSession = async (
   try {
     console.log('🛒 Creating checkout session for applications:', params.applicationIds);
     
+    // First validate parameters
+    if (!params.applicationIds || !params.applicationIds.length) {
+      return {
+        error: {
+          message: 'Missing application IDs',
+          code: 'missing_params',
+          details: 'You must provide at least one application ID to purchase'
+        }
+      };
+    }
+    
+    if (!params.priceType) {
+      return {
+        error: {
+          message: 'Missing price type',
+          code: 'missing_params',
+          details: 'You must specify a price type (standard or discounted)'
+        }
+      };
+    }
+    
     // Add logging for the full request
     console.log('🔍 Full checkout session request parameters:', JSON.stringify(params, null, 2));
     
-    const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-      body: params
-    });
+    // Check if the current user is authenticated
+    const { data: { session }} = await supabase.auth.getSession();
+    if (!session) {
+      return {
+        error: {
+          message: 'Authentication required',
+          code: 'auth_required',
+          details: 'You must be logged in to create a checkout session'
+        }
+      };
+    }
+    
+    // Call create-checkout-session edge function
+    const functionName = 'create-checkout-session';
+    const { data, error } = await supabase.functions.invoke(functionName, { body: params });
     
     if (error) {
       console.error('❌ Error from Supabase functions:', error);
-      throw new Error(`Function error: ${error.message || JSON.stringify(error)}`);
+      return {
+        error: {
+          message: error.message || `Error calling ${functionName}`,
+          code: error.code || 'function_error',
+          details: error.message
+        }
+      };
     }
     
     if (!data) {
-      throw new Error('No data returned from checkout session creation');
+      return {
+        error: {
+          message: 'No data returned from checkout session creation',
+          code: 'no_data',
+          details: 'The function returned successfully but no data was provided'
+        }
+      };
+    }
+    
+    // Handle case where function returns an error object
+    if (data.error) {
+      return {
+        error: {
+          message: data.error.message || 'Unknown error in checkout session creation',
+          code: data.error.code || 'function_returned_error',
+          details: data.error.details || data.error.message
+        }
+      };
     }
     
     console.log('✅ Successfully created checkout session:', data);
@@ -198,25 +205,5 @@ export const createCheckoutSession = async (
  * Completes the purchase process and records application downloads
  */
 export const completePurchase = async (sessionId: string): Promise<StripeResponse<{ success: boolean }>> => {
-  try {
-    console.log('🔍 Verifying purchase with session ID:', sessionId);
-    
-    const { data, error } = await supabase.functions.invoke('verify-purchase', {
-      body: { sessionId }
-    });
-    
-    if (error) throw error;
-    
-    console.log('✅ Purchase verification complete:', data);
-    return { data };
-  } catch (error: any) {
-    console.error('❌ Error verifying purchase:', error.message);
-    return { 
-      error: { 
-        message: error.message, 
-        code: error.code,
-        details: error.details || error.message
-      } 
-    };
-  }
+  return callStripeFunction('verify-purchase', { sessionId });
 };

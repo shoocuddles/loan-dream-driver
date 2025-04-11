@@ -16,7 +16,22 @@ serve(async (req) => {
 
   try {
     // Get request data
-    const { applicationId, priceType, couponId } = await req.json();
+    const requestData = await req.json();
+    console.log("Request data:", requestData);
+    
+    // Special handling for test requests from StripeDebug component
+    if (requestData.test === true) {
+      console.log("Test request detected, returning mock response");
+      return new Response(
+        JSON.stringify({ 
+          message: "This is a test response from the create-checkout function",
+          success: true
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const { applicationId, priceType, couponId } = requestData;
     
     if (!applicationId || !priceType) {
       return new Response(
@@ -93,7 +108,16 @@ serve(async (req) => {
     const priceAmount = priceType === 'discounted' ? settings.discounted_price : settings.standard_price;
     
     // Initialize Stripe
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) {
+      console.error("Stripe secret key not configured");
+      return new Response(
+        JSON.stringify({ error: "Stripe configuration error: Missing API key" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+    
+    const stripe = new Stripe(stripeKey, {
       apiVersion: "2023-10-16",
       httpClient: Stripe.createFetchHttpClient(),
     });
@@ -103,6 +127,7 @@ serve(async (req) => {
     
     if (!customerId) {
       // Create a new customer
+      console.log("Creating new Stripe customer for:", user.email);
       const customer = await stripe.customers.create({
         email: user.email,
         name: dealer.full_name || dealer.email,
@@ -113,6 +138,7 @@ serve(async (req) => {
       });
       
       customerId = customer.id;
+      console.log("Created Stripe customer:", customerId);
       
       // Save customer ID back to user_profiles record
       await supabase
@@ -166,7 +192,9 @@ serve(async (req) => {
       sessionParams.metadata.application_city = application.city;
     }
     
+    console.log("Creating Stripe checkout session with params:", JSON.stringify(sessionParams));
     const session = await stripe.checkout.sessions.create(sessionParams);
+    console.log("Checkout session created:", session.id);
     
     return new Response(
       JSON.stringify({ 

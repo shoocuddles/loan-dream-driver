@@ -5,38 +5,53 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
 
 const StripeDebug = () => {
   const [isChecking, setIsChecking] = useState(false);
   const [status, setStatus] = useState<Record<string, any>>({});
   const [edgeFunctions, setEdgeFunctions] = useState<string[]>([]);
   const [detailedLogs, setDetailedLogs] = useState<string>("");
+  const [authStatus, setAuthStatus] = useState<{isAuthenticated: boolean, token?: string}>({
+    isAuthenticated: false
+  });
+
+  // Check auth status on mount
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      setAuthStatus({
+        isAuthenticated: !!data?.session?.access_token,
+        token: data?.session?.access_token
+      });
+      
+      setDetailedLogs(logs => logs + `Authentication check: ${!!data?.session ? 'Authenticated' : 'Not authenticated'}\n`);
+      
+      if (!data?.session) {
+        setDetailedLogs(logs => logs + "⚠️ WARNING: You are not authenticated. Edge function calls will fail without authentication.\n");
+      }
+    } catch (error: any) {
+      setDetailedLogs(logs => logs + `Error checking auth status: ${error.message}\n`);
+      setAuthStatus({ isAuthenticated: false });
+    }
+  };
 
   const checkFunction = async (functionName: string) => {
     try {
       // Use a simple test body that won't cause issues
-      const testBody = functionName === 'create-checkout-session' 
-        ? { test: true, applicationIds: ["test"], priceType: "standard" }
-        : { test: true };
-        
+      const testBody = { test: true };
+      
       setDetailedLogs(logs => logs + `Testing function ${functionName} with test body: ${JSON.stringify(testBody)}\n`);
       
       const { data, error } = await supabase.functions.invoke(functionName, {
         body: testBody
       });
       
-      setDetailedLogs(logs => logs + `Response from ${functionName}: ${error ? `ERROR: ${error.message}` : 'Success'}\n`);
-      
-      // For create-checkout-session, even if we get an error about missing applications,
-      // it means the function is available and running
-      if (functionName === 'create-checkout-session' && error?.message?.includes('not found')) {
-        return {
-          available: true,
-          error: null,
-          data: "Function is deployed and running"
-        };
-      }
+      setDetailedLogs(logs => logs + `Response from ${functionName}: ${error ? `ERROR: ${error.message}` : 'Success - ' + JSON.stringify(data)}\n`);
       
       return {
         available: !error,
@@ -58,6 +73,7 @@ const StripeDebug = () => {
       // This is just a way to check if functions are registered
       // It doesn't actually list all functions but checks specific ones
       const functionsToCheck = [
+        'create-checkout',
         'create-checkout-session',
         'verify-purchase',
         'list-coupons',
@@ -76,11 +92,20 @@ const StripeDebug = () => {
       for (const fn of functionsToCheck) {
         try {
           // Use a hardcoded Supabase URL instead of accessing the protected url property
-          const supabaseUrl = "https://kgtfpuvksmqyaraijoal.supabase.co";
-          const response = await fetch(
-            `${supabaseUrl}/functions/v1/${fn}`,
-            { method: 'HEAD' }
-          );
+          const supabaseUrl = supabase.functions.url ?? "https://kgtfpuvksmqyaraijoal.supabase.co";
+          const functionUrl = `${supabaseUrl}/functions/v1/${fn}`;
+          
+          setDetailedLogs(logs => logs + `Checking function URL: ${functionUrl}\n`);
+          
+          const headers: HeadersInit = {};
+          if (authStatus.token) {
+            headers['Authorization'] = `Bearer ${authStatus.token}`;
+          }
+          
+          const response = await fetch(functionUrl, { 
+            method: 'HEAD',
+            headers
+          });
           
           setDetailedLogs(logs => logs + `Function ${fn} check status: ${response.status}\n`);
           
@@ -104,6 +129,12 @@ const StripeDebug = () => {
 
   const testCheckoutSession = async () => {
     try {
+      if (!authStatus.isAuthenticated) {
+        setDetailedLogs(logs => logs + "Cannot test checkout: You need to be authenticated first\n");
+        toast.error("Authentication required", { description: "You must be logged in to test the checkout function" });
+        return;
+      }
+      
       setIsChecking(true);
       setDetailedLogs("Testing create-checkout-session function...\n");
       
@@ -158,6 +189,12 @@ const StripeDebug = () => {
   
   const testVerifyPurchase = async () => {
     try {
+      if (!authStatus.isAuthenticated) {
+        setDetailedLogs(logs => logs + "Cannot test verify purchase: You need to be authenticated first\n");
+        toast.error("Authentication required", { description: "You must be logged in to test the verify purchase function" });
+        return;
+      }
+      
       setIsChecking(true);
       setDetailedLogs(logs => logs + "\nTesting verify-purchase function...\n");
       
@@ -192,6 +229,37 @@ const StripeDebug = () => {
       setIsChecking(false);
     }
   };
+  
+  const testSimpleFunction = async (functionName: string) => {
+    try {
+      if (!authStatus.isAuthenticated) {
+        setDetailedLogs(logs => logs + `Cannot test ${functionName}: You need to be authenticated first\n`);
+        toast.error("Authentication required", { description: "You must be logged in to test this function" });
+        return;
+      }
+      
+      setIsChecking(true);
+      setDetailedLogs(logs => logs + `\nTesting ${functionName} function...\n`);
+      
+      // Call the function with a simple test body
+      const response = await supabase.functions.invoke(functionName, {
+        body: { test: true }
+      });
+      
+      if (response.error) {
+        setDetailedLogs(logs => logs + `Error response: ${JSON.stringify(response.error, null, 2)}\n`);
+        toast.error("Test failed", { description: response.error.message });
+      } else {
+        setDetailedLogs(logs => logs + `Success response: ${JSON.stringify(response.data, null, 2)}\n`);
+        toast.success("Test successful", { description: `${functionName} function is available` });
+      }
+    } catch (error: any) {
+      setDetailedLogs(logs => logs + `Exception: ${error.message}\n`);
+      toast.error("Test failed", { description: error.message });
+    } finally {
+      setIsChecking(false);
+    }
+  };
 
   const runDiagnostics = async () => {
     setIsChecking(true);
@@ -201,6 +269,9 @@ const StripeDebug = () => {
     toast.info("Running Stripe function diagnostics...");
     
     try {
+      // First check auth status
+      await checkAuthStatus();
+      
       // First check which edge functions are available
       setDetailedLogs(logs => logs + "Checking for deployed edge functions...\n");
       const functions = await listEdgeFunctions();
@@ -279,6 +350,26 @@ const StripeDebug = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          <Alert variant={authStatus.isAuthenticated ? "default" : "destructive"} className="mb-4">
+            <div className="flex items-center gap-2">
+              {authStatus.isAuthenticated ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              ) : (
+                <AlertCircle className="h-4 w-4" />
+              )}
+              <AlertTitle>
+                {authStatus.isAuthenticated 
+                  ? "Authenticated" 
+                  : "Not Authenticated"}
+              </AlertTitle>
+            </div>
+            <AlertDescription>
+              {authStatus.isAuthenticated 
+                ? "You are authenticated. Edge functions can be tested." 
+                : "You need to be logged in to test protected edge functions."}
+            </AlertDescription>
+          </Alert>
+          
           <div className="flex flex-wrap gap-2">
             <Button 
               onClick={runDiagnostics} 
@@ -291,7 +382,7 @@ const StripeDebug = () => {
             
             <Button 
               onClick={testCheckoutSession}
-              disabled={isChecking}
+              disabled={isChecking || !authStatus.isAuthenticated}
               variant="outline"
               className="flex-1"
             >
@@ -300,11 +391,30 @@ const StripeDebug = () => {
             
             <Button 
               onClick={testVerifyPurchase}
-              disabled={isChecking}
+              disabled={isChecking || !authStatus.isAuthenticated}
               variant="outline"
               className="flex-1"
             >
               Test Verify Purchase
+            </Button>
+            
+            <Button
+              onClick={() => testSimpleFunction('list-coupons')}
+              disabled={isChecking || !authStatus.isAuthenticated}
+              variant="outline"
+              className="flex-1"
+            >
+              Test List Coupons
+            </Button>
+            
+            <Button
+              onClick={checkAuthStatus}
+              variant="outline"
+              className="flex-1"
+              disabled={isChecking}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Check Auth Status
             </Button>
           </div>
           
@@ -370,6 +480,7 @@ const StripeDebug = () => {
             <p>If any functions show as "Not Available", there may be deployment issues with the edge functions.</p>
             <p className="mt-1">Common issues:</p>
             <ul className="list-disc pl-5 mt-1 space-y-1">
+              <li>Authentication errors: You must be logged in to test protected functions</li>
               <li>Incorrect environment variables</li>
               <li>Syntax errors in Edge Function code</li>
               <li>Missing permissions</li>

@@ -88,7 +88,7 @@ serve(async (req) => {
     
     console.log("Authenticated user:", user.id);
     
-    // Get dealer info from user_profiles instead of dealers table
+    // Get dealer info from user_profiles
     const { data: dealer, error: dealerError } = await supabase
       .from('user_profiles')
       .select('*')
@@ -190,13 +190,14 @@ serve(async (req) => {
     
     const stripe = new Stripe(stripeSecretKey, {
       apiVersion: "2023-10-16",
+      httpClient: Stripe.createFetchHttpClient(),
     });
     
     // Check or create Stripe customer
     let customerId = dealer.stripe_customer_id;
     
-    if (!customerId) {
-      try {
+    try {
+      if (!customerId) {
         // Create a new customer
         const customer = await stripe.customers.create({
           email: user.email,
@@ -216,27 +217,14 @@ serve(async (req) => {
           .eq('id', dealer.id);
           
         console.log("Created new Stripe customer:", customerId);
-      } catch (stripeError) {
-        console.error("Error creating Stripe customer:", stripeError);
-        return new Response(
-          JSON.stringify({ 
-            error: { 
-              message: "Failed to create customer",
-              details: stripeError.message || "Error creating Stripe customer record"
-            }
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-        );
       }
-    }
-    
-    // Calculate total price
-    const unitPrice = priceType === 'discounted' ? settings.discounted_price : settings.standard_price;
-    const totalAmount = Math.round(unitPrice * applicationsToCharge.length * 100); // Convert to cents for Stripe
-    
-    console.log("Calculated price:", { unitPrice, totalAmount });
-    
-    try {
+      
+      // Calculate total price
+      const unitPrice = priceType === 'discounted' ? settings.discounted_price : settings.standard_price;
+      const totalAmount = Math.round(unitPrice * applicationsToCharge.length * 100); // Convert to cents for Stripe
+      
+      console.log("Calculated price:", { unitPrice, totalAmount });
+      
       // Create a checkout session
       const sessionParams = {
         customer: customerId,

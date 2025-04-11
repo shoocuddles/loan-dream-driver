@@ -20,9 +20,13 @@ const StripeDebug = () => {
         ? { test: true, applicationIds: ["test"], priceType: "standard" }
         : { test: true };
         
+      setDetailedLogs(logs => logs + `Testing function ${functionName} with test body: ${JSON.stringify(testBody)}\n`);
+      
       const { data, error } = await supabase.functions.invoke(functionName, {
         body: testBody
       });
+      
+      setDetailedLogs(logs => logs + `Response from ${functionName}: ${error ? `ERROR: ${error.message}` : 'Success'}\n`);
       
       // For create-checkout-session, even if we get an error about missing applications,
       // it means the function is available and running
@@ -40,6 +44,7 @@ const StripeDebug = () => {
         data: data || null
       };
     } catch (error: any) {
+      setDetailedLogs(logs => logs + `Exception testing ${functionName}: ${error.message}\n`);
       return {
         available: false,
         error: error.message || "Unknown error",
@@ -65,6 +70,7 @@ const StripeDebug = () => {
         'disconnect-stripe-account'
       ];
       
+      setDetailedLogs(logs => logs + `Checking for deployed functions: ${functionsToCheck.join(', ')}\n`);
       const availableFunctions: string[] = [];
       
       for (const fn of functionsToCheck) {
@@ -76,18 +82,22 @@ const StripeDebug = () => {
             { method: 'HEAD' }
           );
           
+          setDetailedLogs(logs => logs + `Function ${fn} check status: ${response.status}\n`);
+          
           // If we get any response (even an error), the function exists
           if (response) {
             availableFunctions.push(fn);
           }
-        } catch (error) {
+        } catch (error: any) {
+          setDetailedLogs(logs => logs + `Error checking function ${fn}: ${error.message}\n`);
           // Ignore errors, just means the function isn't available
         }
       }
       
       return availableFunctions;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error listing functions:", error);
+      setDetailedLogs(logs => logs + `Error listing functions: ${error.message}\n`);
       return [];
     }
   };
@@ -137,6 +147,43 @@ const StripeDebug = () => {
       } else {
         setDetailedLogs(logs => logs + `Success response: ${JSON.stringify(response.data, null, 2)}\n`);
         toast.success("Test successful", { description: "Checkout session created successfully" });
+      }
+    } catch (error: any) {
+      setDetailedLogs(logs => logs + `Exception: ${error.message}\n`);
+      toast.error("Test failed", { description: error.message });
+    } finally {
+      setIsChecking(false);
+    }
+  };
+  
+  const testVerifyPurchase = async () => {
+    try {
+      setIsChecking(true);
+      setDetailedLogs(logs => logs + "\nTesting verify-purchase function...\n");
+      
+      // Create a fake session ID for testing
+      const testSessionId = `test_session_${Date.now()}`;
+      
+      // Call the verify purchase function
+      setDetailedLogs(logs => logs + `Calling verify-purchase with sessionId=${testSessionId}\n`);
+      const response = await supabase.functions.invoke('verify-purchase', {
+        body: {
+          sessionId: testSessionId
+        }
+      });
+      
+      if (response.error) {
+        // We actually expect an error since the session doesn't exist
+        // But the important part is that the function responded
+        setDetailedLogs(logs => logs + `Error response (expected): ${JSON.stringify(response.error, null, 2)}\n`);
+        if (response.error.message.includes("No session ID")) {
+          toast.success("Test successful", { description: "Verify purchase function is available" });
+        } else {
+          toast.error("Test failed", { description: response.error.message });
+        }
+      } else {
+        setDetailedLogs(logs => logs + `Success response: ${JSON.stringify(response.data, null, 2)}\n`);
+        toast.success("Test successful", { description: "Verify purchase function is available" });
       }
     } catch (error: any) {
       setDetailedLogs(logs => logs + `Exception: ${error.message}\n`);
@@ -250,6 +297,15 @@ const StripeDebug = () => {
             >
               Test Checkout Session
             </Button>
+            
+            <Button 
+              onClick={testVerifyPurchase}
+              disabled={isChecking}
+              variant="outline"
+              className="flex-1"
+            >
+              Test Verify Purchase
+            </Button>
           </div>
           
           {edgeFunctions.length > 0 && (
@@ -312,6 +368,13 @@ const StripeDebug = () => {
           
           <div className="mt-4 text-sm text-gray-500">
             <p>If any functions show as "Not Available", there may be deployment issues with the edge functions.</p>
+            <p className="mt-1">Common issues:</p>
+            <ul className="list-disc pl-5 mt-1 space-y-1">
+              <li>Incorrect environment variables</li>
+              <li>Syntax errors in Edge Function code</li>
+              <li>Missing permissions</li>
+              <li>Stripe API version mismatch</li>
+            </ul>
           </div>
         </div>
       </CardContent>

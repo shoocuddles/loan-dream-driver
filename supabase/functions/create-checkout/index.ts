@@ -52,9 +52,9 @@ serve(async (req) => {
       );
     }
     
-    // Get dealer info
+    // Get dealer info from user_profiles
     const { data: dealer, error: dealerError } = await supabase
-      .from('dealers')
+      .from('user_profiles')
       .select('*')
       .eq('id', user.id)
       .single();
@@ -77,23 +77,25 @@ serve(async (req) => {
       console.error("Error fetching application:", appError);
     }
     
-    // Get the appropriate price from Stripe mappings
-    const { data: priceMapping, error: priceMappingError } = await supabase
-      .from('stripe_price_mappings')
-      .select('price_id, amount')
-      .eq('type', priceType)
+    // Get system settings for pricing
+    const { data: settings, error: settingsError } = await supabase
+      .from('system_settings')
+      .select('standard_price, discounted_price')
       .single();
     
-    if (priceMappingError || !priceMapping) {
+    if (settingsError || !settings) {
       return new Response(
-        JSON.stringify({ error: "Price mapping not found" }),
+        JSON.stringify({ error: "System settings not found" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
       );
     }
     
+    const priceAmount = priceType === 'discounted' ? settings.discounted_price : settings.standard_price;
+    
     // Initialize Stripe
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2023-10-16",
+      httpClient: Stripe.createFetchHttpClient(),
     });
     
     // Check or create Stripe customer
@@ -103,40 +105,48 @@ serve(async (req) => {
       // Create a new customer
       const customer = await stripe.customers.create({
         email: user.email,
-        name: dealer.name,
+        name: dealer.full_name || dealer.email,
         metadata: {
           dealer_id: dealer.id,
-          company: dealer.company
+          company: dealer.company_name || "Not specified"
         }
       });
       
       customerId = customer.id;
       
-      // Save customer ID back to dealer record
+      // Save customer ID back to user_profiles record
       await supabase
-        .from('dealers')
+        .from('user_profiles')
         .update({ stripe_customer_id: customerId })
         .eq('id', dealer.id);
     }
     
     // Create a checkout session
-    const sessionParams: Stripe.Checkout.SessionCreateParams = {
+    const sessionParams = {
       customer: customerId,
       payment_method_types: ['card'],
       line_items: [
         {
-          price: priceMapping.price_id,
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Application Purchase`,
+              description: `Single Application Purchase`
+            },
+            unit_amount: Math.round(priceAmount * 100), // Convert to cents
+            tax_behavior: 'exclusive',
+          },
           quantity: 1,
         },
       ],
       mode: 'payment',
-      success_url: `${req.headers.get("origin")}/dealers?payment_success=true&application_id=${applicationId}`,
-      cancel_url: `${req.headers.get("origin")}/dealers?payment_cancelled=true`,
+      success_url: `${req.headers.get("origin")}/dealer-dashboard?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.headers.get("origin")}/dealer-dashboard?payment_cancelled=true`,
       metadata: {
         dealer_id: dealer.id,
-        application_id: applicationId,
+        application_ids: applicationId,
         price_type: priceType,
-        amount: priceMapping.amount.toString()
+        unit_price: priceAmount.toString()
       }
     };
     
@@ -157,16 +167,6 @@ serve(async (req) => {
     }
     
     const session = await stripe.checkout.sessions.create(sessionParams);
-    
-    // Create a pending payment record
-    await supabase.from('application_downloads').insert({
-      application_id: applicationId,
-      dealer_id: dealer.id,
-      payment_amount: priceMapping.amount,
-      payment_status: 'pending',
-      payment_id: session.id,
-      is_discounted: priceType === 'discounted'
-    });
     
     return new Response(
       JSON.stringify({ 

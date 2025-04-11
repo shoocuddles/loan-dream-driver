@@ -91,8 +91,8 @@ const StripeDebug = () => {
       
       for (const fn of functionsToCheck) {
         try {
-          // Use a hardcoded Supabase URL instead of accessing the protected url property
-          const supabaseUrl = supabase.functions.url ?? "https://kgtfpuvksmqyaraijoal.supabase.co";
+          // Instead of accessing the protected url property, construct the URL manually
+          const supabaseUrl = process.env.SUPABASE_URL || "https://kgtfpuvksmqyaraijoal.supabase.co";
           const functionUrl = `${supabaseUrl}/functions/v1/${fn}`;
           
           setDetailedLogs(logs => logs + `Checking function URL: ${functionUrl}\n`);

@@ -10,6 +10,20 @@ const corsHeaders = {
 
 const MINIMUM_STRIPE_AMOUNT = 50; // 50 cents minimum requirement
 
+// Helper function to format a full name to first name and last initial
+const formatName = (fullName: string): string => {
+  if (!fullName) return 'Applicant';
+  
+  const nameParts = fullName.trim().split(' ');
+  if (nameParts.length === 1) return nameParts[0];
+  
+  const firstName = nameParts[0];
+  const lastName = nameParts[nameParts.length - 1];
+  const lastInitial = lastName.charAt(0);
+  
+  return `${firstName} ${lastInitial}`;
+};
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -273,12 +287,14 @@ serve(async (req) => {
       const lineItems = applicationsToCharge.map(app => {
         // Get last 6 characters of the application ID
         const appIdShort = app.id.substring(app.id.length - 6);
+        // Format the name to show first name and last initial
+        const formattedName = formatName(app.fullname);
         
         return {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: `Lead purchase ${app.fullname || 'Applicant'} - ${appIdShort}`,
+              name: `Lead purchase ${formattedName} - ${appIdShort}`,
               description: `Application from ${app.city || 'Unknown location'}`
             },
             unit_amount: Math.max(Math.round(unitPrice * 100), MINIMUM_STRIPE_AMOUNT / applicationsToCharge.length), // Convert to cents, ensure minimum per item

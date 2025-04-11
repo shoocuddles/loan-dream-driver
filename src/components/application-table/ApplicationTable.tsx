@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import {
   ColumnDef,
@@ -27,7 +26,6 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DotsHorizontalIcon } from "@radix-ui/react-icons";
@@ -35,7 +33,7 @@ import { StatusBadge, LockStatusBadge, DownloadStatusBadge } from './StatusBadge
 import { Checkbox } from "@/components/ui/checkbox";
 import { ApplicationItem } from '@/lib/types/dealer-dashboard';
 import { LockType } from '@/lib/types/dealer-dashboard';
-import { AgeDiscountSettings, getPrice } from './priceUtils';
+import { AgeDiscountSettings } from './priceUtils';
 
 interface ApplicationTableProps {
   applications: ApplicationItem[];
@@ -268,7 +266,7 @@ const ApplicationTable = ({
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="ml-auto">
               Columns <span className="ml-2 opacity-70">
-                {table.getVisibleColumns().length}
+                {table.getVisibleFlatColumns().length}
               </span>
             </Button>
           </DropdownMenuTrigger>

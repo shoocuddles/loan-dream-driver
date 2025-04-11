@@ -173,11 +173,19 @@ const DealerDashboard = () => {
               try {
                 const applicationIds = JSON.parse(pendingLockApplications);
                 if (Array.isArray(applicationIds) && applicationIds.length > 0) {
+                  const paymentId = result.data && 'paymentId' in result.data 
+                    ? (result.data.paymentId as string) 
+                    : sessionId || 'unknown';
+                  
+                  const amount = result.data && 'amount' in result.data 
+                    ? (result.data.amount as number) 
+                    : 0;
+                  
                   const locksProcessed = await processLocksAfterPayment(
                     applicationIds, 
                     pendingLockType, 
-                    result.data?.paymentId || sessionId || 'unknown', 
-                    result.data?.amount || 0
+                    paymentId, 
+                    amount
                   );
                   
                   if (locksProcessed > 0) {

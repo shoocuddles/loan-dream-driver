@@ -29,7 +29,8 @@ const Index = () => {
     <div className="min-h-screen flex flex-col">
       <Header />
       
-      <main className="flex-grow">
+      {/* Add padding-top to account for fixed header */}
+      <main className="flex-grow pt-[72px]">
         {/* Hero Section - Updated with SUV image */}
         <section 
           className="bg-cover bg-center h-[600px] flex flex-col justify-center items-center text-white relative overflow-hidden"
@@ -161,20 +162,16 @@ const Index = () => {
           </div>
         </section>
 
-        {/* CTA Section */}
-        <section className="py-24 bg-ontario-blue text-white text-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1583121274602-3e2820c69888?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80')] opacity-20 bg-cover bg-center"></div>
+        {/* CTA Section - Removing background image and partner with us button */}
+        <section className="py-24 bg-ontario-blue text-white text-center">
           <div className="container mx-auto px-4 relative z-10">
             <h2 className="text-3xl md:text-5xl font-bold mb-6">Ready to Drive Your Dream Car?</h2>
             <p className="text-xl mb-10 max-w-2xl mx-auto">
               Apply now and get matched with the perfect vehicle and financing option.
             </p>
-            <div className="flex flex-col md:flex-row gap-4 justify-center items-center">
+            <div className="flex justify-center items-center">
               <Button asChild size="lg" className="bg-ontario-gold hover:bg-ontario-gold/90 text-ontario-blue font-bold text-lg px-8 py-6 hover:scale-105 transition-all">
                 <Link to="/apply">Apply Now</Link>
-              </Button>
-              <Button asChild variant="outline" className="border-white text-white hover:bg-white/10 font-semibold">
-                <Link to="/dealers">Partner with Us</Link>
               </Button>
             </div>
             <p className="mt-8 text-sm max-w-md mx-auto opacity-80">

@@ -1,108 +1,98 @@
 
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useState } from 'react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 
 interface StripeSetupProps {
-  open: boolean;
-  onClose: () => void;
+  onComplete?: () => void;
 }
 
-export const StripeSetup = ({ open, onClose }: StripeSetupProps) => {
+const StripeSetup = ({ onComplete }: StripeSetupProps) => {
   const [webhookSecret, setWebhookSecret] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState('');
-  
-  // Get the current URL to create the webhook URL
-  useState(() => {
-    const url = window.location.origin;
-    const baseSupabaseUrl = 'https://kgtfpuvksmqyaraijoal.supabase.co/functions/v1';
-    setWebhookUrl(`${baseSupabaseUrl}/stripe-webhook`);
-  }, []);
-  
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
+
   const handleSubmit = async () => {
-    if (!webhookSecret) return;
-    
-    setIsSubmitting(true);
+    if (!webhookSecret.trim()) return;
     
     try {
-      // Save the webhook secret to Supabase edge function secrets
+      setIsSubmitting(true);
+      setStatus('idle');
+      setErrorMessage('');
+      
+      // Fix the error: Call the invoke function with a single object parameter containing body
       const { error } = await supabase.functions.invoke('save-webhook-secret', {
         body: { webhookSecret }
       });
       
       if (error) throw error;
       
-      onClose();
-    } catch (error) {
+      setStatus('success');
+      if (onComplete) onComplete();
+    } catch (error: any) {
       console.error('Error saving webhook secret:', error);
+      setStatus('error');
+      setErrorMessage(error.message || 'Failed to save webhook secret');
     } finally {
       setIsSubmitting(false);
     }
   };
-  
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Stripe Webhook Setup</DialogTitle>
-          <DialogDescription>
-            To process Stripe payments, you need to set up a webhook in your Stripe dashboard.
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="webhookUrl">Webhook URL</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="webhookUrl"
-                value={webhookUrl}
-                readOnly
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  navigator.clipboard.writeText(webhookUrl);
-                }}
-              >
-                Copy
-              </Button>
-            </div>
-            <p className="text-sm text-gray-500">
-              Add this URL to your Stripe Dashboard under Developers &gt; Webhooks.
-              Listen for the <code>checkout.session.completed</code> event.
-            </p>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="webhookSecret">Webhook Secret</Label>
-            <Input
-              id="webhookSecret"
-              value={webhookSecret}
-              onChange={(e) => setWebhookSecret(e.target.value)}
-              placeholder="whsec_..."
-            />
-            <p className="text-sm text-gray-500">
-              After creating the webhook, copy the signing secret from the Stripe dashboard.
-            </p>
-          </div>
-        </div>
-        
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={handleSubmit} disabled={!webhookSecret || isSubmitting}>
-            {isSubmitting ? 'Saving...' : 'Save'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold">Stripe Webhook Setup</h2>
+      
+      <div className="text-sm text-gray-600">
+        <p>To complete Stripe integration, you need to set up a webhook to notify your application when payments are completed.</p>
+        <ol className="list-decimal list-inside space-y-1 mt-2">
+          <li>Go to your <a href="https://dashboard.stripe.com/webhooks" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Stripe Dashboard</a> and create a new webhook</li>
+          <li>Set the endpoint URL to: <code className="bg-gray-100 px-1.5 py-0.5 rounded">https://kgtfpuvksmqyaraijoal.supabase.co/functions/v1/stripe-webhook</code></li>
+          <li>Select the event <code className="bg-gray-100 px-1.5 py-0.5 rounded">checkout.session.completed</code></li>
+          <li>Once created, copy the signing secret and paste it below</li>
+        </ol>
+      </div>
+      
+      <div className="flex gap-2">
+        <Input
+          value={webhookSecret}
+          onChange={(e) => setWebhookSecret(e.target.value)}
+          placeholder="Webhook signing secret (whsec_...)"
+          className="flex-1"
+          type="password"
+        />
+        <Button 
+          onClick={handleSubmit} 
+          disabled={isSubmitting || !webhookSecret.trim()}
+        >
+          {isSubmitting ? 'Saving...' : 'Save Secret'}
+        </Button>
+      </div>
+      
+      {status === 'success' && (
+        <Alert className="bg-green-50 text-green-800 border-green-200">
+          <CheckCircle2 className="h-4 w-4" />
+          <AlertTitle>Success!</AlertTitle>
+          <AlertDescription>
+            Webhook secret saved successfully. Your Stripe integration is now complete.
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {status === 'error' && (
+        <Alert className="bg-red-50 text-red-800 border-red-200">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error!</AlertTitle>
+          <AlertDescription>
+            {errorMessage}
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
   );
 };
+
+export default StripeSetup;

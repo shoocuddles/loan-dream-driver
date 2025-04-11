@@ -6,7 +6,7 @@ const Header = () => {
   return (
     <header className="bg-ontario-blue text-white py-4 shadow-md">
       <div className="container mx-auto flex justify-between items-center px-4 md:px-0">
-        <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity pl-[100px]">
+        <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity pl-[75px]">
           <img 
             src="/lovable-uploads/06403d44-3c3b-4d15-9e8d-a397fdfb1c97.png" 
             alt="Ontario Loans Logo" 

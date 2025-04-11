@@ -211,11 +211,12 @@ const DealerDashboard = () => {
       console.log('Loaded applications with lock info:', appsData.map(app => ({
         id: app.applicationId,
         lockInfo: app.lockInfo,
-        isDownloaded: app.isDownloaded
+        isDownloaded: app.isDownloaded,
+        isPurchased: app.isPurchased
       })));
       
       const filteredApps = appsData.filter(app => 
-        !purchasedApplicationIds.includes(app.applicationId)
+        !app.isPurchased && !purchasedApplicationIds.includes(app.applicationId)
       );
       
       const hiddenAppIds = hiddenApplications.map(app => app.applicationId);
@@ -223,10 +224,6 @@ const DealerDashboard = () => {
       
       setApplications(visibleApps);
       
-      if (!Array.isArray(downloadedData)) {
-        console.error("Downloaded applications data is not an array:", downloadedData);
-        toast.error("Error loading downloaded applications data");
-      }
     } catch (error) {
       console.error("Error loading data:", error);
       toast.error("Failed to load data. Please try again.");

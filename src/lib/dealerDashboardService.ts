@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationItem, LockType, LockInfo, DownloadedApplication, DealerPurchase } from '@/lib/types/dealer-dashboard';
 import { formatDistanceToNow, parseISO, differenceInDays } from 'date-fns';
@@ -7,8 +6,8 @@ import { toast } from 'sonner';
 export const fetchApplications = async (dealerId: string): Promise<ApplicationItem[]> => {
   try {
     // Fetch applications for the dealer
-    const { data, error } = await supabase.rpc('get_applications_for_dealer', {
-      p_dealer_id: dealerId
+    const { data, error } = await supabase.functions.invoke('get-applications-for-dealer', {
+      body: { dealerId }
     });
 
     if (error) throw error;
@@ -35,10 +34,11 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
         standardPrice: app.standardPrice || 0,
         discountedPrice: app.discountedPrice || 0,
         vehicleType: app.vehicleType || 'N/A',
+        isPurchased: app.isPurchased || false
       };
     });
 
-    // Calculate age-based discounts if settings are provided
+    // Apply age-based discounts if settings are provided
     const { data: settingsData } = await supabase
       .from('system_settings')
       .select('*')
@@ -188,7 +188,7 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
   try {
     console.log(`Fetching downloaded applications for dealer ${dealerId}`);
     
-    // Use the new get_dealer_purchases function
+    // Use get_dealer_purchases RPC function instead of get_dealer_downloads
     const { data, error } = await supabase.rpc('get_dealer_purchases', {
       p_dealer_id: dealerId
     });
@@ -199,6 +199,7 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
     }
     
     if (!data || !Array.isArray(data)) {
+      console.error("Invalid data format returned from get_dealer_purchases:", data);
       return [];
     }
     
@@ -258,7 +259,7 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
         updatedAt: appDetails.updated_at
       };
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching downloaded applications:", error);
     toast.error("Failed to load purchased applications");
     return [];

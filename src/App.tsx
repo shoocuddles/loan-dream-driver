@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import LoadingPage from "@/components/LoadingPage";
+import ContentProtection from "@/components/ContentProtection";
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -71,17 +72,19 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        {isLoading ? (
-          <LoadingPage onLoadComplete={handleLoadingComplete} />
-        ) : (
-          <BrowserRouter>
-            <AuthProvider>
-              <AppRoutes />
-            </AuthProvider>
-          </BrowserRouter>
-        )}
+        <ContentProtection>
+          <Toaster />
+          <Sonner />
+          {isLoading ? (
+            <LoadingPage onLoadComplete={handleLoadingComplete} />
+          ) : (
+            <BrowserRouter>
+              <AuthProvider>
+                <AppRoutes />
+              </AuthProvider>
+            </BrowserRouter>
+          )}
+        </ContentProtection>
       </TooltipProvider>
     </QueryClientProvider>
   );

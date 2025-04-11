@@ -23,6 +23,7 @@ import {
 } from "@/lib/supabase";
 import { isValid, parseISO, format } from 'date-fns';
 import DownloadOptions from "@/components/application-table/DownloadOptions";
+import CsvUploader from "@/components/CsvUploader";
 
 interface ApplicationItem {
   applicationId: string;
@@ -137,6 +138,11 @@ const AdminDashboard = () => {
     });
   };
 
+  const handleUploadSuccess = (count: number) => {
+    // Refresh applications list after successful upload
+    loadApplications();
+  };
+
   const applicationColumns: ColumnDef<ApplicationItem>[] = [
     {
       accessorKey: 'submissionDate',
@@ -237,6 +243,7 @@ const AdminDashboard = () => {
               <TabsTrigger value="applications">Applications</TabsTrigger>
               <TabsTrigger value="purchases">Dealer Purchases</TabsTrigger>
               <TabsTrigger value="dealers">Dealer Management</TabsTrigger>
+              <TabsTrigger value="upload">Upload Apps</TabsTrigger>
               <TabsTrigger value="settings">System Settings</TabsTrigger>
               <TabsTrigger value="stripe">Stripe Integration</TabsTrigger>
               <TabsTrigger value="company-pricing">Company Pricing</TabsTrigger>
@@ -261,6 +268,13 @@ const AdminDashboard = () => {
             
             <TabsContent value="dealers" className="h-full">
               <DealerManagement />
+            </TabsContent>
+            
+            <TabsContent value="upload">
+              <div className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold mb-6">Upload Applications</h2>
+                <CsvUploader onSuccess={handleUploadSuccess} />
+              </div>
             </TabsContent>
             
             <TabsContent value="settings">

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useAuth } from '@/hooks/use-auth';
@@ -12,6 +13,7 @@ import DealerProfile from '@/components/DealerProfile';
 import PaymentSettings from '@/components/PaymentSettings';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import ApplicationDetails from '@/components/ApplicationDetails';
+import DealerInvoices from '@/components/DealerInvoices';
 import { useSearchParams } from 'react-router-dom';
 import { 
   fetchAvailableApplications,
@@ -93,7 +95,7 @@ const DealerDashboard = () => {
             console.error("Error completing purchase:", result.error);
             toast.error("There was an issue processing your payment confirmation. Please contact support.");
           } else {
-            toast.success("Payment processed successfully. Your applications are now available.");
+            toast.success("Payment processed successfully. Your applications are now available in the Purchased tab.");
             await loadData();
           }
         } catch (error) {
@@ -103,7 +105,7 @@ const DealerDashboard = () => {
           toast.dismiss();
         }
       } else if (paymentSuccess) {
-        toast.success("Payment processed successfully. Your applications are now available.");
+        toast.success("Payment processed successfully. Your applications are now available in the Purchased tab.");
         await loadData();
       } else if (paymentCancelled) {
         toast.info("Payment was cancelled. You can try again when you're ready.");
@@ -130,15 +132,30 @@ const DealerDashboard = () => {
     setIsLoadingDownloaded(true);
     
     try {
+      // First load downloaded applications to check against available ones
+      const downloadedData = await fetchDownloadedApplications();
+      const downloadedAppsList = Array.isArray(downloadedData) ? downloadedData : [];
+      setDownloadedApps(downloadedAppsList);
+      
+      // Extract the application IDs that this dealer has already purchased
+      const purchasedAppIds = downloadedAppsList.map(app => app.applicationId);
+      console.log('Downloaded application IDs:', purchasedAppIds);
+      
+      // Then load available applications
       const appsData = await fetchAvailableApplications();
       console.log('Loaded applications with lock info:', appsData.map(app => ({
         id: app.applicationId,
-        lockInfo: app.lockInfo
+        lockInfo: app.lockInfo,
+        isDownloaded: purchasedAppIds.includes(app.applicationId)
       })));
-      setApplications(appsData);
-
-      const downloadedData = await fetchDownloadedApplications();
-      setDownloadedApps(Array.isArray(downloadedData) ? downloadedData : []);
+      
+      // Update the isDownloaded flag for all applications based on what was already downloaded
+      const updatedApps = appsData.map(app => ({
+        ...app,
+        isDownloaded: purchasedAppIds.includes(app.applicationId)
+      }));
+      
+      setApplications(updatedApps);
       
       if (!Array.isArray(downloadedData)) {
         console.error("Downloaded applications data is not an array:", downloadedData);
@@ -237,21 +254,30 @@ const DealerDashboard = () => {
     try {
       setProcessingId(applicationId);
       
+      // Check if the application has already been downloaded
       const isDownloaded = Array.isArray(downloadedApps) && downloadedApps.some(app => app.applicationId === applicationId);
       
-      if (!isDownloaded) {
+      if (isDownloaded) {
+        console.log('This application has already been purchased, showing it for free');
+        toast.success("Application is already purchased and available for viewing");
+        
+        // Navigate to downloaded applications tab or show the application details
+        // You can choose to implement this differently based on your UX preference
+        const downloadedApp = downloadedApps.find(app => app.applicationId === applicationId);
+        if (downloadedApp) {
+          handleViewDetails(downloadedApp);
+        }
+      } else {
+        // Not downloaded yet, proceed with payment
         setPendingAction({
           type: 'download',
           applicationIds: [applicationId]
         });
         setShowPaymentDialog(true);
-        return;
       }
-      
-      toast.success("Application is available for viewing");
     } catch (error: any) {
-      console.error("Error downloading application:", error);
-      toast.error("An error occurred while downloading the application.");
+      console.error("Error handling application download:", error);
+      toast.error("An error occurred while processing the application.");
     } finally {
       setProcessingId(null);
     }
@@ -384,6 +410,7 @@ const DealerDashboard = () => {
       return [];
     }
     
+    // Filter out applications that have already been downloaded
     return selectedApplications.filter(id => 
       !downloadedApps.some(app => app.applicationId === id)
     );
@@ -527,6 +554,7 @@ const DealerDashboard = () => {
       }
       profile={<DealerProfile />}
       payment={<PaymentSettings />}
+      invoices={<DealerInvoices />}
     />
   );
 };

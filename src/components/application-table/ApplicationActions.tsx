@@ -1,9 +1,23 @@
 
-import { Button } from '@/components/ui/button';
-import { ApplicationItem, LockType } from '@/lib/types/dealer-dashboard';
-import { Eye, Lock, Unlock, Download } from 'lucide-react';
 import { useState } from 'react';
-import DownloadOptions from './DownloadOptions';
+import { Button } from '@/components/ui/button';
+import { 
+  MoreHorizontal, 
+  Download, 
+  Search, 
+  Lock, 
+  Unlock,
+  Calendar
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ApplicationItem, LockType } from '@/lib/types/dealer-dashboard';
 
 interface LockOption {
   id: number;
@@ -22,7 +36,7 @@ interface ApplicationActionsProps {
   lockOptions: LockOption[];
 }
 
-export const ApplicationActions = ({
+export function ApplicationActions({
   application,
   onViewDetails,
   onLock,
@@ -30,95 +44,87 @@ export const ApplicationActions = ({
   onDownload,
   processingId,
   lockOptions
-}: ApplicationActionsProps) => {
+}: ApplicationActionsProps) {
   const [showLockOptions, setShowLockOptions] = useState(false);
-
-  const handleToggleLockOptions = () => {
-    setShowLockOptions(prev => !prev);
-  };
-
-  const handleLock = (lockType: LockType) => {
-    onLock(application.applicationId, lockType);
-    setShowLockOptions(false);
-  };
-
-  const isProcessing = processingId === application.applicationId;
+  
   const isLocked = application.lockInfo?.isLocked;
   const isOwnLock = application.lockInfo?.isOwnLock;
-  const canDownload = !isProcessing && (!isLocked || isOwnLock);
-  const isDownloaded = application.isDownloaded;
+  const isProcessing = processingId === application.applicationId;
+  const isAlreadyDownloaded = application.isDownloaded;
 
   return (
-    <div className="flex items-center justify-end gap-2">
+    <div className="flex gap-2 justify-end">
       <Button
-        variant="ghost"
-        size="icon"
+        size="sm"
+        variant="outline"
         onClick={() => onViewDetails(application)}
-        title="View Details"
       >
-        <Eye className="h-4 w-4" />
+        <Search className="h-4 w-4" />
       </Button>
-      
+
       {isLocked && isOwnLock ? (
-        <Button
-          variant="ghost"
-          size="icon"
+        <Button 
+          size="sm"
+          variant="outline"
           onClick={() => onUnlock(application.applicationId)}
           disabled={isProcessing}
-          title="Unlock Application"
         >
           <Unlock className="h-4 w-4" />
         </Button>
       ) : !isLocked && (
-        <div className="relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleToggleLockOptions}
-            disabled={isProcessing}
-            title="Lock Application"
-          >
-            <Lock className="h-4 w-4" />
-          </Button>
-          
-          {showLockOptions && (
-            <div className="absolute right-0 mt-1 bg-white shadow-lg rounded-md border border-gray-200 z-10 w-64 py-1">
-              <div className="px-4 py-2 bg-blue-50 text-xs text-blue-700 border-b border-blue-100">
-                Lock this application to avoid other dealers being able to view. 24-hr lockout period automatic for every download.
-              </div>
-              {lockOptions.map(option => (
-                <button
-                  key={option.id}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex justify-between"
-                  onClick={() => handleLock(option.type)}
-                >
-                  <span>{option.name}</span>
-                  <span className="font-medium">${option.fee.toFixed(2)}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <DropdownMenu open={showLockOptions} onOpenChange={setShowLockOptions}>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              size="sm"
+              variant="outline"
+              disabled={isProcessing}
+            >
+              <Lock className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Lock Options</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => {
+              onLock(application.applicationId, 'temporary');
+              setShowLockOptions(false);
+            }}>
+              <Calendar className="h-4 w-4 mr-2" />
+              Temporary Lock (Free)
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {lockOptions.map(option => (
+              <DropdownMenuItem 
+                key={option.id}
+                onClick={() => {
+                  onLock(application.applicationId, option.type);
+                  setShowLockOptions(false);
+                }}
+              >
+                <Lock className="h-4 w-4 mr-2" />
+                {option.name} (${option.fee.toFixed(2)})
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
-      
-      {isDownloaded ? (
-        <DownloadOptions 
-          applicationIds={[application.applicationId]}
-          isProcessing={isProcessing}
-          variant="ghost"
-          size="icon"
-        />
-      ) : (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onDownload(application.applicationId)}
-          disabled={!canDownload}
-          title="Download Application"
-        >
-          <Download className="h-4 w-4" />
-        </Button>
-      )}
+
+      <Button
+        size="sm"
+        className={isAlreadyDownloaded ? "bg-green-600 hover:bg-green-700" : ""}
+        disabled={isProcessing || (isLocked && !isOwnLock)}
+        onClick={() => onDownload(application.applicationId)}
+      >
+        <Download className="h-4 w-4 mr-2" />
+        {isProcessing ? (
+          "Processing..."
+        ) : isAlreadyDownloaded ? (
+          "View (Free)"
+        ) : isLocked ? (
+          isOwnLock ? "Download" : "Locked"
+        ) : (
+          "Purchase"
+        )}
+      </Button>
     </div>
   );
-};
+}

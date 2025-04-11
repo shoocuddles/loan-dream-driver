@@ -103,7 +103,7 @@ async function handleSuccessfulPayment(session, supabase) {
     try {
       console.log(`Processing application ${appId}`);
       
-      // Record the download
+      // Record the download immediately to ensure this dealer has permanent access
       const { data: downloadData, error: downloadError } = await supabase
         .from('application_downloads')
         .insert({
@@ -122,9 +122,25 @@ async function handleSuccessfulPayment(session, supabase) {
       
       console.log(`Successfully recorded download: ${downloadData.id}`);
       
-      // Apply automatic lock (1 hour)
+      // Apply automatic lock (default 24 hours)
       const lockExpiry = new Date();
-      lockExpiry.setHours(lockExpiry.getHours() + lockHours);
+      lockExpiry.setHours(lockExpiry.getHours() + 24); // Always use 24 hours for temp locks after purchase
+      
+      // Check for any existing active locks by this dealer
+      const { data: existingLocks } = await supabase
+        .from('application_locks')
+        .select('*')
+        .eq('application_id', appId)
+        .eq('dealer_id', dealerId)
+        .gt('expires_at', new Date().toISOString())
+        .order('expires_at', { ascending: false })
+        .limit(1);
+      
+      // If there's already an active lock by this dealer, don't create a new one
+      if (existingLocks && existingLocks.length > 0) {
+        console.log(`Dealer already has an active lock on application ${appId}, skipping lock creation`);
+        continue;
+      }
       
       const { data: lockData, error: lockError } = await supabase
         .from('application_locks')

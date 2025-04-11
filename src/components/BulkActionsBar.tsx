@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Lock, Download, ShoppingCart, X } from 'lucide-react';
+import { Lock, Download, ShoppingCart, X, EyeOff } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +35,7 @@ interface BulkActionsBarProps {
   selectedApplicationIds: string[];
   onPurchaseSelected: () => Promise<void>;
   allDownloaded?: boolean;
+  onBulkHide?: () => Promise<void>;
 }
 
 const BulkActionsBar = ({
@@ -47,7 +48,8 @@ const BulkActionsBar = ({
   totalPurchaseCost,
   selectedApplicationIds,
   onPurchaseSelected,
-  allDownloaded = false
+  allDownloaded = false,
+  onBulkHide
 }: BulkActionsBarProps) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [showPurchaseAlert, setShowPurchaseAlert] = useState(false);
@@ -92,6 +94,20 @@ const BulkActionsBar = ({
             <X className="mr-1 h-4 w-4" />
             Clear
           </Button>
+
+          {/* Add Hide button */}
+          {selectedCount > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-[#FEF7CD] border-amber-200 hover:bg-amber-100"
+              onClick={onBulkHide}
+              disabled={isProcessing}
+            >
+              <EyeOff className="mr-1 h-4 w-4" />
+              Hide
+            </Button>
+          )}
           
           {/* Show Lock button for purchased applications */}
           {(unpurchasedCount === 0 || allDownloaded) && (

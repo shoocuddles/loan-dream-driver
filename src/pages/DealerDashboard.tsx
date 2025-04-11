@@ -434,6 +434,20 @@ const DealerDashboard = () => {
     toast.success("Application unhidden successfully");
   };
 
+  const handleBulkHide = async (): Promise<void> => {
+    if (selectedApplications.length === 0) return;
+
+    const appsToHide = applications.filter(app => selectedApplications.includes(app.applicationId));
+    
+    setHiddenApplications(prev => [...prev, ...appsToHide]);
+    
+    setApplications(prev => prev.filter(app => !selectedApplications.includes(app.applicationId)));
+    
+    setSelectedApplications([]);
+    
+    toast.success(`${appsToHide.length} application(s) hidden successfully`);
+  };
+
   const handlePurchase = async (applicationId: string): Promise<void> => {
     await handleDownload(applicationId);
   };
@@ -672,6 +686,7 @@ const DealerDashboard = () => {
                     totalPurchaseCost={calculateTotalPurchaseCost(getUnpurchasedApplications())}
                     onPurchaseSelected={handleBulkPurchase}
                     allDownloaded={areAllSelectedDownloaded()}
+                    onBulkHide={handleBulkHide}
                   />
                 </TabsContent>
                 

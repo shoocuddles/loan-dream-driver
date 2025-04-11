@@ -122,7 +122,6 @@ export const createColumns = ({
         const application = row.original;
         const price = getPrice(application, ageDiscountSettings);
         
-        // Determine if there's a discount and what type
         let isDiscounted = false;
         let discountReason = "";
         
@@ -223,16 +222,6 @@ export const createColumns = ({
                   onClick={() => onViewDetails(application)}
                 >
                   View Details
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onHideApplication(application.applicationId)}
-                  className="bg-[#FEF7CD] border-amber-200 hover:bg-amber-100"
-                  disabled={processingId === application.applicationId}
-                >
-                  <EyeOff className="h-4 w-4 mr-1" />
-                  Hide
                 </Button>
                 <Button
                   variant="success"

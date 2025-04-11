@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import {
   ColumnDef,
@@ -19,18 +20,19 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { DotsHorizontalIcon } from "@radix-ui/react-icons"
+} from "@/components/ui/dropdown-menu";
+import { DotsHorizontalIcon } from "@radix-ui/react-icons";
 import { StatusBadge, LockStatusBadge, DownloadStatusBadge } from './StatusBadge';
-import { Checkbox } from "@/components/ui/checkbox"
+import { Checkbox } from "@/components/ui/checkbox";
 import { ApplicationItem } from '@/lib/types/dealer-dashboard';
 import { LockType } from '@/lib/types/dealer-dashboard';
 import { AgeDiscountSettings, getPrice } from './priceUtils';
@@ -331,7 +333,6 @@ const ApplicationTable = ({
                                   className="h-4 w-4"
                                 >
                                   <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
                                 </svg>,
                               desc:
                                 <svg
@@ -347,166 +348,94 @@ const ApplicationTable = ({
                                   className="h-4 w-4"
                                 >
                                   <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
-                                  <path
+                                </svg>
+                            }[header.column.getIsSorted() as string] ?? null}
+                          </div>
+                        )}
+                    </TableHead>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-24 text-center">
+                  {isLoading ? (
+                    <div className="flex justify-center">
+                      <svg
+                        className="animate-spin h-5 w-5 text-gray-400"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                    </div>
+                  ) : (
+                    "No applications found"
+                  )}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      <div className="flex items-center justify-end space-x-2 py-4">
+        <div className="flex-1 text-sm text-muted-foreground">
+          {selectedApplications.length > 0 && (
+            <span>
+              {selectedApplications.length} of {table.getFilteredRowModel().rows.length} row(s) selected.
+            </span>
+          )}
+        </div>
+        <div className="space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ApplicationTable;

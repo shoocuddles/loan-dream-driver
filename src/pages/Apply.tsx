@@ -61,7 +61,21 @@ const Apply = () => {
         console.error("Failed to recover offline submission:", err);
       });
     }
-  }, []);
+    
+    // Add a warning about the 10-minute timeout
+    if (!submissionComplete) {
+      toast.info(
+        "Please complete your application within 10 minutes. After that, it will be automatically submitted.",
+        {
+          duration: 10000,
+          action: {
+            label: "Got it",
+            onClick: () => {}
+          }
+        }
+      );
+    }
+  }, [submissionComplete]);
 
   const renderStep = () => {
     switch (currentStep) {

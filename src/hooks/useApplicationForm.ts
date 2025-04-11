@@ -39,6 +39,9 @@ const initialFormState: ApplicationForm = {
   additionalNotes: ""
 };
 
+// 10 minutes in milliseconds
+const INACTIVITY_TIMEOUT = 10 * 60 * 1000;
+
 export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<ApplicationForm>(initialFormState);
@@ -50,6 +53,7 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
   const finalSubmissionInProgress = useRef(false);
   const applicationSubmitted = useRef(false);
   const submissionAttempts = useRef(0);
+  const inactivityTimer = useRef<number | null>(null);
   
   const { draftId, isSavingProgress, saveDraft, clearDraft } = useApplicationDraft(initialFormState);
 
@@ -64,12 +68,96 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
         console.error("❌ Error parsing saved draft data:", err);
       }
     }
+    
+    // Initialize the inactivity timer
+    resetInactivityTimer();
+    
+    // Cleanup timer on unmount
+    return () => {
+      if (inactivityTimer.current) {
+        clearTimeout(inactivityTimer.current);
+      }
+    };
   }, []);
+  
+  // Reset the inactivity timer whenever there's user activity
+  const resetInactivityTimer = () => {
+    if (inactivityTimer.current) {
+      clearTimeout(inactivityTimer.current);
+    }
+    
+    // Only set timer if we have a draft and haven't submitted yet
+    if (draftId && !applicationSubmitted.current) {
+      inactivityTimer.current = window.setTimeout(() => {
+        console.log("⏰ Application inactivity timeout reached (10 minutes)");
+        if (!applicationSubmitted.current) {
+          toast.info("Your application has been automatically submitted due to inactivity");
+          uiToast({
+            title: "Application Submitted",
+            description: "Your application has been automatically submitted as you haven't completed it within 10 minutes.",
+            variant: "default",
+          });
+          
+          // Auto-submit the application
+          autoSubmitApplication();
+        }
+      }, INACTIVITY_TIMEOUT);
+    }
+  };
+  
+  // Function to automatically submit the application after timeout
+  const autoSubmitApplication = async () => {
+    try {
+      // Don't proceed if application is already submitted
+      if (applicationSubmitted.current) {
+        return;
+      }
+      
+      setIsSubmitting(true);
+      finalSubmissionInProgress.current = true;
+      
+      console.log("Auto-submitting application after inactivity timeout");
+      
+      const applicationToSubmit = draftId ? { ...formData, applicationId: draftId } : formData;
+      
+      // Call submitApplicationToSupabase with isDraft=false for final submission
+      const result = await submitApplicationToSupabase(applicationToSubmit, false);
+      
+      if (result) {
+        applicationSubmitted.current = true;
+        setSubmittedData(result);
+        setSubmissionComplete(true);
+        
+        // Clear draft after successful submission
+        clearDraft();
+        
+        // Move to confirmation step
+        setCurrentStep(5);
+        window.scrollTo(0, 0);
+      }
+    } catch (error: any) {
+      console.error("❌ Error during auto-submission:", error);
+      setError(`Auto-submission error: ${error.message || 'Unknown error'}`);
+      
+      toast.error("There was a problem automatically submitting your application.");
+      uiToast({
+        title: "Submission Error",
+        description: "There was a problem automatically submitting your application.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+      finalSubmissionInProgress.current = false;
+    }
+  };
 
   const nextStep = () => {
     localStorage.setItem('applicationDraft', JSON.stringify(formData));
     setCurrentStep(currentStep + 1);
     window.scrollTo(0, 0);
+    
+    // Reset the inactivity timer on navigation
+    resetInactivityTimer();
     
     if (applicationSubmitted.current) {
       console.log("⚠️ Skipping nextStep auto-save: Application already submitted");
@@ -96,6 +184,9 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
   const prevStep = () => {
     setCurrentStep(currentStep - 1);
     window.scrollTo(0, 0);
+    
+    // Reset the inactivity timer on navigation
+    resetInactivityTimer();
   };
 
   const updateFormData = (data: Partial<ApplicationForm>) => {
@@ -104,11 +195,17 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
       return;
     }
     
+    // Reset the inactivity timer on form updates
+    resetInactivityTimer();
+    
     setFormData(prev => ({ ...prev, ...data }));
   };
 
   // For updating already submitted application
   const updateSubmittedApplication = async (updatedData: Partial<ApplicationForm>) => {
+    // Reset the inactivity timer on form updates
+    resetInactivityTimer();
+    
     if (!submittedData || !submittedData.id) {
       console.error("❌ Cannot update: No submitted application data available");
       uiToast({
@@ -170,6 +267,12 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
     try {
       console.log("Final submit called, marking application as complete");
       console.log("Form data being submitted:", formData);
+      
+      // Clear the inactivity timer when manually submitting
+      if (inactivityTimer.current) {
+        clearTimeout(inactivityTimer.current);
+        inactivityTimer.current = null;
+      }
       
       setIsSubmitting(true);
       setError(null);

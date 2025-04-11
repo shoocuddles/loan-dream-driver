@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { DealerPurchase } from '@/lib/types/dealer-dashboard';
 import { toast } from 'sonner';
@@ -10,9 +9,25 @@ export const fetchDealerPurchases = async (dealerId: string): Promise<DealerPurc
   try {
     console.log(`Fetching purchases for dealer ${dealerId}`);
     
-    const { data, error } = await supabase.rpc('get_dealer_purchases', {
-      p_dealer_id: dealerId
-    });
+    // Use direct table query instead of RPC function to avoid the GROUP BY issue
+    const { data, error } = await supabase
+      .from('dealer_purchases')
+      .select(`
+        id, 
+        application_id, 
+        payment_id,
+        payment_amount,
+        purchase_date,
+        downloaded_at,
+        download_count,
+        stripe_session_id,
+        discount_applied,
+        discount_type,
+        discount_amount
+      `)
+      .eq('dealer_id', dealerId)
+      .eq('is_active', true)
+      .order('purchase_date', { ascending: false });
     
     if (error) {
       console.error('Error fetching dealer purchases:', error);
@@ -20,12 +35,25 @@ export const fetchDealerPurchases = async (dealerId: string): Promise<DealerPurc
     }
     
     if (!data || !Array.isArray(data)) {
-      console.error('Invalid data format returned from get_dealer_purchases:', data);
+      console.error('Invalid data format returned from dealer_purchases query:', data);
       return [];
     }
     
     console.log(`Retrieved ${data.length} dealer purchases from database`);
-    return data;
+    
+    // Transform to match the DealerPurchase interface
+    return data.map(purchase => ({
+      id: purchase.id,
+      applicationId: purchase.application_id,
+      purchaseDate: purchase.purchase_date,
+      paymentId: purchase.payment_id,
+      paymentAmount: purchase.payment_amount,
+      downloadedAt: purchase.downloaded_at,
+      downloadCount: purchase.download_count,
+      discountApplied: purchase.discount_applied || false,
+      discountType: purchase.discount_type,
+      discountAmount: purchase.discount_amount
+    }));
   } catch (error: any) {
     console.error('❌ Error fetching dealer purchases:', error.message);
     toast.error('Failed to load your purchases');

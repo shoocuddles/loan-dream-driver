@@ -199,13 +199,13 @@ const DealerDashboard = () => {
       await loadPurchasedApplicationIds();
       
       const downloadedData = await fetchDownloadedApplications(user?.id || '');
-      console.log('Downloaded applications data:', downloadedData);
+      console.log('Downloaded applications data:', downloadedData && Array.isArray(downloadedData) ? downloadedData.length : 0);
       
       const downloadedAppsList = Array.isArray(downloadedData) ? downloadedData : [];
       setDownloadedApps(downloadedAppsList);
       
       const downloadedAppIds = downloadedAppsList.map(app => app.applicationId);
-      console.log('Downloaded application IDs:', downloadedAppIds);
+      console.log('Downloaded application IDs:', downloadedAppIds.length);
       
       const appsData = await fetchAvailableApplications(user?.id || '');
       console.log('Loaded applications with lock info:', appsData.map(app => ({

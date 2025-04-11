@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationItem, LockType, LockInfo, DownloadedApplication, DealerPurchase } from '@/lib/types/dealer-dashboard';
 import { formatDistanceToNow, parseISO, differenceInDays } from 'date-fns';
@@ -85,15 +86,18 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
     }
 
     // Fetch dealer purchases to identify which applications have been purchased
-    const { data: purchasesData, error: purchasesError } = await supabase.rpc('get_dealer_purchases', { 
-      p_dealer_id: dealerId 
-    });
+    // Use direct table query instead of RPC function to avoid the GROUP BY issue
+    const { data: purchasesData, error: purchasesError } = await supabase
+      .from('dealer_purchases')
+      .select('application_id')
+      .eq('dealer_id', dealerId)
+      .eq('is_active', true);
     
     if (purchasesError) {
       console.error("Error fetching dealer purchases:", purchasesError);
     } else if (purchasesData && Array.isArray(purchasesData)) {
       // Mark applications as purchased/downloaded
-      const purchasedAppIds = purchasesData.map((purchase: any) => purchase.applicationId);
+      const purchasedAppIds = purchasesData.map(purchase => purchase.application_id);
       console.log(`Dealer has ${purchasedAppIds.length} purchased applications`);
       
       applications.forEach(app => {
@@ -188,29 +192,35 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
   try {
     console.log(`Fetching downloaded applications for dealer ${dealerId}`);
     
-    // Use get_dealer_purchases RPC function instead of get_dealer_downloads
-    const { data, error } = await supabase.rpc('get_dealer_purchases', {
-      p_dealer_id: dealerId
-    });
+    // First, get the purchases directly from the dealer_purchases table
+    const { data: purchasesData, error: purchasesError } = await supabase
+      .from('dealer_purchases')
+      .select(`
+        id, 
+        application_id, 
+        payment_id,
+        payment_amount,
+        purchase_date,
+        downloaded_at,
+        download_count
+      `)
+      .eq('dealer_id', dealerId)
+      .eq('is_active', true)
+      .order('purchase_date', { ascending: false });
     
-    if (error) {
-      console.error("Error fetching dealer purchases:", error);
-      throw error;
+    if (purchasesError) {
+      console.error("Error fetching dealer purchases:", purchasesError);
+      throw purchasesError;
     }
     
-    if (!data || !Array.isArray(data)) {
-      console.error("Invalid data format returned from get_dealer_purchases:", data);
+    console.log(`Retrieved ${purchasesData?.length || 0} purchased applications from database`);
+    
+    if (!purchasesData || purchasesData.length === 0) {
       return [];
     }
-    
-    console.log(`Retrieved ${data.length} purchased applications from database`);
     
     // Fetch full application details for each purchased application
-    const applicationIds = data.map((purchase: any) => purchase.applicationId);
-    
-    if (applicationIds.length === 0) {
-      return [];
-    }
+    const applicationIds = purchasesData.map(purchase => purchase.application_id);
     
     const { data: applicationsData, error: applicationsError } = await supabase
       .from('applications')
@@ -223,16 +233,16 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
     }
     
     // Map purchases to application details
-    return data.map((purchase: any) => {
-      const appDetails = applicationsData?.find((app: any) => app.id === purchase.applicationId) || {};
+    return purchasesData.map(purchase => {
+      const appDetails = applicationsData?.find(app => app.id === purchase.application_id) || {};
       
       return {
         id: purchase.id,
         purchaseId: purchase.id,
-        applicationId: purchase.applicationId,
-        downloadDate: purchase.downloadedAt || purchase.purchaseDate,
-        purchaseDate: purchase.purchaseDate,
-        paymentAmount: purchase.paymentAmount,
+        applicationId: purchase.application_id,
+        downloadDate: purchase.downloaded_at || purchase.purchase_date,
+        purchaseDate: purchase.purchase_date,
+        paymentAmount: purchase.payment_amount,
         fullName: appDetails.fullname || 'Unknown',
         phoneNumber: appDetails.phonenumber,
         email: appDetails.email,

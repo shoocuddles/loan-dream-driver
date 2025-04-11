@@ -53,8 +53,13 @@ const ApplicationTable = ({
     id: app.applicationId,
     vehicleType: app.vehicleType,
     status: app.status,
-    lockInfo: app.lockInfo
+    lockInfo: app.lockInfo,
+    submissionDate: app.submissionDate
   })));
+
+  if (ageDiscountSettings?.isEnabled) {
+    console.log('Age discount settings:', ageDiscountSettings);
+  }
 
   const columns: ColumnDef<ApplicationItem>[] = [
     {
@@ -95,13 +100,6 @@ const ApplicationTable = ({
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => {
-        // Add detailed logging for status column rendering
-        console.log(`Rendering status for ${row.original.applicationId}:`, {
-          status: row.original.status,
-          lockInfo: row.original.lockInfo,
-          isDownloaded: row.original.isDownloaded
-        });
-        
         return (
           <div className="flex flex-col gap-1">
             <StatusBadge status={row.original.status} />

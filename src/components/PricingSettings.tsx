@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { fetchSystemSettings } from "@/lib/services/settings/settingsService";
+import { fetchSystemSettings, updateSystemSettings } from "@/lib/services/settings/settingsService";
 import { syncPricesToStripe } from "@/lib/services/stripe/stripeService";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -213,26 +212,19 @@ const PricingSettings = () => {
         return;
       }
       
-      // Save settings to database
-      const response = await fetch('/api/settings/system', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          standardPrice,
-          discountedPrice,
-          temporaryLockMinutes,
-          ageDiscountEnabled: state.ageDiscountEnabled,
-          ageDiscountThreshold,
-          ageDiscountPercentage
-        }),
+      // Save settings to Supabase directly instead of using the API
+      const result = await updateSystemSettings({
+        standardPrice,
+        discountedPrice,
+        temporaryLockMinutes,
+        ageDiscountEnabled: state.ageDiscountEnabled,
+        ageDiscountThreshold,
+        ageDiscountPercentage
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP error ${response.status}`);
+      if (!result) {
+        throw new Error("Failed to update system settings");
       }
-      
-      const result = await response.json();
-      console.log("Update system settings result:", result);
       
       toast({
         title: "Settings Saved",

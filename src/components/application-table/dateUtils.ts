@@ -56,12 +56,23 @@ export const calculateLeadAge = (submissionDate: string): number => {
   try {
     if (!submissionDate) return 0;
     
-    const date = parseISO(submissionDate);
-    if (!isValid(date)) return 0;
+    // Handle numeric values
+    if (!isNaN(Number(submissionDate))) {
+      console.log(`Numeric submission date: ${submissionDate}, treating as new lead`);
+      return 0;
+    }
     
-    return differenceInDays(new Date(), date);
+    const date = parseISO(submissionDate);
+    if (!isValid(date)) {
+      console.log(`Invalid submission date: ${submissionDate}, treating as new lead`);
+      return 0;
+    }
+    
+    const ageInDays = differenceInDays(new Date(), date);
+    console.log(`Lead age calculation: ${ageInDays} days (submitted: ${submissionDate})`);
+    return ageInDays;
   } catch (error) {
-    console.error('Error calculating lead age:', error);
+    console.error('Error calculating lead age:', error, 'for date:', submissionDate);
     return 0;
   }
 };

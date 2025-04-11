@@ -21,9 +21,13 @@ export const getPrice = (application: ApplicationItem, ageDiscountSettings?: Age
     application.discountedPrice : 
     application.standardPrice;
   
+  // Reset the flag in case it was previously set
+  application.isAgeDiscounted = false;
+  
   // Calculate age-based discount if enabled
   if (ageDiscountSettings?.isEnabled && basePrice) {
     const leadAge = calculateLeadAge(application.submissionDate);
+    console.log(`Lead age for ${application.fullName}: ${leadAge} days`);
     
     if (leadAge >= ageDiscountSettings.daysThreshold) {
       const discountMultiplier = (100 - ageDiscountSettings.discountPercentage) / 100;

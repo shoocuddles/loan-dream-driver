@@ -13,6 +13,7 @@ import { StatusBadge, LockStatusBadge } from './StatusBadge';
 import { getPrice } from './priceUtils';
 import { AgeDiscountSettings } from './priceUtils';
 import { safeFormatDate } from './dateUtils';
+import { EyeOff } from 'lucide-react';
 
 interface CreateColumnsProps {
   selectedApplications: string[];
@@ -222,6 +223,16 @@ export const createColumns = ({
                   onClick={() => onViewDetails(application)}
                 >
                   View Details
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onHideApplication(application.applicationId)}
+                  className="bg-[#FEF7CD] border-amber-200 hover:bg-amber-100"
+                  disabled={processingId === application.applicationId}
+                >
+                  <EyeOff className="h-4 w-4 mr-1" />
+                  Hide
                 </Button>
                 <Button
                   variant="success"

@@ -192,7 +192,24 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
   try {
     console.log(`Fetching downloaded applications for dealer ${dealerId}`);
     
-    // First, get the purchases directly from the dealer_purchases table
+    // First attempt to get data via the RPC function
+    const { data: rpcData, error: rpcError } = await supabase
+      .rpc('get_dealer_downloads', {
+        p_dealer_id: dealerId
+      });
+    
+    if (rpcError) {
+      console.error("Error fetching from RPC function:", rpcError);
+      // Fall back to direct query approach
+    } else if (rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
+      console.log(`Retrieved ${rpcData.length} downloaded applications from RPC function`);
+      return rpcData as DownloadedApplication[];
+    }
+    
+    // If RPC approach failed, try direct table queries
+    console.log("Falling back to direct table queries");
+    
+    // Get purchase records
     const { data: purchasesData, error: purchasesError } = await supabase
       .from('dealer_purchases')
       .select(`
@@ -219,60 +236,65 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
       return [];
     }
     
-    // Fetch full application details for each purchased application
-    const applicationIds = purchasesData.map(purchase => purchase.application_id);
+    // For each purchase, get the application details from the RPC function
+    // that has the proper security context
+    const downloadedApplications: DownloadedApplication[] = await Promise.all(
+      purchasesData.map(async (purchase) => {
+        const { data: appData, error: appError } = await supabase
+          .rpc('get_application_by_id', {
+            p_application_id: purchase.application_id
+          });
+          
+        if (appError) {
+          console.error(`Error fetching application ${purchase.application_id}:`, appError);
+          return {
+            id: purchase.id,
+            applicationId: purchase.application_id,
+            fullName: 'Unknown',
+            downloadDate: purchase.downloaded_at,
+            purchaseDate: purchase.purchase_date
+          };
+        }
+        
+        const app = appData || {};
+        
+        // Create a properly structured DownloadedApplication
+        return {
+          id: purchase.id,
+          purchaseId: purchase.id,
+          applicationId: purchase.application_id,
+          downloadDate: purchase.downloaded_at,
+          purchaseDate: purchase.purchase_date,
+          paymentAmount: purchase.payment_amount,
+          fullName: app.fullname || 'Unknown',
+          phoneNumber: app.phonenumber,
+          email: app.email,
+          address: app.streetaddress,
+          city: app.city,
+          province: app.province,
+          postalCode: app.postalcode,
+          vehicleType: app.vehicletype,
+          requiredFeatures: app.requiredfeatures,
+          unwantedColors: app.unwantedcolors,
+          preferredMakeModel: app.preferredmakemodel,
+          hasExistingLoan: app.hasexistingloan,
+          currentVehicle: app.currentvehicle,
+          currentPayment: app.currentpayment,
+          amountOwed: app.amountowed,
+          mileage: app.mileage,
+          employmentStatus: app.employmentstatus,
+          monthlyIncome: app.monthlyincome,
+          employerName: app.employer_name,
+          jobTitle: app.job_title,
+          employmentDuration: app.employment_duration,
+          additionalNotes: app.additionalnotes,
+          createdAt: app.created_at,
+          updatedAt: app.updated_at
+        } as DownloadedApplication;
+      })
+    );
     
-    const { data: applicationsData, error: applicationsError } = await supabase
-      .from('applications')
-      .select('*')
-      .in('id', applicationIds);
-    
-    if (applicationsError) {
-      console.error("Error fetching application details:", applicationsError);
-      return [];
-    }
-    
-    console.log(`Retrieved ${applicationsData?.length || 0} application details`);
-    
-    // Map purchases to application details
-    const downloadedApplications: DownloadedApplication[] = purchasesData.map(purchase => {
-      const appDetails = applicationsData?.find(app => app.id === purchase.application_id) || {};
-      
-      return {
-        id: purchase.id,
-        purchaseId: purchase.id,
-        applicationId: purchase.application_id,
-        downloadDate: purchase.downloaded_at || purchase.purchase_date,
-        purchaseDate: purchase.purchase_date,
-        paymentAmount: purchase.payment_amount,
-        fullName: appDetails.fullname || 'Unknown',
-        phoneNumber: appDetails.phonenumber,
-        email: appDetails.email,
-        address: appDetails.streetaddress,
-        city: appDetails.city,
-        province: appDetails.province,
-        postalCode: appDetails.postalcode,
-        vehicleType: appDetails.vehicletype,
-        requiredFeatures: appDetails.requiredfeatures,
-        unwantedColors: appDetails.unwantedcolors,
-        preferredMakeModel: appDetails.preferredmakemodel,
-        hasExistingLoan: appDetails.hasexistingloan,
-        currentVehicle: appDetails.currentvehicle,
-        currentPayment: appDetails.currentpayment,
-        amountOwed: appDetails.amountowed,
-        mileage: appDetails.mileage,
-        employmentStatus: appDetails.employmentstatus,
-        monthlyIncome: appDetails.monthlyincome,
-        employerName: appDetails.employer_name,
-        jobTitle: appDetails.job_title,
-        employmentDuration: appDetails.employment_duration,
-        additionalNotes: appDetails.additionalnotes,
-        createdAt: appDetails.created_at,
-        updatedAt: appDetails.updated_at
-      };
-    });
-    
-    return downloadedApplications;
+    return downloadedApplications.filter(Boolean) as DownloadedApplication[];
   } catch (error: any) {
     console.error("Error fetching downloaded applications:", error);
     toast.error("Failed to load purchased applications");

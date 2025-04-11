@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Application } from '@/lib/types/supabase';
@@ -12,74 +11,13 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
     
     if (!applicationIds.length) return [];
     
-    // Try to fetch directly from applications table first (with ALL fields)
-    const { data: applications, error } = await supabase
-      .from('applications')
-      .select('*')
-      .in('id', applicationIds);
-    
-    // Log raw data from Supabase for debugging purposes
-    console.log('🔍 APPLICATIONS QUERY RESPONSE:', error || 'Success');
-    
-    if (applications && applications.length > 0) {
-      console.log(`✅ Retrieved ${applications.length} applications from applications table`);
-      console.log('🔍 SAMPLE DATA STRUCTURE:', Object.keys(applications[0]));
-      
-      // Log every field from the first application for debugging
-      const app = applications[0];
-      console.log('📄 COMPLETE APPLICATION FIELDS:');
-      Object.keys(app).forEach(key => {
-        console.log(`Field: ${key} | Value: ${JSON.stringify(app[key])} | Type: ${typeof app[key]}`);
-      });
-      
-      return applications;
-    }
-    
-    console.log('🔄 Applications not found in applications table, checking dealer_purchases');
-    
-    // If applications not found directly, try getting through dealer_purchases
-    // Get the current user's ID
+    // Get the current user's ID first
     const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) {
+    if (!userData?.user) {
       throw new Error('User not authenticated');
     }
     
-    // First check if these applications are actually purchased by the dealer
-    const { data: purchasesData } = await supabase
-      .from('dealer_purchases')
-      .select('application_id, purchase_date')
-      .in('application_id', applicationIds)
-      .eq('dealer_id', userData.user.id)
-      .eq('is_active', true);
-    
-    if (purchasesData && purchasesData.length > 0) {
-      console.log(`✅ Found ${purchasesData.length} purchased applications`);
-      
-      // Now try to get the full application details for each purchased application
-      const appDetails = [];
-      for (const purchase of purchasesData) {
-        const { data: appData } = await supabase
-          .from('applications')
-          .select('*')
-          .eq('id', purchase.application_id)
-          .single();
-          
-        if (appData) {
-          appDetails.push({
-            ...appData,
-            purchaseDate: purchase.purchase_date,
-            applicationId: purchase.application_id
-          });
-        }
-      }
-      
-      if (appDetails.length > 0) {
-        console.log(`✅ Retrieved ${appDetails.length} application details from purchases`);
-        return appDetails;
-      }
-    }
-    
-    // Try the RPC function as a fallback
+    // Try the RPC function first as it's the most direct way
     try {
       const { data: downloadedApps, error: downloadError } = await supabase
         .rpc('get_dealer_downloads', {
@@ -87,87 +25,100 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
         });
       
       if (downloadError) {
-        console.error('❌ Error fetching from get_dealer_downloads:', downloadError);
+        console.error('❌ Error fetching from get_dealer_downloads RPC:', downloadError);
       }
       else if (downloadedApps) {
         console.log('✅ Retrieved data from downloads RPC');
-        console.log('📄 Downloaded apps raw data:', downloadedApps);
         
         // The response is now directly a JSON array, no need to parse
         const downloads = Array.isArray(downloadedApps) ? downloadedApps : [downloadedApps];
-        console.log('📄 DOWNLOADS DATA STRUCTURE:', downloads.length > 0 ? Object.keys(downloads[0]) : 'Empty array');
+        console.log('📄 Downloaded apps raw data structure:', downloads.length > 0 ? Object.keys(downloads[0] || {}) : 'Empty array');
         
+        // Filter to just the requested application IDs
         const filteredDownloads = downloads.filter((app: any) => 
           applicationIds.includes(app.applicationId || app.id)
         );
         
         if (filteredDownloads.length > 0) {
-          console.log(`✅ Found ${filteredDownloads.length} matching downloaded applications`);
-          console.log('📄 SAMPLE DOWNLOAD DATA:', filteredDownloads[0]);
-          
-          // With the enhanced SQL function, we now get all application fields directly
+          console.log(`✅ Found ${filteredDownloads.length} matching applications from RPC function`);
           return filteredDownloads as ApplicationData[];
         }
       }
     } catch (error) {
-      console.error('❌ Error in download application fetch:', error);
+      console.error('❌ Error in download application RPC fetch:', error);
     }
     
-    // Fall back to direct join query
-    console.log('🔄 Attempting direct join query');
+    // Fallback: fetch directly from dealer_purchases and applications tables
+    console.log('🔄 Falling back to direct table joins');
     try {
-      // Get purchase records
-      const { data: purchaseRecords } = await supabase
+      // Get purchase records for the requested applications
+      const { data: purchaseRecords, error: purchaseError } = await supabase
         .from('dealer_purchases')
         .select('*')
         .in('application_id', applicationIds)
         .eq('dealer_id', userData.user.id)
         .eq('is_active', true);
       
-      if (purchaseRecords && purchaseRecords.length > 0) {
-        console.log(`✅ Found ${purchaseRecords.length} purchase records`);
-        
-        // For each purchase, fetch the full application
-        const fullData = await Promise.all(
-          purchaseRecords.map(async (record) => {
-            const { data: appDetails } = await supabase
-              .from('applications')
-              .select('*')
-              .eq('id', record.application_id)
-              .single();
-            
-            if (!appDetails) {
-              console.warn(`⚠️ No application details found for ${record.application_id}`);
-              return {
-                id: record.application_id,
-                downloadId: record.id,
-                downloadDate: record.downloaded_at,
-                purchaseDate: record.purchase_date
-              };
-            }
-            
-            // Merge all data from both tables
-            return {
-              ...appDetails,
-              downloadId: record.id,
-              downloadDate: record.downloaded_at,
-              purchaseDate: record.purchase_date,
-              applicationId: record.application_id
-            };
-          })
-        );
-        
-        const validData = fullData.filter(Boolean) as ApplicationData[];
-        console.log(`✅ Processed ${validData.length} applications with purchase data`);
-        return validData;
+      if (purchaseError) {
+        console.error('❌ Error fetching purchase records:', purchaseError);
+        throw purchaseError;
       }
+      
+      if (!purchaseRecords || purchaseRecords.length === 0) {
+        console.warn('⚠️ No purchase records found for application IDs:', applicationIds);
+        return [];
+      }
+      
+      console.log(`✅ Found ${purchaseRecords.length} purchase records`);
+      
+      // Use explicit DB queries to get application details for purchased applications
+      const results = await Promise.all(purchaseRecords.map(async (purchase) => {
+        // For each purchase, explicitly fetch the application with an RPC call 
+        // that has the proper security context
+        const { data: appData, error: appError } = await supabase
+          .rpc('get_application_by_id', {
+            p_application_id: purchase.application_id
+          });
+        
+        if (appError) {
+          console.error(`❌ Error fetching application ${purchase.application_id}:`, appError);
+          return {
+            id: purchase.application_id,
+            applicationId: purchase.application_id,
+            downloadId: purchase.id,
+            downloadDate: purchase.downloaded_at,
+            purchaseDate: purchase.purchase_date
+          };
+        }
+        
+        // Combine purchase and application data
+        const app = appData || {};
+        return {
+          ...app,
+          id: purchase.application_id,
+          applicationId: purchase.application_id,
+          downloadId: purchase.id,
+          downloadDate: purchase.downloaded_at,
+          purchaseDate: purchase.purchase_date,
+          // Map fields with proper casing
+          fullName: app.fullname || '',
+          email: app.email || '',
+          phoneNumber: app.phonenumber || '',
+          address: app.streetaddress || '',
+          city: app.city || '',
+          province: app.province || '',
+          postalCode: app.postalcode || '',
+          vehicleType: app.vehicletype || ''
+        };
+      }));
+      
+      const validResults = results.filter(Boolean);
+      console.log(`✅ Processed ${validResults.length} applications with purchase data`);
+      return validResults as ApplicationData[];
     } catch (error) {
-      console.error('❌ Error in fallback query:', error);
+      console.error('❌ Error in direct table fetch:', error);
+      throw error;
     }
-    
-    console.error('❌ Could not find application data in any table');
-    toast.error('Could not find application data. Please try again.');
-    return [];
   } catch (error) {
     console.error('❌ Error in fetchFullApplicationDetails:', error);
     toast.error(`Error retrieving application details: ${error instanceof Error ? error.message : 'Unknown error'}`);

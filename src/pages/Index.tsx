@@ -1,3 +1,4 @@
+
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
@@ -65,50 +66,7 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Features - Updated to keep icon white but change circle background on hover */}
-        <section className="py-24 bg-gradient-to-b from-ontario-gray to-white">
-          <div className="container mx-auto px-4">
-            <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-ontario-blue">Why Choose Ontario Loans?</h2>
-            <p className="text-center text-lg text-gray-600 mb-16 max-w-2xl mx-auto">We offer the best auto financing solutions in Ontario with personalized options for every credit situation.</p>
-            <div className="grid md:grid-cols-3 gap-10">
-              <div 
-                className="bg-white p-8 rounded-xl shadow-lg text-center transform transition-all duration-300 hover:-translate-y-2 hover:shadow-xl"
-                onMouseEnter={() => setHoveredFeature('approvals')}
-                onMouseLeave={() => setHoveredFeature(null)}
-              >
-                <div className={`w-20 h-20 ${hoveredFeature === 'approvals' ? 'bg-green-500' : 'bg-ontario-blue'} rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-300 transform hover:scale-110`}>
-                  <Zap className="h-10 w-10 text-white" />
-                </div>
-                <h3 className="text-2xl font-semibold mb-4 text-ontario-blue">Fast Approvals</h3>
-                <p className="text-gray-600 leading-relaxed">Get approved in minutes, not days. Our streamlined process makes financing quick and easy, even with challenging credit situations.</p>
-              </div>
-              <div 
-                className="bg-white p-8 rounded-xl shadow-lg text-center transform transition-all duration-300 hover:-translate-y-2 hover:shadow-xl"
-                onMouseEnter={() => setHoveredFeature('inventory')}
-                onMouseLeave={() => setHoveredFeature(null)}
-              >
-                <div className={`w-20 h-20 ${hoveredFeature === 'inventory' ? 'bg-green-500' : 'bg-ontario-blue'} rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-300 transform hover:scale-110`}>
-                  <Database className="h-10 w-10 text-white" />
-                </div>
-                <h3 className="text-2xl font-semibold mb-4 text-ontario-blue">Massive Inventory</h3>
-                <p className="text-gray-600 leading-relaxed">Access to hundreds of vehicles across Ontario and Quebec. Find your perfect match from our extensive network of dealer partners.</p>
-              </div>
-              <div 
-                className="bg-white p-8 rounded-xl shadow-lg text-center transform transition-all duration-300 hover:-translate-y-2 hover:shadow-xl"
-                onMouseEnter={() => setHoveredFeature('options')}
-                onMouseLeave={() => setHoveredFeature(null)}
-              >
-                <div className={`w-20 h-20 ${hoveredFeature === 'options' ? 'bg-green-500' : 'bg-ontario-blue'} rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-300 transform hover:scale-110`}>
-                  <DollarSign className="h-10 w-10 text-white" />
-                </div>
-                <h3 className="text-2xl font-semibold mb-4 text-ontario-blue">Flexible Options</h3>
-                <p className="text-gray-600 leading-relaxed">Solutions for all credit types with competitive rates and flexible terms. We tailor financing to fit your unique financial situation.</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Benefits Banner - Updated to keep check icon white but change circle background on hover */}
+        {/* Benefits Banner - MOVED UP: Now positioned right after hero section */}
         <section className="bg-ontario-blue py-6">
           <div className="container mx-auto px-4">
             <div className="flex flex-wrap md:flex-nowrap justify-center md:justify-between items-center gap-8">
@@ -120,7 +78,7 @@ const Index = () => {
               >
                 <div className={`w-14 h-14 ${hoveredFeature === 'hassle-free' ? 'bg-green-500' : 'bg-white'} rounded-full flex items-center justify-center flex-shrink-0 transition-colors duration-300`}>
                   <Check 
-                    className="h-8 w-8"
+                    className="h-8 w-8 text-white"
                     color={hoveredFeature === 'hassle-free' ? 'white' : '#003366'}
                   />
                 </div>
@@ -138,7 +96,7 @@ const Index = () => {
               >
                 <div className={`w-14 h-14 ${hoveredFeature === 'low-rates' ? 'bg-green-500' : 'bg-white'} rounded-full flex items-center justify-center flex-shrink-0 transition-colors duration-300`}>
                   <Check 
-                    className="h-8 w-8"
+                    className="h-8 w-8 text-white"
                     color={hoveredFeature === 'low-rates' ? 'white' : '#003366'}
                   />
                 </div>
@@ -156,7 +114,7 @@ const Index = () => {
               >
                 <div className={`w-14 h-14 ${hoveredFeature === 'quick-approval' ? 'bg-green-500' : 'bg-white'} rounded-full flex items-center justify-center flex-shrink-0 transition-colors duration-300`}>
                   <Check 
-                    className="h-8 w-8"
+                    className="h-8 w-8 text-white"
                     color={hoveredFeature === 'quick-approval' ? 'white' : '#003366'}
                   />
                 </div>
@@ -174,7 +132,7 @@ const Index = () => {
               >
                 <div className={`w-14 h-14 ${hoveredFeature === 'online-funding' ? 'bg-green-500' : 'bg-white'} rounded-full flex items-center justify-center flex-shrink-0 transition-colors duration-300`}>
                   <Check 
-                    className="h-8 w-8"
+                    className="h-8 w-8 text-white"
                     color={hoveredFeature === 'online-funding' ? 'white' : '#003366'}
                   />
                 </div>
@@ -187,7 +145,7 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Our Inventory Section */}
+        {/* Our Inventory Section - MOVED UP: Now positioned after benefits banner */}
         <section className="py-16 bg-white">
           <div className="container mx-auto px-4">
             <h2 className="text-3xl md:text-4xl font-bold text-center text-ontario-blue mb-2">Our Inventory</h2>
@@ -262,6 +220,49 @@ const Index = () => {
                   </div>
                 </div>
               </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Features - NOW MOVED DOWN: After Our Inventory section */}
+        <section className="py-24 bg-gradient-to-b from-ontario-gray to-white">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-ontario-blue">Why Choose Ontario Loans?</h2>
+            <p className="text-center text-lg text-gray-600 mb-16 max-w-2xl mx-auto">We offer the best auto financing solutions in Ontario with personalized options for every credit situation.</p>
+            <div className="grid md:grid-cols-3 gap-10">
+              <div 
+                className="bg-white p-8 rounded-xl shadow-lg text-center transform transition-all duration-300 hover:-translate-y-2 hover:shadow-xl"
+                onMouseEnter={() => setHoveredFeature('approvals')}
+                onMouseLeave={() => setHoveredFeature(null)}
+              >
+                <div className={`w-20 h-20 ${hoveredFeature === 'approvals' ? 'bg-green-500' : 'bg-ontario-blue'} rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-300 transform hover:scale-110`}>
+                  <Zap className="h-10 w-10 text-white" />
+                </div>
+                <h3 className="text-2xl font-semibold mb-4 text-ontario-blue">Fast Approvals</h3>
+                <p className="text-gray-600 leading-relaxed">Get approved in minutes, not days. Our streamlined process makes financing quick and easy, even with challenging credit situations.</p>
+              </div>
+              <div 
+                className="bg-white p-8 rounded-xl shadow-lg text-center transform transition-all duration-300 hover:-translate-y-2 hover:shadow-xl"
+                onMouseEnter={() => setHoveredFeature('inventory')}
+                onMouseLeave={() => setHoveredFeature(null)}
+              >
+                <div className={`w-20 h-20 ${hoveredFeature === 'inventory' ? 'bg-green-500' : 'bg-ontario-blue'} rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-300 transform hover:scale-110`}>
+                  <Database className="h-10 w-10 text-white" />
+                </div>
+                <h3 className="text-2xl font-semibold mb-4 text-ontario-blue">Massive Inventory</h3>
+                <p className="text-gray-600 leading-relaxed">Access to hundreds of vehicles across Ontario and Quebec. Find your perfect match from our extensive network of dealer partners.</p>
+              </div>
+              <div 
+                className="bg-white p-8 rounded-xl shadow-lg text-center transform transition-all duration-300 hover:-translate-y-2 hover:shadow-xl"
+                onMouseEnter={() => setHoveredFeature('options')}
+                onMouseLeave={() => setHoveredFeature(null)}
+              >
+                <div className={`w-20 h-20 ${hoveredFeature === 'options' ? 'bg-green-500' : 'bg-ontario-blue'} rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-300 transform hover:scale-110`}>
+                  <DollarSign className="h-10 w-10 text-white" />
+                </div>
+                <h3 className="text-2xl font-semibold mb-4 text-ontario-blue">Flexible Options</h3>
+                <p className="text-gray-600 leading-relaxed">Solutions for all credit types with competitive rates and flexible terms. We tailor financing to fit your unique financial situation.</p>
+              </div>
             </div>
           </div>
         </section>

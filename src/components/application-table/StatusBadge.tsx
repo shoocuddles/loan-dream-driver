@@ -1,6 +1,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { LockType } from '@/lib/types/dealer-dashboard';
+import { isValid, parseISO, format } from 'date-fns';
 
 interface LockInfo {
   isLocked: boolean;
@@ -40,6 +41,42 @@ export const LockStatusBadge = ({ lockInfo }: { lockInfo?: LockInfo }) => {
     );
   }
   
+  // Format the expiration date if available
+  if (lockInfo.expiresAt) {
+    try {
+      const expiryDate = parseISO(lockInfo.expiresAt);
+      
+      if (isValid(expiryDate)) {
+        const now = new Date();
+        
+        // Check if the lock has expired
+        if (expiryDate < now) {
+          return (
+            <Badge variant="outline" className="bg-gray-100 text-gray-500 border-gray-200">
+              Lock expired
+            </Badge>
+          );
+        }
+        
+        // Format the date and time in local timezone
+        const formattedDate = format(expiryDate, 'MMM d, yyyy');
+        const formattedTime = format(expiryDate, 'h:mm a');
+        
+        return (
+          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+            <div className="flex flex-col items-center text-center">
+              <span className="text-xs">Locked until</span>
+              <span>{formattedDate} {formattedTime}</span>
+            </div>
+          </Badge>
+        );
+      }
+    } catch (error) {
+      console.error('Error formatting lock expiration date:', error);
+    }
+  }
+  
+  // Fallback if no valid expiration date is available
   return (
     <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
       Locked by other

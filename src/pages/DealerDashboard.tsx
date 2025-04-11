@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useAuth } from '@/hooks/use-auth';
@@ -27,7 +28,7 @@ import {
   completePurchase
 } from '@/lib/services/stripe/stripeService';
 import { fetchSystemSettings } from '@/lib/services/settings/settingsService';
-import { AgeDiscountSettings } from '@/components/application-table/priceUtils';
+import { AgeDiscountSettings, getPrice, getPriceValue } from '@/components/application-table/priceUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EyeOff, Eye } from 'lucide-react';
 

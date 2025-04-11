@@ -8,6 +8,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-application-name",
 };
 
+const MINIMUM_STRIPE_AMOUNT = 50; // 50 cents minimum requirement
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -220,8 +222,18 @@ serve(async (req) => {
       }
       
       // Calculate total price
-      const unitPrice = priceType === 'discounted' ? settings.discounted_price : settings.standard_price;
-      const totalAmount = Math.round(unitPrice * applicationsToCharge.length * 100); // Convert to cents for Stripe
+      let unitPrice = priceType === 'discounted' ? settings.discounted_price : settings.standard_price;
+      let totalAmount = Math.round(unitPrice * applicationsToCharge.length * 100); // Convert to cents for Stripe
+      
+      // Enforce minimum price for Stripe (50 cents)
+      const originalUnitPrice = unitPrice;
+      const originalTotalAmount = totalAmount;
+      
+      if (totalAmount < MINIMUM_STRIPE_AMOUNT) {
+        totalAmount = MINIMUM_STRIPE_AMOUNT;
+        unitPrice = MINIMUM_STRIPE_AMOUNT / applicationsToCharge.length / 100;
+        console.log(`Adjusting price from ${originalTotalAmount} cents to minimum ${MINIMUM_STRIPE_AMOUNT} cents required by Stripe`);
+      }
       
       console.log("Calculated price:", { unitPrice, totalAmount });
       
@@ -237,7 +249,7 @@ serve(async (req) => {
                 name: `Application Purchase${applicationsToCharge.length > 1 ? ' (Multiple)' : ''}`,
                 description: `${applicationsToCharge.length} Application${applicationsToCharge.length > 1 ? 's' : ''}`
               },
-              unit_amount: unitPrice * 100, // Convert to cents
+              unit_amount: Math.max(Math.round(unitPrice * 100), MINIMUM_STRIPE_AMOUNT / applicationsToCharge.length), // Convert to cents, ensure minimum per item
               tax_behavior: 'exclusive',
             },
             quantity: applicationsToCharge.length,
@@ -251,7 +263,9 @@ serve(async (req) => {
           price_type: priceType,
           application_count: applicationsToCharge.length.toString(),
           application_ids: applicationsToCharge.map(app => app.id).join(','),
-          unit_price: unitPrice.toString()
+          unit_price: unitPrice.toString(),
+          original_unit_price: originalUnitPrice.toString(),  // Store original price for reference
+          adjusted_for_minimum: (originalTotalAmount < MINIMUM_STRIPE_AMOUNT).toString() // Flag if price was adjusted
         }
       };
       

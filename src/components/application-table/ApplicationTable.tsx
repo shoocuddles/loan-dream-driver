@@ -17,7 +17,7 @@ import {
   PaginationPrevious 
 } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, EyeOff, ShoppingCart } from 'lucide-react';
+import { ChevronLeft, ChevronRight, EyeOff, ShoppingCart, Eye } from 'lucide-react';
 
 type LockOption = {
   id: number;
@@ -190,12 +190,27 @@ const ApplicationTable = ({
             </>
           ) : (
             <>
+              {/* Order changed: Hide button first, then View Details */}
+              {onHideApplication && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onHideApplication(row.original.applicationId)}
+                  title="Hide application"
+                  className="flex items-center gap-1"
+                >
+                  <EyeOff className="h-4 w-4" />
+                  <span className="sr-only">Hide</span>
+                </Button>
+              )}
               <Button
                 onClick={() => onViewDetails(row.original)}
                 variant="outline"
                 size="sm"
+                className="flex items-center gap-1"
               >
-                View
+                <Eye className="h-4 w-4" />
+                <span className="text-xs">View Details</span>
               </Button>
               {onPurchase && (
                 <Button

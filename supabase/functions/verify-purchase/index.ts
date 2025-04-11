@@ -129,6 +129,7 @@ serve(async (req) => {
       // Record the downloads in the database
       const timestamp = new Date().toISOString();
       let allSuccessful = true;
+      console.log(`Processing purchased applications for dealer ${dealerId}, count: ${applicationIds.length}`);
       
       for (const appId of applicationIds) {
         // Check if already downloaded
@@ -140,6 +141,9 @@ serve(async (req) => {
           .maybeSingle();
         
         if (!existingDownload) {
+          // Log that we're adding a download record (less noisy)
+          console.log(`Adding download record for application ${appId}`);
+          
           const { error: downloadError } = await supabase
             .from('application_downloads')
             .insert({
@@ -168,6 +172,9 @@ serve(async (req) => {
             .gt('expires_at', timestamp);
             
           if (existingLocks && existingLocks.length > 0) {
+            // Log summary instead of every lock
+            console.log(`Removing ${existingLocks.length} existing locks for application ${appId}`);
+            
             for (const lock of existingLocks) {
               if (lock.dealer_id !== dealerId) {
                 await supabase
@@ -188,6 +195,8 @@ serve(async (req) => {
             .maybeSingle();
             
           if (!dealerLock) {
+            console.log(`Creating purchase lock for application ${appId}`);
+            
             const { error: lockError } = await supabase
               .from('application_locks')
               .insert({
@@ -204,8 +213,12 @@ serve(async (req) => {
               console.error(`Error creating lock for application ${appId}:`, lockError);
             }
           }
+        } else {
+          console.log(`Application ${appId} already downloaded by dealer ${dealerId}`);
         }
       }
+      
+      console.log(`Completed processing ${applicationIds.length} applications for dealer ${dealerId}`);
       
       return new Response(
         JSON.stringify({ 

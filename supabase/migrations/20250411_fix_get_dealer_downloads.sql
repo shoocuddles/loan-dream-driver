@@ -52,7 +52,8 @@ BEGIN
         'employmentDuration', app.employment_duration,
         'additionalNotes', app.additionalnotes,
         'created_at', app.created_at,
-        'updated_at', app.updated_at
+        'updated_at', app.updated_at,
+        'paymentId', download.payment_id
       );
     END IF;
   END LOOP;
@@ -158,5 +159,20 @@ BEGIN
   ) THEN
     ALTER TABLE public.application_downloads
     ADD COLUMN payment_id TEXT;
+  END IF;
+END $$;
+
+-- Make sure payment_session_id column exists in application_downloads
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'application_downloads' 
+    AND column_name = 'payment_session_id'
+  ) THEN
+    ALTER TABLE public.application_downloads
+    ADD COLUMN payment_session_id TEXT;
   END IF;
 END $$;

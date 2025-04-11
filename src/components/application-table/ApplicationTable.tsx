@@ -83,7 +83,8 @@ const ApplicationTable = ({
   })));
 
   if (ageDiscountSettings?.isEnabled) {
-    console.log('Age discount settings:', ageDiscountSettings);
+    // Just log once that age discount is enabled
+    console.log('Age discount is enabled with settings:', ageDiscountSettings);
   }
 
   const handlePageChange = (pageNumber: number) => {

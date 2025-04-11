@@ -92,14 +92,12 @@ async function handleSuccessfulPayment(session, supabase) {
   const applicationIds = applicationIdsString.split(',');
   const unitPrice = parseFloat(session.metadata?.unit_price || "0");
   
-  console.log(`Processing payment for dealer ${dealerId}, applications: ${applicationIds.join(', ')}`);
+  console.log(`Processing webhook payment for dealer ${dealerId}, applications count: ${applicationIds.length}`);
   
   // Process each application
   for (const appId of applicationIds) {
     try {
-      console.log(`Processing application ${appId}`);
-      
-      // Record the download immediately to ensure this dealer has permanent access
+      // Check for existing download - summarized logging
       const { data: existingDownload } = await supabase
         .from('application_downloads')
         .select('id')
@@ -108,6 +106,9 @@ async function handleSuccessfulPayment(session, supabase) {
         .maybeSingle();
       
       if (!existingDownload) {
+        // Log summary rather than individual details
+        console.log(`Recording download for application ${appId}`);
+        
         const { data: downloadData, error: downloadError } = await supabase
           .from('application_downloads')
           .insert({
@@ -123,10 +124,6 @@ async function handleSuccessfulPayment(session, supabase) {
           console.error(`Error recording download for ${appId}:`, downloadError);
           continue;
         }
-        
-        console.log(`Successfully recorded download: ${downloadData.id}`);
-      } else {
-        console.log(`Application ${appId} already downloaded by dealer ${dealerId}, skipping`);
       }
       
       // Apply automatic lock (24 hours for purchased applications)
@@ -143,9 +140,11 @@ async function handleSuccessfulPayment(session, supabase) {
       
       // Remove any existing locks by other dealers (this application is now purchased)
       if (existingLocks && existingLocks.length > 0) {
+        // Log count instead of individual locks
+        console.log(`Removing ${existingLocks.filter(l => l.dealer_id !== dealerId).length} existing locks by other dealers for application ${appId}`);
+        
         for (const lock of existingLocks) {
           if (lock.dealer_id !== dealerId) {
-            console.log(`Removing existing lock by dealer ${lock.dealer_id} on application ${appId}`);
             await supabase
               .from('application_locks')
               .update({ expires_at: new Date().toISOString() })
@@ -165,9 +164,12 @@ async function handleSuccessfulPayment(session, supabase) {
       
       // If there's already an active lock by this dealer, don't create a new one
       if (existingDealerLocks && existingDealerLocks.length > 0) {
-        console.log(`Dealer already has an active lock on application ${appId}, skipping lock creation`);
+        console.log(`Dealer already has an active lock on application ${appId}`);
         continue;
       }
+      
+      // Create a new lock for the dealer
+      console.log(`Creating purchase lock for application ${appId}`);
       
       const { data: lockData, error: lockError } = await supabase
         .from('application_locks')
@@ -185,11 +187,11 @@ async function handleSuccessfulPayment(session, supabase) {
       
       if (lockError) {
         console.error(`Error creating lock for ${appId}:`, lockError);
-      } else {
-        console.log(`Successfully created lock: ${lockData.id}, expires: ${lockExpiry.toISOString()}`);
       }
     } catch (error) {
       console.error(`Error processing application ${appId}:`, error);
     }
   }
+  
+  console.log(`Completed webhook processing for ${applicationIds.length} applications`);
 }

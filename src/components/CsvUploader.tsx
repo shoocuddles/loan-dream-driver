@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -50,7 +49,7 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
       'Leather Seats, Backup Camera', 
       'Red, Yellow', 
       'Honda CR-V', 
-      'true', // Changed from boolean to string
+      'true', // Using string 'true' for CSV consistency
       '$350/month', 
       '$15000', 
       '2018 Toyota Corolla', 
@@ -98,16 +97,9 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
       headers.forEach((header, index) => {
         let value = values[index]?.trim() ?? '';
         
-        // Handle boolean conversion for hasexistingloan and iscomplete
-        if (header === 'hasexistingloan' || header === 'iscomplete') {
-          // Convert string 'true'/'false' to actual boolean
-          value = value.toLowerCase() === 'true';
-        }
-        
         entry[header] = value;
       });
       
-      // Remove empty id field so Supabase generates one
       if (entry.id === '') {
         delete entry.id;
       }

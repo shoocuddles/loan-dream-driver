@@ -292,7 +292,7 @@ serve(async (req) => {
         
         return {
           price_data: {
-            currency: 'usd',
+            currency: 'cad',
             product_data: {
               name: `Lead purchase ${formattedName} - ${appIdShort}`,
               description: `Application from ${app.city || 'Unknown location'}`

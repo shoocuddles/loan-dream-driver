@@ -9,7 +9,6 @@ import DealerDashboardLayout from '@/components/DealerDashboardLayout';
 import ApplicationTable from '@/components/application-table/ApplicationTable';
 import DownloadedApplications from '@/components/DownloadedApplications';
 import DealerProfile from '@/components/DealerProfile';
-import PaymentSettings from '@/components/PaymentSettings';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import ApplicationDetails from '@/components/ApplicationDetails';
 import DealerInvoices from '@/components/DealerInvoices';
@@ -19,7 +18,6 @@ import {
   fetchDownloadedApplications,
   lockApplication,
   unlockApplication,
-  recordDownload,
   fetchLockoutPeriods,
 } from '@/lib/services';
 import {
@@ -732,7 +730,6 @@ const DealerDashboard = () => {
         />
       }
       profile={<DealerProfile />}
-      payment={<PaymentSettings />}
       invoices={<DealerInvoices />}
     />
   );

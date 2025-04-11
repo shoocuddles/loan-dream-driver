@@ -7,6 +7,7 @@ import { format, isValid, parseISO } from 'date-fns';
 import { Eye, Search } from 'lucide-react';
 import { DownloadedApplication } from '@/lib/types/dealer-dashboard';
 import DownloadOptions from './application-table/DownloadOptions';
+import BulkActionsBar from './BulkActionsBar';
 
 interface DownloadedApplicationsProps {
   applications: DownloadedApplication[];
@@ -54,10 +55,24 @@ const DownloadedApplications = ({
     );
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedApplications(filteredApplications.map(app => app.applicationId));
+    } else {
+      setSelectedApplications([]);
+    }
+  };
+
   const scrollToTop = () => {
     if (cardRef.current) {
       cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+  };
+
+  const handleBulkDownload = async () => {
+    // No need to purchase as these applications are already purchased
+    console.log(`Bulk downloading ${selectedApplications.length} applications`);
+    // The download functionality is handled by the BulkActionsBar
   };
 
   console.log("Downloaded applications to display:", applications);
@@ -67,28 +82,6 @@ const DownloadedApplications = ({
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-xl font-bold">Purchased Applications</CardTitle>
         <div className="flex items-center gap-4">
-          {selectedApplications.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">
-                {selectedApplications.length} selected
-              </span>
-              <DownloadOptions
-                applicationIds={selectedApplications}
-                isProcessing={false}
-                label="Download Selected"
-                size="sm"
-                variant="outline"
-                onClose={() => setSelectedApplications([])}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedApplications([])}
-              >
-                Clear
-              </Button>
-            </div>
-          )}
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
             <input
@@ -110,13 +103,7 @@ const DownloadedApplications = ({
                   <input
                     type="checkbox"
                     checked={selectedApplications.length === filteredApplications.length && filteredApplications.length > 0}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedApplications(filteredApplications.map(app => app.applicationId));
-                      } else {
-                        setSelectedApplications([]);
-                      }
-                    }}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
                     className="w-4 h-4"
                   />
                 </TableHead>
@@ -199,6 +186,20 @@ const DownloadedApplications = ({
             </TableBody>
           </Table>
         </div>
+        
+        {/* Add BulkActionsBar for purchased applications */}
+        <BulkActionsBar
+          selectedCount={selectedApplications.length}
+          onBulkDownload={handleBulkDownload}
+          onBulkLock={() => Promise.resolve()} // Not applicable for purchased applications
+          onClearSelection={() => setSelectedApplications([])}
+          isProcessing={false}
+          selectedApplicationIds={selectedApplications}
+          unpurchasedCount={0} // All applications here are purchased
+          totalPurchaseCost={0} // No cost for already purchased applications
+          onPurchaseSelected={() => Promise.resolve()} // Not applicable
+          allDownloaded={true} // All applications are already purchased/downloaded
+        />
       </CardContent>
     </Card>
   );

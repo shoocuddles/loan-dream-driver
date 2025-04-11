@@ -21,8 +21,10 @@ serve(async (req) => {
       console.error("Stripe secret key not found in environment variables");
       return new Response(
         JSON.stringify({ 
-          error: "Stripe secret key not configured",
-          details: "The STRIPE_SECRET_KEY environment variable is not set in the edge function secrets."
+          error: {
+            message: "Stripe secret key not configured",
+            details: "The STRIPE_SECRET_KEY environment variable is not set in the edge function secrets."
+          }
         }),
         { 
           headers: { ...corsHeaders, "Content-Type": "application/json" }, 
@@ -57,8 +59,10 @@ serve(async (req) => {
           stripeError.message?.includes('API key')) {
         return new Response(
           JSON.stringify({ 
-            error: "Invalid Stripe API key",
-            details: "Your Stripe API key appears to be invalid or has insufficient permissions."
+            error: {
+              message: "Invalid Stripe API key",
+              details: "Your Stripe API key appears to be invalid or has insufficient permissions."
+            }
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
         );
@@ -67,8 +71,10 @@ serve(async (req) => {
       // Generic Stripe API error
       return new Response(
         JSON.stringify({ 
-          error: "Stripe API error", 
-          details: stripeError.message 
+          error: {
+            message: "Stripe API error", 
+            details: stripeError.message 
+          }
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
@@ -77,8 +83,10 @@ serve(async (req) => {
     console.error("Error fetching coupons:", error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
-        details: "An unexpected error occurred while processing the request."
+        error: {
+          message: error.message,
+          details: "An unexpected error occurred while processing the request."
+        }
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );

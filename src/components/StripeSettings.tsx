@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -48,6 +49,7 @@ const StripeSettings = () => {
       if (accountResponse.error) {
         console.error("Error checking Stripe account:", accountResponse.error);
         setStripeStatus('error');
+        // Fix for TypeScript error: safely access the details property
         const errorMessage = accountResponse.error.details || accountResponse.error.message;
         setErrorDetails(errorMessage);
         return;

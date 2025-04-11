@@ -53,3 +53,9 @@ export interface StripeAccountInfo {
   default_currency?: string;
   display_name?: string;
 }
+
+export interface StripeError {
+  message: string;
+  code?: string;
+  details?: string; // Add the details property
+}

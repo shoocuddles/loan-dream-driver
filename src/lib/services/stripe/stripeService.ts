@@ -1,11 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { StripePrice, StripeCoupon, CreateCouponParams, StripeCheckoutParams, CheckoutSessionResponse } from '@/lib/types/stripe';
-
-interface StripeError {
-  message: string;
-  code?: string;
-}
+import { StripePrice, StripeCoupon, CreateCouponParams, StripeCheckoutParams, CheckoutSessionResponse, StripeError } from '@/lib/types/stripe';
 
 interface StripeResponse<T> {
   data?: T;
@@ -42,7 +37,13 @@ export const syncPricesToStripe = async (
     return { data: { success: true } };
   } catch (error: any) {
     console.error('❌ Error syncing prices to Stripe:', error.message);
-    return { error: { message: error.message, code: error.code } };
+    return { 
+      error: { 
+        message: error.message, 
+        code: error.code,
+        details: error.details || error.message
+      } 
+    };
   }
 };
 
@@ -65,7 +66,13 @@ export const createStripeCoupon = async (
     return { data };
   } catch (error: any) {
     console.error('❌ Error creating coupon:', error.message);
-    return { error: { message: error.message, code: error.code } };
+    return { 
+      error: { 
+        message: error.message, 
+        code: error.code,
+        details: error.details || error.message
+      } 
+    };
   }
 };
 
@@ -84,7 +91,13 @@ export const listStripeCoupons = async (): Promise<StripeResponse<StripeCoupon[]
     return { data };
   } catch (error: any) {
     console.error('❌ Error fetching coupons:', error.message);
-    return { error: { message: error.message, code: error.code } };
+    return { 
+      error: { 
+        message: error.message, 
+        code: error.code,
+        details: error.details || error.message
+      } 
+    };
   }
 };
 
@@ -103,7 +116,13 @@ export const getStripePrices = async (): Promise<StripeResponse<StripePrice[]>> 
     return { data };
   } catch (error: any) {
     console.error('❌ Error fetching prices:', error.message);
-    return { error: { message: error.message, code: error.code } };
+    return { 
+      error: { 
+        message: error.message, 
+        code: error.code,
+        details: error.details || error.message
+      } 
+    };
   }
 };
 
@@ -122,7 +141,13 @@ export const getStripeAccountInfo = async (): Promise<StripeResponse<StripeAccou
     return { data };
   } catch (error: any) {
     console.error('❌ Error fetching Stripe account info:', error.message);
-    return { error: { message: error.message, code: error.code } };
+    return { 
+      error: { 
+        message: error.message, 
+        code: error.code,
+        details: error.details || error.message
+      } 
+    };
   }
 };
 
@@ -145,6 +170,12 @@ export const createCheckoutSession = async (
     return { data };
   } catch (error: any) {
     console.error('❌ Error creating checkout session:', error.message);
-    return { error: { message: error.message, code: error.code } };
+    return { 
+      error: { 
+        message: error.message, 
+        code: error.code,
+        details: error.details || error.message
+      } 
+    };
   }
 };

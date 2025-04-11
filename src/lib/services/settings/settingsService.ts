@@ -18,7 +18,6 @@ export const fetchSystemSettings = async (): Promise<SystemSettings | null> => {
     if (error) throw error;
     
     return {
-      id: data.id,
       standardPrice: data.standard_price,
       discountedPrice: data.discounted_price,
       temporaryLockMinutes: data.temporary_lock_minutes,
@@ -56,7 +55,6 @@ export const updateSystemSettings = async (settings: Partial<SystemSettings>): P
     if (error) throw error;
     
     return {
-      id: data.id,
       standardPrice: data.standard_price,
       discountedPrice: data.discounted_price,
       temporaryLockMinutes: data.temporary_lock_minutes,

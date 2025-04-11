@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useAuth } from '@/hooks/use-auth';
@@ -16,10 +17,12 @@ import { useSearchParams } from 'react-router-dom';
 import { 
   fetchAvailableApplications,
   fetchDownloadedApplications,
+} from '@/lib/services';
+import {
   lockApplication,
   unlockApplication,
   fetchLockoutPeriods,
-} from '@/lib/services';
+} from '@/lib/services/lock/lockService';
 import {
   createCheckoutSession,
   completePurchase

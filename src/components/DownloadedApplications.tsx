@@ -151,7 +151,7 @@ const DownloadedApplications = ({
                 </TableRow>
               ) : (
                 filteredApplications.map((application) => (
-                  <TableRow key={application.downloadId}>
+                  <TableRow key={application.id || application.applicationId}>
                     <TableCell>
                       <input
                         type="checkbox"

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationItem, LockType, LockInfo, DownloadedApplication } from '@/lib/types/dealer-dashboard';
 import { formatDistanceToNow, parseISO, differenceInDays } from 'date-fns';
@@ -11,7 +12,7 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
 
     if (error) throw error;
 
-    // Clean console logs: Don't log raw data, only log useful summary information
+    // Clean log - only show count, not entire array
     console.log(`Loaded ${data?.length || 0} applications for dealer`);
 
     if (!data || !Array.isArray(data)) return [];
@@ -21,8 +22,6 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
       // Transform lockInfo if it exists
       const lockInfo: LockInfo = app.lockInfo || { isLocked: false };
       
-      // Map to our standard object structure
-      // Don't log every individual application details
       return {
         id: app.id,
         applicationId: app.applicationId || app.id,
@@ -51,20 +50,25 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
     } : null;
 
     if (ageSettings?.isEnabled) {
-      console.log('Loaded age discount settings:', ageSettings);
+      console.log('Age discount settings loaded and enabled');
       
-      // Apply age discounts without logging every single calculation
+      // Apply age discounts without logging every calculation
+      let discountedCount = 0;
       applications.forEach(app => {
         if (app.submissionDate) {
           const submissionDate = parseISO(app.submissionDate);
           const ageDays = differenceInDays(new Date(), submissionDate);
           
-          // Only track if an application qualifies for age discount
           if (ageDays >= ageSettings.daysThreshold) {
             app.isAgeDiscounted = true;
+            discountedCount++;
           }
         }
       });
+      
+      if (discountedCount > 0) {
+        console.log(`Applied age discount to ${discountedCount} applications`);
+      }
     }
 
     return applications;

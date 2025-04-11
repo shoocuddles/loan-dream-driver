@@ -122,11 +122,7 @@ const DealerDashboard = () => {
           daysThreshold: settings.ageDiscountThreshold || 30,
           discountPercentage: settings.ageDiscountPercentage || 25
         });
-        console.log("Loaded age discount settings:", {
-          isEnabled: settings.ageDiscountEnabled,
-          daysThreshold: settings.ageDiscountThreshold,
-          discountPercentage: settings.ageDiscountPercentage
-        });
+        console.log("Age discount settings loaded successfully");
       }
     } catch (error) {
       console.error("Error loading system settings:", error);

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationItem, DownloadedApplication } from '@/lib/types/dealer-dashboard';
 import { fetchApplications } from '@/lib/dealerDashboardService';
@@ -7,7 +8,6 @@ import { fetchApplications } from '@/lib/dealerDashboardService';
  */
 export const fetchDownloadedApplications = async (dealerId: string): Promise<DownloadedApplication[]> => {
   try {
-    // Only log start of the operation
     console.log('🔍 Fetching downloaded applications for dealer');
     
     const { data, error } = await supabase.rpc('get_dealer_downloads', {
@@ -23,9 +23,8 @@ export const fetchDownloadedApplications = async (dealerId: string): Promise<Dow
       return [];
     }
 
-    // Log the count but not the full data
-    const downloadedApplicationIds = data.map((app: any) => app.applicationId);
-    console.log(`Downloaded application IDs: ${downloadedApplicationIds.length} items`);
+    // Only log the count, not the entire array
+    console.log(`Downloaded applications count: ${data.length}`);
     
     return data as DownloadedApplication[];
   } catch (error) {
@@ -40,7 +39,9 @@ export const fetchDownloadedApplications = async (dealerId: string): Promise<Dow
 export const fetchAvailableApplications = async (dealerId: string): Promise<ApplicationItem[]> => {
   try {
     console.log('🔍 Fetching available applications for dealer');
-    return await fetchApplications(dealerId);
+    const applications = await fetchApplications(dealerId);
+    console.log(`Retrieved ${applications.length} available applications`);
+    return applications;
   } catch (error) {
     console.error('Error fetching available applications:', error);
     return [];

@@ -257,6 +257,22 @@ const DealerDashboard = () => {
     }
   };
 
+  const handleBulkPurchase = async () => {
+    if (!user || selectedApplications.length === 0) return;
+    
+    const unpurchasedApps = getUnpurchasedApplications();
+    
+    if (unpurchasedApps.length > 0) {
+      setPendingAction({
+        type: 'download',
+        applicationIds: unpurchasedApps
+      });
+      setShowPaymentDialog(true);
+    } else {
+      toast.success("All selected applications are already purchased");
+    }
+  };
+
   const handleBulkDownload = async () => {
     if (!user || selectedApplications.length === 0) return;
 

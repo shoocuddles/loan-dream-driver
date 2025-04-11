@@ -105,6 +105,9 @@ const ApplicationTable = ({
             <StatusBadge status={row.original.status} />
             <LockStatusBadge lockInfo={row.original.lockInfo} />
             <DownloadStatusBadge isDownloaded={!!row.original.isDownloaded} />
+            {row.original.isAgeDiscounted && (
+              <span className="text-xs font-medium text-green-600">Age Discounted</span>
+            )}
           </div>
         );
       }
@@ -118,6 +121,11 @@ const ApplicationTable = ({
         return (
           <div className={`font-medium text-right ${row.original.isAgeDiscounted ? 'text-green-600' : ''}`}>
             {price}
+            {row.original.isAgeDiscounted && (
+              <div className="text-xs">
+                ({ageDiscountSettings?.discountPercentage || 0}% off)
+              </div>
+            )}
           </div>
         );
       }

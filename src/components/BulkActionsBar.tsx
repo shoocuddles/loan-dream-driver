@@ -1,7 +1,14 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, Lock, ShoppingCart, Trash } from 'lucide-react';
+import { Lock, Download, ShoppingCart, X } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { LockType } from '@/lib/types/dealer-dashboard';
 import DownloadOptions from './application-table/DownloadOptions';
 
@@ -11,10 +18,10 @@ interface BulkActionsBarProps {
   onBulkLock: (lockType: LockType) => Promise<void>;
   onClearSelection: () => void;
   isProcessing: boolean;
+  unpurchasedCount: number;
+  totalPurchaseCost: number;
   selectedApplicationIds: string[];
-  unpurchasedCount?: number;
-  totalPurchaseCost?: number;
-  onPurchaseSelected?: () => void;
+  onPurchaseSelected: () => Promise<void>;
 }
 
 const BulkActionsBar = ({
@@ -23,97 +30,95 @@ const BulkActionsBar = ({
   onBulkLock,
   onClearSelection,
   isProcessing,
+  unpurchasedCount,
+  totalPurchaseCost,
   selectedApplicationIds,
-  unpurchasedCount = 0,
-  totalPurchaseCost = 0,
   onPurchaseSelected
 }: BulkActionsBarProps) => {
-  const [showLockOptions, setShowLockOptions] = useState(false);
-
-  const handleLock = (lockType: LockType) => {
-    onBulkLock(lockType);
-    setShowLockOptions(false);
-  };
-
-  if (selectedCount === 0) return null;
+  const [isDownloading, setIsDownloading] = useState(false);
+  
+  if (selectedCount === 0) {
+    return null;
+  }
 
   return (
-    <div className="bg-white border rounded-md p-4 mt-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-medium">
-            {selectedCount} application{selectedCount !== 1 ? 's' : ''} selected
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
+    <div className="sticky bottom-4 left-0 right-0 mt-4 p-4 bg-white rounded-lg border shadow-lg flex justify-between items-center z-10">
+      <div>
+        <span className="font-medium">{selectedCount} item{selectedCount !== 1 ? 's' : ''} selected</span>
+        {unpurchasedCount > 0 && (
+          <span className="ml-2 text-sm text-gray-500">
+            ({unpurchasedCount} unpurchased, ${totalPurchaseCost.toFixed(2)})
+          </span>
+        )}
+      </div>
+      
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onClearSelection}
+          disabled={isProcessing}
+        >
+          <X className="mr-1 h-4 w-4" />
+          Clear
+        </Button>
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isProcessing || selectedCount === 0}
+            >
+              <Lock className="mr-1 h-4 w-4" />
+              Lock
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={() => onBulkLock('24hours')}>
+                24 Hours ($4.99 each)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onBulkLock('1week')}>
+                1 Week ($9.99 each)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onBulkLock('permanent')}>
+                Permanent ($29.99 each)
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        
+        {selectedApplicationIds.length > 0 ? (
+          <DownloadOptions
+            applicationIds={selectedApplicationIds}
+            isProcessing={isDownloading}
             variant="outline"
+            label="Download"
+            showIcon
+          />
+        ) : (
+          <Button
             size="sm"
-            onClick={onClearSelection}
+            variant="outline"
+            disabled={isProcessing || selectedCount === 0}
+          >
+            <Download className="mr-1 h-4 w-4" />
+            Download
+          </Button>
+        )}
+        
+        {unpurchasedCount > 0 && (
+          <Button
+            size="sm"
+            variant="default"
+            onClick={onPurchaseSelected}
             disabled={isProcessing}
           >
-            <Trash className="h-4 w-4 mr-2" />
-            Clear selection
+            <ShoppingCart className="mr-1 h-4 w-4" />
+            Purchase ({unpurchasedCount})
           </Button>
-          
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowLockOptions(!showLockOptions)}
-              disabled={isProcessing}
-            >
-              <Lock className="h-4 w-4 mr-2" />
-              Lock selected
-            </Button>
-            
-            {showLockOptions && (
-              <div className="absolute right-0 mt-1 bg-white shadow-lg rounded-md border border-gray-200 z-10 w-64 py-1">
-                <div className="px-4 py-2 bg-blue-50 text-xs text-blue-700 border-b border-blue-100">
-                  Lock this application to avoid other dealers being able to view. 24-hr lockout period automatic for every download.
-                </div>
-                <button
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                  onClick={() => handleLock('24hours')}
-                >
-                  24 Hours - $4.99 each
-                </button>
-                <button
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                  onClick={() => handleLock('1week')}
-                >
-                  1 Week - $9.99 each
-                </button>
-                <button
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                  onClick={() => handleLock('permanent')}
-                >
-                  Permanent - $29.99 each
-                </button>
-              </div>
-            )}
-          </div>
-          
-          {unpurchasedCount > 0 && onPurchaseSelected ? (
-            <Button 
-              variant="default"
-              size="sm"
-              onClick={onPurchaseSelected}
-              disabled={isProcessing}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Purchase ({unpurchasedCount}) for ${totalPurchaseCost.toFixed(2)}
-            </Button>
-          ) : (
-            <DownloadOptions
-              applicationIds={selectedApplicationIds}
-              isProcessing={isProcessing}
-              label={isProcessing ? "Processing..." : "Download selected"}
-              size="sm"
-            />
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

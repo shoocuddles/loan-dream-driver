@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { ApplicationItem, DownloadedApplication } from '@/lib/types/dealer-dashb
 import { format } from 'date-fns';
 import { Lock, Unlock, Download } from 'lucide-react';
 import DownloadOptions from './application-table/DownloadOptions';
+import { getPrice, AgeDiscountSettings } from './application-table/priceUtils';
 
 interface ApplicationDetailsProps {
   application: ApplicationItem | DownloadedApplication | null;
@@ -17,6 +17,7 @@ interface ApplicationDetailsProps {
   onUnlock?: (applicationId: string) => Promise<void>;
   isProcessing?: boolean;
   selectedApplicationIds?: string[];
+  ageDiscountSettings?: AgeDiscountSettings;
 }
 
 const ApplicationDetails = ({
@@ -28,7 +29,8 @@ const ApplicationDetails = ({
   onLock,
   onUnlock,
   isProcessing = false,
-  selectedApplicationIds = []
+  selectedApplicationIds = [],
+  ageDiscountSettings
 }: ApplicationDetailsProps) => {
   const [showLockOptions, setShowLockOptions] = useState(false);
 
@@ -94,6 +96,30 @@ const ApplicationDetails = ({
               .join(', ')}
           </p>
         </div>
+      </div>
+    );
+  };
+
+  const renderPriceDisplay = () => {
+    if (!isApplicationItem(application) || isDownloaded) {
+      return null;
+    }
+    
+    const appItem = application as ApplicationItem;
+    const priceDisplay = getPrice(appItem, ageDiscountSettings);
+    const isAgeDiscounted = appItem.isAgeDiscounted;
+
+    return (
+      <div className="mt-2">
+        <p className="text-sm font-medium">Price:</p>
+        <p className={isAgeDiscounted ? "text-green-600 font-medium" : ""}>
+          {priceDisplay}
+          {isAgeDiscounted && ageDiscountSettings && (
+            <span className="text-xs ml-2">
+              ({ageDiscountSettings.discountPercentage}% age discount applied)
+            </span>
+          )}
+        </p>
       </div>
     );
   };
@@ -195,6 +221,7 @@ const ApplicationDetails = ({
             <p className="text-sm text-gray-500">
               Submitted on {format(new Date(getDisplayDate()), 'MMMM d, yyyy')}
             </p>
+            {renderPriceDisplay()}
           </div>
           
           <div className="space-y-4">

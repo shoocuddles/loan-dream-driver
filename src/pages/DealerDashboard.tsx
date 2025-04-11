@@ -27,6 +27,8 @@ import {
   createCheckoutSession,
   completePurchase
 } from '@/lib/services/stripe/stripeService';
+import { fetchSystemSettings } from '@/lib/services/settings/settingsService';
+import { AgeDiscountSettings } from '@/components/application-table/priceUtils';
 
 const generateApplicationPDF = (application: { 
   id: string; 
@@ -67,6 +69,11 @@ const DealerDashboard = () => {
     { id: 2, name: '1 Week', type: '1week', fee: 9.99 },
     { id: 3, name: 'Permanent', type: 'permanent', fee: 29.99 }
   ]);
+  const [ageDiscountSettings, setAgeDiscountSettings] = useState<AgeDiscountSettings>({
+    isEnabled: false,
+    daysThreshold: 30,
+    discountPercentage: 25
+  });
   
   const [searchParams, setSearchParams] = useSearchParams();
   const paymentSuccess = searchParams.get('payment_success') === 'true';
@@ -79,8 +86,29 @@ const DealerDashboard = () => {
     if (user) {
       loadData();
       loadLockOptions();
+      loadSystemSettings();
     }
   }, [user]);
+  
+  const loadSystemSettings = async () => {
+    try {
+      const settings = await fetchSystemSettings();
+      if (settings) {
+        setAgeDiscountSettings({
+          isEnabled: settings.ageDiscountEnabled || false,
+          daysThreshold: settings.ageDiscountThreshold || 30,
+          discountPercentage: settings.ageDiscountPercentage || 25
+        });
+        console.log("Loaded age discount settings:", {
+          isEnabled: settings.ageDiscountEnabled,
+          daysThreshold: settings.ageDiscountThreshold,
+          discountPercentage: settings.ageDiscountPercentage
+        });
+      }
+    } catch (error) {
+      console.error("Error loading system settings:", error);
+    }
+  };
   
   useEffect(() => {
     const handlePaymentResult = async () => {
@@ -454,6 +482,7 @@ const DealerDashboard = () => {
                 onViewDetails={handleViewDetails}
                 processingId={processingId}
                 lockOptions={lockOptions}
+                ageDiscountSettings={ageDiscountSettings}
               />
               
               <BulkActionsBar
@@ -474,6 +503,10 @@ const DealerDashboard = () => {
                   Previously downloaded applications can be accessed for free.
                   Applications that have been recently downloaded by other dealers 
                   will be available at a discounted rate.
+                  {ageDiscountSettings.isEnabled && (
+                    <> Applications older than {ageDiscountSettings.daysThreshold} days 
+                    are discounted by {ageDiscountSettings.discountPercentage}%.</>
+                  )}
                 </p>
               </div>
             </CardContent>
@@ -489,6 +522,7 @@ const DealerDashboard = () => {
             onUnlock={handleUnlockApplication}
             isProcessing={processingId === detailsApplication?.applicationId}
             selectedApplicationIds={detailsApplication ? [detailsApplication.applicationId] : []}
+            ageDiscountSettings={ageDiscountSettings}
           />
           
           <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>

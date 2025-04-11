@@ -116,18 +116,20 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
     // Fall back to direct join query
     console.log('🔄 Attempting direct join query');
     try {
-      // Get download records
-      const { data: downloadRecords } = await supabase
-        .from('application_downloads')
+      // Get purchase records
+      const { data: purchaseRecords } = await supabase
+        .from('dealer_purchases')
         .select('*')
-        .in('application_id', applicationIds);
+        .in('application_id', applicationIds)
+        .eq('dealer_id', userData.user.id)
+        .eq('is_active', true);
       
-      if (downloadRecords && downloadRecords.length > 0) {
-        console.log(`✅ Found ${downloadRecords.length} download records`);
+      if (purchaseRecords && purchaseRecords.length > 0) {
+        console.log(`✅ Found ${purchaseRecords.length} purchase records`);
         
-        // For each download, fetch the full application
+        // For each purchase, fetch the full application
         const fullData = await Promise.all(
-          downloadRecords.map(async (record) => {
+          purchaseRecords.map(async (record) => {
             const { data: appDetails } = await supabase
               .from('applications')
               .select('*')
@@ -139,7 +141,8 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
               return {
                 id: record.application_id,
                 downloadId: record.id,
-                downloadDate: record.downloaded_at
+                downloadDate: record.downloaded_at,
+                purchaseDate: record.purchase_date
               };
             }
             
@@ -148,13 +151,14 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
               ...appDetails,
               downloadId: record.id,
               downloadDate: record.downloaded_at,
+              purchaseDate: record.purchase_date,
               applicationId: record.application_id
             };
           })
         );
         
         const validData = fullData.filter(Boolean) as ApplicationData[];
-        console.log(`✅ Processed ${validData.length} applications with download data`);
+        console.log(`✅ Processed ${validData.length} applications with purchase data`);
         return validData;
       }
     } catch (error) {

@@ -65,7 +65,7 @@ const DownloadedApplications = ({
   return (
     <Card ref={cardRef}>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-xl font-bold">Downloaded Applications</CardTitle>
+        <CardTitle className="text-xl font-bold">Purchased Applications</CardTitle>
         <div className="flex items-center gap-4">
           {selectedApplications.length > 0 && (
             <div className="flex items-center gap-2">
@@ -93,7 +93,7 @@ const DownloadedApplications = ({
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
             <input
               type="text"
-              placeholder="Search downloaded applications..."
+              placeholder="Search purchased applications..."
               className="pl-8 pr-4 py-2 w-full border rounded-md"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -137,14 +137,14 @@ const DownloadedApplications = ({
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Loading downloaded applications...
+                      Loading purchased applications...
                     </div>
                   </TableCell>
                 </TableRow>
               ) : filteredApplications.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8">
-                    {searchTerm ? 'No applications match your search' : 'No downloaded applications yet'}
+                    {searchTerm ? 'No applications match your search' : 'No purchased applications yet'}
                   </TableCell>
                 </TableRow>
               ) : (

@@ -13,7 +13,8 @@ interface DownloadOptionsProps {
   label?: string;
   variant?: 'default' | 'outline' | 'ghost' | 'link';
   size?: 'default' | 'sm' | 'lg' | 'icon';
-  className?: string; 
+  className?: string;
+  showIcon?: boolean; // Added this property
 }
 
 const DownloadOptions = ({
@@ -23,7 +24,8 @@ const DownloadOptions = ({
   label = "Download",
   variant = "default",
   size = "default",
-  className
+  className,
+  showIcon = true // Default to true for backward compatibility
 }: DownloadOptionsProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [downloadType, setDownloadType] = useState<string | null>(null);
@@ -78,7 +80,7 @@ const DownloadOptions = ({
           disabled={isProcessing || !applicationIds.length || isDownloading}
           className={className}
         >
-          <FileDown className={size === "icon" ? "h-4 w-4" : "h-4 w-4 mr-2"} />
+          {showIcon && <FileDown className={size === "icon" ? "h-4 w-4" : "h-4 w-4 mr-2"} />}
           {size !== "icon" && (isDownloading ? "Downloading..." : label)}
         </Button>
       </PopoverTrigger>

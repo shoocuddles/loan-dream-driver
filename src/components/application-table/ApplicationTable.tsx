@@ -1,7 +1,6 @@
 
 import { useState } from 'react';
 import {
-  ColumnDef,
   SortingState,
   VisibilityState,
   ColumnFiltersState,
@@ -21,20 +20,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { DotsHorizontalIcon } from "@radix-ui/react-icons";
-import { StatusBadge, LockStatusBadge, DownloadStatusBadge } from './StatusBadge';
-import { Checkbox } from "@/components/ui/checkbox";
-import { ApplicationItem } from '@/lib/types/dealer-dashboard';
-import { LockType } from '@/lib/types/dealer-dashboard';
+import { ApplicationItem, LockType } from '@/lib/types/dealer-dashboard';
 import { AgeDiscountSettings } from './priceUtils';
+import { createColumns } from './ApplicationTableColumns';
+import { ApplicationTableFilters } from './ApplicationTableFilters';
+import { ApplicationTablePagination } from './ApplicationTablePagination';
+import { EmptyOrLoadingState } from './EmptyOrLoadingState';
 
 interface ApplicationTableProps {
   applications: ApplicationItem[];
@@ -81,193 +72,22 @@ const ApplicationTable = ({
     pageSize: 10,
   });
 
-  // Helper function to calculate price based on application state
-  const getPrice = (application: ApplicationItem) => {
-    if (application.isPurchased) {
-      return "Free";
-    }
-    
-    // Check if there's age-based discount
-    if (application.isAgeDiscounted) {
-      return `$${application.discountedPrice.toFixed(2)}`;
-    }
-    
-    // Check if there's lock-based discount
-    const lockInfo = application.lockInfo;
-    const wasLocked = lockInfo?.isLocked && !lockInfo?.isOwnLock;
-    
-    return wasLocked ? 
-      `$${application.discountedPrice.toFixed(2)}` : 
-      `$${application.standardPrice.toFixed(2)}`;
-  };
-
-  const columns: ColumnDef<ApplicationItem>[] = [
-    {
-      id: "select",
-      header: ({ table }) => (
-        <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected()
-          }
-          onCheckedChange={(value) => {
-            table.toggleAllPageRowsSelected(!!value);
-            selectAll(!!value);
-          }}
-          aria-label="Select all"
-          className="translate-y-[2px]"
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={selectedApplications.includes(row.original.applicationId)}
-          onCheckedChange={(value) => {
-            toggleApplicationSelection(row.original.applicationId);
-            row.toggleSelected(!!value);
-          }}
-          aria-label="Select row"
-          className="translate-y-[2px]"
-          disabled={row.original.lockInfo?.isLocked && !row.original.lockInfo?.isOwnLock}
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
-      accessorKey: "fullName",
-      header: "Full Name",
-    },
-    {
-      accessorKey: "city",
-      header: "City",
-    },
-    {
-      accessorKey: "vehicleType",
-      header: "Vehicle Type",
-      cell: ({ row }) => (
-        <div>{row.original.vehicleType || 'N/A'}</div>
-      ),
-    },
-    {
-      accessorKey: "submissionDate",
-      header: "Submission Date",
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => (
-        <StatusBadge status={row.original.status} />
-      ),
-    },
-    {
-      accessorKey: "lockInfo",
-      header: "Lock Status",
-      cell: ({ row }) => (
-        <LockStatusBadge lockInfo={row.original.lockInfo} />
-      ),
-    },
-    {
-      accessorKey: "isDownloaded",
-      header: "Download Status",
-      cell: ({ row }) => (
-        <DownloadStatusBadge isDownloaded={row.original.isDownloaded} />
-      ),
-    },
-    {
-      accessorKey: "price",
-      header: "Price",
-      cell: ({ row }) => (
-        <div className="font-medium text-right">
-          {getPrice(row.original)}
-        </div>
-      ),
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => {
-        const application = row.original;
-        return (
-          <div className="flex items-center space-x-2">
-            {showActions && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-8 w-8 p-0">
-                    <span className="sr-only">Open menu</span>
-                    <DotsHorizontalIcon className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onLock(application.applicationId, 'temporary')}
-                    disabled={processingId === application.applicationId || application.lockInfo?.isLocked}
-                  >
-                    {application.lockInfo?.isLocked ? "Unlock" : "Lock (2 min)"}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onUnlock(application.applicationId)}
-                    disabled={processingId === application.applicationId || !application.lockInfo?.isLocked}
-                  >
-                    Unlock
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onDownload(application.applicationId)}
-                    disabled={processingId === application.applicationId || (application.lockInfo?.isLocked && !application.lockInfo?.isOwnLock)}
-                  >
-                    Download
-                  </Button>
-                  {!isHiddenView && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onHideApplication(application.applicationId)}
-                    >
-                      Hide
-                    </Button>
-                  )}
-                  {isHiddenView && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onHideApplication(application.applicationId)}
-                    >
-                      Unhide
-                    </Button>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-            {!showActions && (
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onViewDetails(application)}
-                >
-                  View Details
-                </Button>
-                <Button
-                  variant="success"
-                  size="sm"
-                  onClick={() => onPurchase(application.applicationId)}
-                  disabled={processingId === application.applicationId || (application.lockInfo?.isLocked && !application.lockInfo?.isOwnLock)}
-                >
-                  {application.lockInfo?.isLocked && !application.lockInfo?.isOwnLock ? "Locked" : application.isPurchased ? "Download" : "Purchase"}
-                </Button>
-              </div>
-            )}
-          </div>
-        );
-      },
-      enableSorting: false,
-      enableHiding: false,
-    },
-  ];
+  const columns = createColumns({
+    selectedApplications,
+    toggleApplicationSelection,
+    selectAll,
+    onLock,
+    onUnlock,
+    onDownload,
+    onViewDetails,
+    onHideApplication,
+    onPurchase,
+    processingId,
+    lockOptions,
+    ageDiscountSettings,
+    showActions,
+    isHiddenView
+  });
 
   const table = useReactTable({
     data: applications,
@@ -290,46 +110,7 @@ const ApplicationTable = ({
 
   return (
     <div className="w-full">
-      <div className="flex items-center py-4">
-        <Input
-          placeholder="Filter applications..."
-          value={(table.getColumn("fullName")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("fullName")?.setFilterValue(event.target.value)
-          }
-          className="max-w-sm"
-        />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
-              Columns <span className="ml-2 opacity-70">
-                {table.getVisibleFlatColumns().length}
-              </span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[150px]">
-            {table
-              .getAllColumns()
-              .filter(
-                (column) => column.getCanHide()
-              )
-              .map((column) => {
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) =>
-                      column.toggleVisibility(!!value)
-                    }
-                  >
-                    {column.id}
-                  </DropdownMenuCheckboxItem>
-                );
-              })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <ApplicationTableFilters table={table} />
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -406,67 +187,12 @@ const ApplicationTable = ({
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  {isLoading ? (
-                    <div className="flex justify-center">
-                      <svg
-                        className="animate-spin h-5 w-5 text-gray-400"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                    </div>
-                  ) : (
-                    "No applications found"
-                  )}
-                </TableCell>
-              </TableRow>
+              <EmptyOrLoadingState isLoading={isLoading} colSpan={columns.length} />
             )}
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <div className="flex-1 text-sm text-muted-foreground">
-          {selectedApplications.length > 0 && (
-            <span>
-              {selectedApplications.length} of {table.getFilteredRowModel().rows.length} row(s) selected.
-            </span>
-          )}
-        </div>
-        <div className="space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+      <ApplicationTablePagination table={table} selectedApplications={selectedApplications} />
     </div>
   );
 };

@@ -9,42 +9,26 @@ export interface AgeDiscountSettings {
 }
 
 export const getPrice = (application: ApplicationItem, ageDiscountSettings?: AgeDiscountSettings) => {
-  if (application.isDownloaded) {
+  if (application.isPurchased) {
     return 'Free';
   }
 
-  const lockInfo = application.lockInfo;
-  const wasLocked = lockInfo?.isLocked && lockInfo.lockedBy !== 'currentDealerId';
-  
-  // Get base price based on lock status
-  let basePrice = wasLocked ? 
-    application.discountedPrice : 
-    application.standardPrice;
-  
-  // Reset the flag in case it was previously set
-  application.isAgeDiscounted = false;
-  
-  // Calculate age-based discount if enabled
-  if (ageDiscountSettings?.isEnabled && basePrice) {
-    const leadAge = calculateLeadAge(application.submissionDate);
-    
-    if (leadAge >= ageDiscountSettings.daysThreshold) {
-      const discountMultiplier = (100 - ageDiscountSettings.discountPercentage) / 100;
-      const ageDiscountedPrice = basePrice * discountMultiplier;
-      
-      // Mark the application as age-discounted for UI highlighting
-      application.isAgeDiscounted = true;
-      
-      return `$${ageDiscountedPrice.toFixed(2)}`;
-    }
+  // Check if there's age-based discount
+  if (application.isAgeDiscounted) {
+    return `$${application.discountedPrice.toFixed(2)}`;
   }
   
-  // No age-based discount applied
-  return basePrice ? `$${basePrice.toFixed(2)}` : 'N/A';
+  // Check if there's lock-based discount
+  const lockInfo = application.lockInfo;
+  const wasLocked = lockInfo?.isLocked && !lockInfo?.isOwnLock;
+  
+  return wasLocked ? 
+    `$${application.discountedPrice.toFixed(2)}` : 
+    `$${application.standardPrice.toFixed(2)}`;
 };
 
 export const getPriceValue = (application: ApplicationItem, ageDiscountSettings?: AgeDiscountSettings): number => {
-  if (application.isDownloaded) {
+  if (application.isPurchased) {
     return 0;
   }
   

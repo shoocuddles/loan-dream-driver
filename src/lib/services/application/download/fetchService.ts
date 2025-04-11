@@ -35,16 +35,51 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
       return applications;
     }
     
-    // If applications not found, try looking in downloaded applications
-    console.log('🔄 Attempting to fetch from downloaded applications');
+    console.log('🔄 Applications not found in applications table, checking dealer_purchases');
     
+    // If applications not found directly, try getting through dealer_purchases
     // Get the current user's ID
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       throw new Error('User not authenticated');
     }
     
-    // Try the RPC function first - now returns JSON!
+    // First check if these applications are actually purchased by the dealer
+    const { data: purchasesData } = await supabase
+      .from('dealer_purchases')
+      .select('application_id, purchase_date')
+      .in('application_id', applicationIds)
+      .eq('dealer_id', userData.user.id)
+      .eq('is_active', true);
+    
+    if (purchasesData && purchasesData.length > 0) {
+      console.log(`✅ Found ${purchasesData.length} purchased applications`);
+      
+      // Now try to get the full application details for each purchased application
+      const appDetails = [];
+      for (const purchase of purchasesData) {
+        const { data: appData } = await supabase
+          .from('applications')
+          .select('*')
+          .eq('id', purchase.application_id)
+          .single();
+          
+        if (appData) {
+          appDetails.push({
+            ...appData,
+            purchaseDate: purchase.purchase_date,
+            applicationId: purchase.application_id
+          });
+        }
+      }
+      
+      if (appDetails.length > 0) {
+        console.log(`✅ Retrieved ${appDetails.length} application details from purchases`);
+        return appDetails;
+      }
+    }
+    
+    // Try the RPC function as a fallback
     try {
       const { data: downloadedApps, error: downloadError } = await supabase
         .rpc('get_dealer_downloads', {

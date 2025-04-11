@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationItem, LockType, LockInfo, DownloadedApplication, DealerPurchase } from '@/lib/types/dealer-dashboard';
 import { formatDistanceToNow, parseISO, differenceInDays } from 'date-fns';
@@ -231,8 +232,10 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
       return [];
     }
     
+    console.log(`Retrieved ${applicationsData?.length || 0} application details`);
+    
     // Map purchases to application details
-    return purchasesData.map(purchase => {
+    const downloadedApplications: DownloadedApplication[] = purchasesData.map(purchase => {
       const appDetails = applicationsData?.find(app => app.id === purchase.application_id) || {};
       
       return {
@@ -268,6 +271,8 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
         updatedAt: appDetails.updated_at
       };
     });
+    
+    return downloadedApplications;
   } catch (error: any) {
     console.error("Error fetching downloaded applications:", error);
     toast.error("Failed to load purchased applications");

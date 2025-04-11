@@ -204,6 +204,16 @@ const DealerDashboard = () => {
       const downloadedAppsList = Array.isArray(downloadedData) ? downloadedData : [];
       setDownloadedApps(downloadedAppsList);
       
+      if (downloadedAppsList.length > 0) {
+        console.log('Sample downloaded application:', {
+          id: downloadedAppsList[0].id,
+          applicationId: downloadedAppsList[0].applicationId,
+          fullName: downloadedAppsList[0].fullName,
+          email: downloadedAppsList[0].email,
+          downloadDate: downloadedAppsList[0].downloadDate
+        });
+      }
+      
       const downloadedAppIds = downloadedAppsList.map(app => app.applicationId);
       console.log('Downloaded application IDs:', downloadedAppIds.length);
       
@@ -216,7 +226,7 @@ const DealerDashboard = () => {
       })));
       
       const filteredApps = appsData.filter(app => 
-        !app.isPurchased && !purchasedApplicationIds.includes(app.applicationId)
+        !app.isPurchased && !purchasedApplicationIds.includes(app.applicationId) && !downloadedAppIds.includes(app.applicationId)
       );
       
       const hiddenAppIds = hiddenApplications.map(app => app.applicationId);

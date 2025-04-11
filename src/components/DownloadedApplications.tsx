@@ -1,3 +1,4 @@
+
 import { useState, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,7 @@ const DownloadedApplications = ({
   const cardRef = useRef<HTMLDivElement>(null);
   
   const filteredApplications = applications.filter(app => 
-    app.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    app.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (app.email && app.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (app.city && app.city.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -59,10 +60,7 @@ const DownloadedApplications = ({
     }
   };
 
-  const handleBulkDownload = () => {
-    if (selectedApplications.length === 0) return;
-    // Let the DownloadOptions component handle the download
-  };
+  console.log("Downloaded applications to display:", applications);
 
   return (
     <Card ref={cardRef}>
@@ -161,22 +159,22 @@ const DownloadedApplications = ({
                       />
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium">{application.fullName}</div>
+                      <div className="font-medium">{application.fullName || 'Unknown'}</div>
                     </TableCell>
                     <TableCell>
-                      <div>{application.phoneNumber}</div>
-                      <div className="text-sm text-gray-500">{application.email}</div>
+                      <div>{application.phoneNumber || 'N/A'}</div>
+                      <div className="text-sm text-gray-500">{application.email || 'N/A'}</div>
                     </TableCell>
                     <TableCell>
-                      <div>{application.address}</div>
+                      <div>{application.address || 'N/A'}</div>
                       <div className="text-sm">
                         {[application.city, application.province, application.postalCode]
                           .filter(Boolean)
-                          .join(', ')}
+                          .join(', ') || 'N/A'}
                       </div>
                     </TableCell>
                     <TableCell>{application.vehicleType || 'N/A'}</TableCell>
-                    <TableCell>{safeFormatDate(application.downloadDate)}</TableCell>
+                    <TableCell>{safeFormatDate(application.downloadDate || application.purchaseDate)}</TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-2">
                         <Button

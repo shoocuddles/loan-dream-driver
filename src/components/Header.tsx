@@ -1,11 +1,13 @@
 
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
   const { user, isAdmin } = useAuth();
   const isLoggedIn = !!user;
+  const location = useLocation();
+  const isHomePage = location.pathname === "/";
   
   return (
     <header className="bg-ontario-blue text-white py-4 shadow-md fixed top-0 left-0 right-0 z-50">
@@ -23,7 +25,7 @@ const Header = () => {
           <span className="text-2xl font-bold tracking-tight sr-only">Ontario Loans</span>
         </Link>
         
-        {isLoggedIn ? (
+        {isLoggedIn && !isHomePage ? (
           <div className="flex-1 text-center">
             <h2 className="text-xl font-semibold">Dealer Zone</h2>
           </div>

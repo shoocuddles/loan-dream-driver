@@ -49,9 +49,10 @@ const StripeDebug = () => {
       
       for (const fn of functionsToCheck) {
         try {
-          // Just a head request to see if the endpoint exists
+          // Use fetch with the Supabase project URL instead of accessing the protected url property
+          const supabaseUrl = "https://kgtfpuvksmqyaraijoal.supabase.co";
           const response = await fetch(
-            `${supabase.functions.url}/${fn}`,
+            `${supabaseUrl}/functions/v1/${fn}`,
             { method: 'HEAD' }
           );
           

@@ -64,7 +64,7 @@ const BulkActionsBar = ({
 
   return (
     <>
-      <div className="sticky bottom-4 left-0 right-0 mt-4 p-4 bg-white rounded-lg border shadow-lg flex justify-between items-center z-10">
+      <div className="sticky bottom-4 left-0 right-0 mt-4 p-4 bg-gray-200/70 backdrop-blur-sm rounded-lg border shadow-lg flex justify-between items-center z-10">
         <div>
           <span className="font-medium">{selectedCount} item{selectedCount !== 1 ? 's' : ''} selected</span>
           {unpurchasedCount > 0 && (

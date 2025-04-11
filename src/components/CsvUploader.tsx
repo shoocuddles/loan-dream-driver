@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Loader2, FileUp, Download, Check, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { parseISO, isValid, format } from 'date-fns';
 
 interface CsvUploaderProps {
   onSuccess?: (rowCount: number) => void;
@@ -26,6 +27,36 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
   const resetState = () => {
     setFile(null);
     setResult(null);
+  };
+
+  // Ensures a date string is properly formatted for Supabase
+  const formatDateForSupabase = (dateStr: string): string => {
+    if (!dateStr || dateStr.trim() === '') {
+      return new Date().toISOString();
+    }
+
+    try {
+      // Handle numeric values that might be mistakenly included (e.g., "600")
+      if (!isNaN(Number(dateStr))) {
+        console.log(`Converting numeric date "${dateStr}" to current date`);
+        return new Date().toISOString();
+      }
+
+      // Try parsing as ISO format
+      const parsedDate = parseISO(dateStr);
+      
+      if (isValid(parsedDate)) {
+        return parsedDate.toISOString();
+      } else {
+        // If not valid ISO format, attempt other common formats
+        // For simplicity, fall back to current date if parsing fails
+        console.log(`Unable to parse date "${dateStr}", using current date`);
+        return new Date().toISOString();
+      }
+    } catch (error) {
+      console.error(`Error formatting date "${dateStr}":`, error);
+      return new Date().toISOString();
+    }
   };
 
   const downloadTemplate = () => {
@@ -55,7 +86,7 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
       'Leather Seats, Backup Camera', 
       'Red, Yellow', 
       'Honda CR-V', 
-      'FALSE', // Using uppercase 'FALSE' for CSV consistency with provided data
+      'FALSE', // Always uppercase 'FALSE' for CSV
       '$350/month', 
       '$15000', 
       '2018 Toyota Corolla', 
@@ -64,7 +95,7 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
       '$5500', 
       'Looking for family vehicle', 
       'submitted',
-      'TRUE', // Always set iscomplete to TRUE (uppercase)
+      'TRUE', // Always set iscomplete to TRUE
       formattedDate, // Current date for created_at in the requested format
       formattedDate  // Current date for updated_at in the requested format
     ].join(',');
@@ -107,9 +138,17 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
         let value = values[index]?.trim() ?? '';
         
         // Special handling for boolean values
-        if (header === 'hasexistingloan' || header === 'iscomplete') {
-          // Convert TRUE/FALSE to string 'true'/'false' for Supabase
+        if (header === 'hasexistingloan') {
+          // For database storage, convert to actual boolean string
           value = value.toUpperCase() === 'TRUE' ? 'true' : 'false';
+        }
+        else if (header === 'iscomplete') {
+          // Always set iscomplete to "true" string regardless of input
+          value = 'true';
+        }
+        // Handle date formatting for created_at and updated_at
+        else if (header === 'created_at' || header === 'updated_at') {
+          value = formatDateForSupabase(value);
         }
         
         entry[header] = value;
@@ -119,7 +158,7 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
         delete entry.id;
       }
 
-      // Always set iscomplete to true string
+      // Always ensure iscomplete is set to true
       entry.iscomplete = 'true';
       
       // Ensure created_at and updated_at are properly set with values or defaults
@@ -177,9 +216,25 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
         console.log(`Processing batch ${i+1}/${batches.length}, ${batch.length} records`);
         
         try {
+          // Sanitize each record for database insertion
+          const sanitizedBatch = batch.map(record => {
+            // Make a copy to avoid mutating the original
+            const sanitized = { ...record };
+            
+            // Ensure boolean fields are properly formatted
+            if (sanitized.hasexistingloan !== undefined) {
+              sanitized.hasexistingloan = sanitized.hasexistingloan === 'true';
+            }
+            if (sanitized.iscomplete !== undefined) {
+              sanitized.iscomplete = true; // Always set to true boolean, not string
+            }
+            
+            return sanitized;
+          });
+          
           const { data, error } = await supabase
             .from('applications')
-            .insert(batch)
+            .insert(sanitizedBatch)
             .select();
 
           if (error) {

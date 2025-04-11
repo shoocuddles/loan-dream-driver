@@ -697,7 +697,8 @@ const DealerDashboard = () => {
                     Cancel
                   </Button>
                   <Button 
-                    className="flex-1 bg-ontario-blue hover:bg-ontario-blue/90"
+                    className="flex-1"
+                    variant="success"
                     onClick={handleProcessPayment}
                     disabled={isProcessingPayment}
                   >

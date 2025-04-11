@@ -142,7 +142,7 @@ const BulkActionsBar = ({
           {unpurchasedCount > 0 && (
             <Button
               size="sm"
-              variant="default"
+              variant="success"
               onClick={() => unpurchasedCount < selectedCount ? setShowPurchaseAlert(true) : onPurchaseSelected()}
               disabled={isProcessing}
             >
@@ -164,7 +164,7 @@ const BulkActionsBar = ({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={onPurchaseSelected}>
+            <AlertDialogAction onClick={onPurchaseSelected} className="bg-green-600 hover:bg-green-700">
               Purchase Now (${totalPurchaseCost.toFixed(2)})
             </AlertDialogAction>
           </AlertDialogFooter>

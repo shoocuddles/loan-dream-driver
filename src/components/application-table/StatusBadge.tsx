@@ -1,80 +1,69 @@
 
 import { Badge } from '@/components/ui/badge';
-import { Clock, Lock } from 'lucide-react';
-import { ApplicationItem } from '@/lib/types/dealer-dashboard';
 import { formatDistanceToNow } from 'date-fns';
+import { LockInfo } from '@/lib/types/dealer-dashboard';
 
 interface StatusBadgeProps {
-  status: string | undefined;
+  status?: string;
+}
+
+interface LockStatusBadgeProps {
+  lockInfo?: LockInfo;
+}
+
+interface DownloadStatusBadgeProps {
+  isDownloaded?: boolean;
 }
 
 export const StatusBadge = ({ status }: StatusBadgeProps) => {
   if (!status) return null;
   
-  let badgeClass = "bg-gray-50 text-gray-700 border-gray-200";
+  let badgeVariant: 'default' | 'destructive' | 'outline' | 'secondary' = 'outline';
+  let badgeClasses = 'bg-gray-50 text-gray-700 border-gray-200';
   
-  if (status === "submitted") {
-    badgeClass = "bg-blue-50 text-blue-700 border-blue-200";
-  } else if (status === "approved") {
-    badgeClass = "bg-green-50 text-green-700 border-green-200";
-  } else if (status === "rejected") {
-    badgeClass = "bg-red-50 text-red-700 border-red-200";
+  if (status === 'submitted' || status === 'processing') {
+    badgeClasses = 'bg-blue-50 text-blue-700 border-blue-200';
+  } else if (status === 'approved' || status === 'completed') {
+    badgeClasses = 'bg-green-50 text-green-700 border-green-200';
+  } else if (status === 'rejected' || status === 'declined') {
+    badgeClasses = 'bg-red-50 text-red-700 border-red-200';
   }
   
+  const formattedStatus = status.charAt(0).toUpperCase() + status.slice(1);
+  
   return (
-    <Badge variant="outline" className={badgeClass}>
-      {status.charAt(0).toUpperCase() + status.slice(1)}
-    </Badge>
+    <Badge variant="outline" className={badgeClasses}>{formattedStatus}</Badge>
   );
 };
-
-interface LockStatusBadgeProps {
-  lockInfo: ApplicationItem['lockInfo'];
-}
 
 export const LockStatusBadge = ({ lockInfo }: LockStatusBadgeProps) => {
-  // Check if there's lock information and if the application is actually locked
-  if (!lockInfo || !lockInfo.isLocked) {
-    return null;
+  if (!lockInfo || !lockInfo.isLocked) return null;
+  
+  if (lockInfo.isOwnLock) {
+    return (
+      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+        Locked by You
+      </Badge>
+    );
   }
-
-  // Get the expiration date if available
-  const expiresAt = lockInfo.expiresAt ? new Date(lockInfo.expiresAt) : null;
   
-  // If no expiration date or it's already expired, don't show the lock
-  if (!expiresAt || expiresAt < new Date()) {
-    return null;
-  }
-
-  // Calculate time remaining
-  const timeLeft = formatDistanceToNow(expiresAt, { addSuffix: false });
+  if (!lockInfo.expiresAt) return null;
   
-  // Use different styling based on whether it's the dealer's own lock
-  const badgeClass = lockInfo.isOwnLock 
-    ? "bg-blue-50 text-blue-700 border-blue-200"
-    : "bg-red-50 text-red-700 border-red-200";
+  const expiresAt = new Date(lockInfo.expiresAt);
+  if (expiresAt < new Date()) return null;
   
-  console.log(`Rendering lock badge for application. Own lock: ${lockInfo.isOwnLock}, expires: ${expiresAt}, timeLeft: ${timeLeft}`);
+  // Change "about" to "for" to match the requested format
+  const timeLeft = formatDistanceToNow(expiresAt);
   
   return (
-    <Badge variant="outline" className={badgeClass}>
-      {lockInfo.isOwnLock ? (
-        <>
-          <Lock className="w-3 h-3 mr-1" /> Locked by You
-        </>
-      ) : (
-        <>
-          <Clock className="w-3 h-3 mr-1" /> Locked for {timeLeft}
-        </>
-      )}
+    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+      Locked for {timeLeft}
     </Badge>
   );
 };
 
-export const DownloadStatusBadge = ({ isDownloaded }: { isDownloaded: boolean }) => {
-  if (!isDownloaded) {
-    return null;
-  }
+export const DownloadStatusBadge = ({ isDownloaded }: DownloadStatusBadgeProps) => {
+  if (!isDownloaded) return null;
   
   return (
     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">

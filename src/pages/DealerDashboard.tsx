@@ -54,6 +54,29 @@ const generateApplicationPDF = (application: {
   return new Blob([text], { type: 'application/pdf' });
 };
 
+const processLocksAfterPayment = async (
+  applicationIds: string[], 
+  lockType: LockType, 
+  paymentId: string, 
+  amount: number
+): Promise<number> => {
+  let locksProcessed = 0;
+  
+  for (const appId of applicationIds) {
+    try {
+      const lockSuccess = await lockApplication(appId, lockType);
+      if (lockSuccess) {
+        locksProcessed++;
+      }
+    } catch (error) {
+      console.error(`Error locking application ${appId} after payment:`, error);
+    }
+  }
+  
+  console.log(`Successfully locked ${locksProcessed} applications after payment ${paymentId} for $${amount}`);
+  return locksProcessed;
+};
+
 const DealerDashboard = () => {
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [downloadedApps, setDownloadedApps] = useState<DownloadedApplication[]>([]);
@@ -660,10 +683,11 @@ const DealerDashboard = () => {
                       onUnlock={handleUnlockApplication}
                       onDownload={handleDownload}
                       onViewDetails={handleViewDetails}
+                      onHideApplication={handleUnhideApplication}
+                      onPurchase={handlePurchase}
                       processingId={processingId}
                       lockOptions={lockOptions}
                       ageDiscountSettings={ageDiscountSettings}
-                      onHideApplication={handleUnhideApplication}
                       showActions={false}
                       isHiddenView={true}
                     />

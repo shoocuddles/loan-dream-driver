@@ -74,13 +74,13 @@ const ApplicationTable = ({
   showActions,
   isHiddenView
 }: ApplicationTableProps) => {
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
-  })
+  });
 
   const columns: ColumnDef<ApplicationItem>[] = [
     {
@@ -91,8 +91,8 @@ const ApplicationTable = ({
             table.getIsAllPageRowsSelected()
           }
           onCheckedChange={(value) => {
-            table.toggleAllPageRowsSelected(!!value)
-            selectAll(!!value)
+            table.toggleAllPageRowsSelected(!!value);
+            selectAll(!!value);
           }}
           aria-label="Select all"
           className="translate-y-[2px]"
@@ -102,8 +102,8 @@ const ApplicationTable = ({
         <Checkbox
           checked={selectedApplications.includes(row.original.applicationId)}
           onCheckedChange={(value) => {
-            toggleApplicationSelection(row.original.applicationId)
-            row.toggleSelected(!!value)
+            toggleApplicationSelection(row.original.applicationId);
+            row.toggleSelected(!!value);
           }}
           aria-label="Select row"
           className="translate-y-[2px]"
@@ -251,7 +251,7 @@ const ApplicationTable = ({
       columnFilters,
       pagination,
     },
-  })
+  });
 
   return (
     <div className="w-full">
@@ -290,7 +290,7 @@ const ApplicationTable = ({
                   >
                     {column.id}
                   </DropdownMenuCheckboxItem>
-                )
+                );
               })}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -307,12 +307,10 @@ const ApplicationTable = ({
                         ? null
                         : (
                           <div
-                            {...{
-                              className: "flex cursor-pointer select-none items-center justify-between",
-                              onClick: header.column.getCanSort() ? () => {
-                                header.column.toggleSorting(header.column.getIsSorted() === "asc")
-                              } : undefined,
-                            }}
+                            className="flex cursor-pointer select-none items-center justify-between"
+                            onClick={header.column.getCanSort() ? () => {
+                              header.column.toggleSorting(header.column.getIsSorted() === "asc");
+                            } : undefined}
                           >
                             {flexRender(
                               header.column.columnDef.header,

@@ -58,6 +58,13 @@ export const lockApplication = async (applicationId: string, lockType: LockType,
       return false;
     }
     
+    // If the application is locked by another dealer, prevent this dealer from locking
+    if (currentLock?.isLocked && !currentLock.isOwnLock) {
+      console.log('Application is locked by another dealer - cannot lock');
+      toast.error('This application is currently locked by another dealer.');
+      return false;
+    }
+    
     // Create or update the lock
     const { data, error } = await rpcCall<{ success: boolean, lockId?: string }>('lock_application', {
       p_application_id: applicationId,

@@ -1,47 +1,57 @@
-import { useState, useRef, useEffect } from 'react';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ApplicationItem, LockType } from '@/lib/types/dealer-dashboard';
-import { SortableTable, ColumnDef } from '@/components/ui/sortable-table';
+import { useState } from 'react';
+import {
+  ColumnDef,
+  SortingState,
+  VisibilityState,
+  ColumnFiltersState,
+  PaginationState,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  useReactTable,
+  getSortedRowModel,
+  getFilteredRowModel,
+} from '@tanstack/react-table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { DotsHorizontalIcon } from "@radix-ui/react-icons"
 import { StatusBadge, LockStatusBadge, DownloadStatusBadge } from './StatusBadge';
-import { ApplicationActions } from './ApplicationActions';
-import { safeFormatDate } from './dateUtils';
-import { getPrice, AgeDiscountSettings } from './priceUtils';
-import { SelectionHeader } from './SelectionHeader';
-import { 
-  Pagination, 
-  PaginationContent, 
-  PaginationItem, 
-  PaginationLink, 
-  PaginationNext, 
-  PaginationPrevious 
-} from '@/components/ui/pagination';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, EyeOff, ShoppingCart, Eye } from 'lucide-react';
-
-type LockOption = {
-  id: number;
-  name: string;
-  type: LockType;
-  fee: number;
-};
+import { Checkbox } from "@/components/ui/checkbox"
+import { ApplicationItem } from '@/lib/types/dealer-dashboard';
+import { LockType } from '@/lib/types/dealer-dashboard';
+import { AgeDiscountSettings, getPrice } from './priceUtils';
 
 interface ApplicationTableProps {
   applications: ApplicationItem[];
   isLoading: boolean;
   selectedApplications: string[];
-  toggleApplicationSelection: (id: string) => void;
+  toggleApplicationSelection: (applicationId: string) => void;
   selectAll: (select: boolean) => void;
   onLock: (applicationId: string, lockType: LockType) => Promise<void>;
   onUnlock: (applicationId: string) => Promise<void>;
   onDownload: (applicationId: string) => Promise<void>;
   onViewDetails: (application: ApplicationItem) => void;
-  onHideApplication?: (applicationId: string) => void;
-  onPurchase?: (applicationId: string) => void;
+  onHideApplication: (applicationId: string) => void;
+  onPurchase: (applicationId: string) => void;
   processingId: string | null;
-  lockOptions: LockOption[];
-  ageDiscountSettings?: AgeDiscountSettings;
-  showActions?: boolean;
-  isHiddenView?: boolean;
+  lockOptions: { id: number, name: string, type: LockType, fee: number }[];
+  ageDiscountSettings: AgeDiscountSettings;
+  showActions: boolean;
+  isHiddenView: boolean;
 }
 
 const ApplicationTable = ({
@@ -59,270 +69,444 @@ const ApplicationTable = ({
   processingId,
   lockOptions,
   ageDiscountSettings,
-  showActions = true,
-  isHiddenView = false
+  showActions,
+  isHiddenView
 }: ApplicationTableProps) => {
-  const allSelected = applications.length > 0 && selectedApplications.length === applications.length;
-  const someSelected = selectedApplications.length > 0 && !allSelected;
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 50;
-  const tableRef = useRef<HTMLDivElement>(null);
-  
-  const totalPages = Math.ceil(applications.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, applications.length);
-  const currentApplications = applications.slice(startIndex, endIndex);
-
-  if (applications.length > 0) {
-    console.log(`Processing ${applications.length} applications`);
-  }
-
-  if (ageDiscountSettings?.isEnabled) {
-    console.log(`Age discount enabled: ${ageDiscountSettings.discountPercentage}% after ${ageDiscountSettings.daysThreshold} days`);
-  }
-
-  const handlePageChange = (pageNumber: number) => {
-    setCurrentPage(pageNumber);
-    selectAll(false);
-    
-    if (tableRef.current) {
-      tableRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  })
 
   const columns: ColumnDef<ApplicationItem>[] = [
     {
-      accessorKey: 'select',
-      header: '',
-      enableSorting: false,
-      cell: ({ row }) => (
-        <Checkbox 
-          checked={selectedApplications.includes(row.original.applicationId)}
-          onCheckedChange={() => toggleApplicationSelection(row.original.applicationId)}
-          disabled={row.original.lockInfo?.isLocked && !row.original.lockInfo?.isOwnLock}
-          aria-label={`Select application ${row.original.applicationId}`}
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected()
+          }
+          onCheckedChange={(value) => {
+            table.toggleAllPageRowsSelected(!!value)
+            selectAll(!!value)
+          }}
+          aria-label="Select all"
+          className="translate-y-[2px]"
         />
-      )
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={selectedApplications.includes(row.original.applicationId)}
+          onCheckedChange={(value) => {
+            toggleApplicationSelection(row.original.applicationId)
+            row.toggleSelected(!!value)
+          }}
+          aria-label="Select row"
+          className="translate-y-[2px]"
+          disabled={row.original.lockInfo?.isLocked && !row.original.lockInfo?.isOwnLock}
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
     },
     {
-      accessorKey: 'submissionDate',
-      header: 'Date',
-      cell: ({ row }) => safeFormatDate(row.original.submissionDate)
+      accessorKey: "fullName",
+      header: "Full Name",
     },
     {
-      accessorKey: 'fullName',
-      header: 'Name',
-      cell: ({ row }) => <div className="font-medium">{row.original.fullName}</div>
+      accessorKey: "city",
+      header: "City",
     },
     {
-      accessorKey: 'city',
-      header: 'City'
+      accessorKey: "submissionDate",
+      header: "Submission Date",
     },
     {
-      accessorKey: 'vehicleType',
-      header: 'Type',
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => (
+        <StatusBadge status={row.original.status} />
+      ),
+    },
+    {
+      accessorKey: "lockInfo",
+      header: "Lock Status",
+      cell: ({ row }) => (
+        <LockStatusBadge lockInfo={row.original.lockInfo} />
+      ),
+    },
+    {
+      accessorKey: "isDownloaded",
+      header: "Download Status",
+      cell: ({ row }) => (
+        <DownloadStatusBadge isDownloaded={row.original.isDownloaded} />
+      ),
+    },
+    {
+      id: "actions",
+      header: "Actions",
       cell: ({ row }) => {
-        return row.original.vehicleType || 'N/A';
-      }
-    },
-    {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ row }) => {
+        const application = row.original;
         return (
-          <div className="flex flex-col gap-1">
-            <StatusBadge status={row.original.status} />
-            <LockStatusBadge lockInfo={row.original.lockInfo} />
-            <DownloadStatusBadge isDownloaded={!!row.original.isDownloaded} />
-            {row.original.isAgeDiscounted && (
-              <span className="text-xs font-medium text-green-600">Age Discounted</span>
+          <div className="flex items-center space-x-2">
+            {showActions && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <DotsHorizontalIcon className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onLock(application.applicationId, 'temporary')}
+                    disabled={processingId === application.applicationId || application.lockInfo?.isLocked}
+                  >
+                    {application.lockInfo?.isLocked ? "Unlock" : "Lock (2 min)"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onUnlock(application.applicationId)}
+                    disabled={processingId === application.applicationId || !application.lockInfo?.isLocked}
+                  >
+                    Unlock
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onDownload(application.applicationId)}
+                    disabled={processingId === application.applicationId || (application.lockInfo?.isLocked && !application.lockInfo?.isOwnLock)}
+                  >
+                    Download
+                  </Button>
+                  {!isHiddenView && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onHideApplication(application.applicationId)}
+                    >
+                      Hide
+                    </Button>
+                  )}
+                  {isHiddenView && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onHideApplication(application.applicationId)}
+                    >
+                      Unhide
+                    </Button>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
-          </div>
-        );
-      }
-    },
-    {
-      accessorKey: 'price',
-      header: 'Price',
-      cell: ({ row }) => {
-        const price = getPrice(row.original, ageDiscountSettings);
-        return (
-          <div className={`font-medium text-right ${row.original.isAgeDiscounted ? 'text-green-600' : ''}`}>
-            {price}
-            {row.original.isAgeDiscounted && (
-              <div className="text-xs">
-                ({ageDiscountSettings?.discountPercentage || 0}% off)
+            {!showActions && (
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onViewDetails(application)}
+                >
+                  View Details
+                </Button>
+                <Button
+                  variant="success"
+                  size="sm"
+                  onClick={() => onPurchase(application.applicationId)}
+                  disabled={processingId === application.applicationId || (application.lockInfo?.isLocked && !application.lockInfo?.isOwnLock)}
+                >
+                  {application.lockInfo?.isLocked && !application.lockInfo?.isOwnLock ? "Locked" : application.isPurchased ? "Download" : "Purchase"}
+                </Button>
               </div>
             )}
           </div>
         );
-      }
-    },
-    {
-      accessorKey: 'actions',
-      header: 'Actions',
+      },
       enableSorting: false,
-      cell: ({ row }) => (
-        <div className="flex gap-2 justify-end">
-          {showActions ? (
-            <>
-              <ApplicationActions
-                application={row.original}
-                onViewDetails={onViewDetails}
-                onLock={onLock}
-                onUnlock={onUnlock}
-                onDownload={onDownload}
-                processingId={processingId}
-                lockOptions={lockOptions}
-              />
-              {onHideApplication && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => onHideApplication(row.original.applicationId)}
-                  title={isHiddenView ? "Unhide application" : "Hide application"}
-                >
-                  <EyeOff className="h-4 w-4" />
-                </Button>
-              )}
-            </>
-          ) : (
-            <>
-              {onHideApplication && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onHideApplication(row.original.applicationId)}
-                  title={isHiddenView ? "Unhide application" : "Hide application"}
-                  className="flex items-center gap-1"
-                >
-                  {isHiddenView ? (
-                    <Eye className="h-4 w-4" />
-                  ) : (
-                    <EyeOff className="h-4 w-4" />
-                  )}
-                  <span className="sr-only">{isHiddenView ? "Unhide" : "Hide"}</span>
-                  {isHiddenView && <span className="text-xs">Unhide</span>}
-                </Button>
-              )}
-              <Button
-                onClick={() => onViewDetails(row.original)}
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-              >
-                <Eye className="h-4 w-4" />
-                <span className="text-xs">View Details</span>
-              </Button>
-              {onPurchase && !row.original.isDownloaded && (
-                <Button
-                  onClick={() => onPurchase(row.original.applicationId)}
-                  variant="default"
-                  size="sm"
-                  className="bg-ontario-blue hover:bg-ontario-blue/90"
-                  disabled={processingId === row.original.applicationId}
-                >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Purchase
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      )
+      enableHiding: false,
     },
   ];
 
-  return (
-    <div className="border rounded-md" ref={tableRef}>
-      <div className="text-sm text-gray-500 p-2">
-        <SelectionHeader 
-          allSelected={allSelected} 
-          someSelected={someSelected} 
-          onSelectAll={selectAll} 
-        />
-      </div>
-      <SortableTable
-        data={currentApplications}
-        columns={columns}
-        isLoading={isLoading}
-        noDataMessage="No applications available"
-      />
-      
-      {totalPages > 1 && (
-        <div className="py-4 border-t">
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => currentPage > 1 && handlePageChange(currentPage - 1)}
-                  className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} 
-                />
-              </PaginationItem>
-              
-              {currentPage > 2 && (
-                <PaginationItem>
-                  <PaginationLink onClick={() => handlePageChange(1)}>1</PaginationLink>
-                </PaginationItem>
-              )}
-              
-              {currentPage > 3 && (
-                <PaginationItem>
-                  <span className="flex h-9 w-9 items-center justify-center">...</span>
-                </PaginationItem>
-              )}
-              
-              {currentPage > 1 && (
-                <PaginationItem>
-                  <PaginationLink onClick={() => handlePageChange(currentPage - 1)}>
-                    {currentPage - 1}
-                  </PaginationLink>
-                </PaginationItem>
-              )}
-              
-              <PaginationItem>
-                <PaginationLink isActive onClick={() => handlePageChange(currentPage)}>
-                  {currentPage}
-                </PaginationLink>
-              </PaginationItem>
-              
-              {currentPage < totalPages && (
-                <PaginationItem>
-                  <PaginationLink onClick={() => handlePageChange(currentPage + 1)}>
-                    {currentPage + 1}
-                  </PaginationLink>
-                </PaginationItem>
-              )}
-              
-              {currentPage < totalPages - 2 && (
-                <PaginationItem>
-                  <span className="flex h-9 w-9 items-center justify-center">...</span>
-                </PaginationItem>
-              )}
-              
-              {currentPage < totalPages - 1 && (
-                <PaginationItem>
-                  <PaginationLink onClick={() => handlePageChange(totalPages)}>
-                    {totalPages}
-                  </PaginationLink>
-                </PaginationItem>
-              )}
-              
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => currentPage < totalPages && handlePageChange(currentPage + 1)}
-                  className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} 
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-          <div className="text-center text-sm text-gray-500 mt-2">
-            Page {currentPage} of {totalPages} • Showing {startIndex + 1}-{endIndex} of {applications.length} applications
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+  const table = useReactTable({
+    data: applications,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    onSortingChange: setSorting,
+    getSortedRowModel: getSortedRowModel(),
+    onColumnVisibilityChange: setColumnVisibility,
+    onColumnFiltersChange: setColumnFilters,
+    getFilteredRowModel: getFilteredRowModel(),
+    onPaginationChange: setPagination,
+    state: {
+      sorting,
+      columnVisibility,
+      columnFilters,
+      pagination,
+    },
+  })
 
-export default ApplicationTable;
+  return (
+    <div className="w-full">
+      <div className="flex items-center py-4">
+        <Input
+          placeholder="Filter applications..."
+          value={(table.getColumn("fullName")?.getFilterValue() as string) ?? ""}
+          onChange={(event) =>
+            table.getColumn("fullName")?.setFilterValue(event.target.value)
+          }
+          className="max-w-sm"
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="ml-auto">
+              Columns <span className="ml-2 opacity-70">
+                {table.getVisibleColumns().length}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[150px]">
+            {table
+              .getAllColumns()
+              .filter(
+                (column) => column.getCanHide()
+              )
+              .map((column) => {
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    className="capitalize"
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(value) =>
+                      column.toggleVisibility(!!value)
+                    }
+                  >
+                    {column.id}
+                  </DropdownMenuCheckboxItem>
+                )
+              })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => {
+                  return (
+                    <TableHead key={header.id} className="w-[200px]">
+                      {header.isPlaceholder
+                        ? null
+                        : (
+                          <div
+                            {...{
+                              className: "flex cursor-pointer select-none items-center justify-between",
+                              onClick: header.column.getCanSort() ? () => {
+                                header.column.toggleSorting(header.column.getIsSorted() === "asc")
+                              } : undefined,
+                            }}
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                            {{
+                              asc:
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="20"
+                                  height="20"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="h-4 w-4"
+                                >
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                </svg>,
+                              desc:
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="20"
+                                  height="20"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="h-4 w-4"
+                                >
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path d="M5 12l-2 2 9 9 2-2L5 12z" />
+                                  <path

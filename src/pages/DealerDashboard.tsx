@@ -143,7 +143,33 @@ const DealerDashboard = () => {
             console.error("Error completing purchase:", result.error);
             toast.error("There was an issue processing your payment confirmation. Please contact support.");
           } else {
-            toast.success("Payment processed successfully. Your applications are now available in the Purchased tab.");
+            const pendingLockApplications = sessionStorage.getItem('pendingLockApplications');
+            const pendingLockType = sessionStorage.getItem('pendingLockType') as LockType;
+            
+            if (pendingLockApplications && pendingLockType) {
+              try {
+                const applicationIds = JSON.parse(pendingLockApplications);
+                if (Array.isArray(applicationIds) && applicationIds.length > 0) {
+                  const locksProcessed = await processLocksAfterPayment(
+                    applicationIds, 
+                    pendingLockType, 
+                    result.data?.paymentId || sessionId, 
+                    result.data?.amount || 0
+                  );
+                  
+                  if (locksProcessed > 0) {
+                    toast.success(`Successfully locked ${locksProcessed} application(s)`);
+                    sessionStorage.removeItem('pendingLockApplications');
+                    sessionStorage.removeItem('pendingLockType');
+                  }
+                }
+              } catch (lockError) {
+                console.error("Error processing locks after payment:", lockError);
+              }
+            } else {
+              toast.success("Payment processed successfully. Your applications are now available in the Purchased tab.");
+            }
+            
             await loadData();
             await loadPurchasedApplicationIds();
             

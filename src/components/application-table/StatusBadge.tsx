@@ -47,7 +47,7 @@ export const LockStatusBadge = ({ lockInfo }: LockStatusBadgeProps) => {
   }
 
   // Calculate time remaining
-  const timeLeft = formatDistanceToNow(expiresAt, { addSuffix: true });
+  const timeLeft = formatDistanceToNow(expiresAt, { addSuffix: false });
   
   // Use different styling based on whether it's the dealer's own lock
   const badgeClass = lockInfo.isOwnLock 
@@ -64,7 +64,7 @@ export const LockStatusBadge = ({ lockInfo }: LockStatusBadgeProps) => {
         </>
       ) : (
         <>
-          <Clock className="w-3 h-3 mr-1" /> Locked {timeLeft}
+          <Clock className="w-3 h-3 mr-1" /> Locked for {timeLeft}
         </>
       )}
     </Badge>

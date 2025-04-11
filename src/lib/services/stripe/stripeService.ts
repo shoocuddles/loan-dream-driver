@@ -187,7 +187,27 @@ export const createCheckoutSession = async (
       };
     }
     
+    // Validate the URL returned from Stripe
+    if (!data.url) {
+      return {
+        error: {
+          message: 'No checkout URL returned from Stripe',
+          code: 'invalid_response',
+          details: 'The checkout session was created but no URL was provided'
+        }
+      };
+    }
+    
+    // Check if the session is using live mode and provide a warning
+    if (data.isLiveMode) {
+      console.warn('⚠️ Using Stripe in LIVE mode - real charges will be made!');
+    }
+    
     console.log('✅ Successfully created checkout session:', data);
+    
+    // Add a small delay before redirecting to ensure the session is ready
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     return { data };
   } catch (error: any) {
     console.error('❌ Error creating checkout session:', error);

@@ -66,9 +66,10 @@ const DealerDashboard = () => {
     { id: 3, name: 'Permanent', type: 'permanent', fee: 29.99 }
   ]);
   
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const paymentSuccess = searchParams.get('payment_success') === 'true';
   const paymentCancelled = searchParams.get('payment_cancelled') === 'true';
+  const sessionId = searchParams.get('session_id');
 
   const { user } = useAuth();
 
@@ -80,12 +81,51 @@ const DealerDashboard = () => {
   }, [user]);
   
   useEffect(() => {
-    if (paymentSuccess) {
-      toast.success("Payment processed successfully. Your applications are now available.");
-    } else if (paymentCancelled) {
-      toast.info("Payment was cancelled. You can try again when you're ready.");
+    const handlePaymentResult = async () => {
+      // Clear URL parameters after processing to avoid duplicate handling
+      const shouldClearParams = paymentSuccess || paymentCancelled;
+      
+      if (paymentSuccess && sessionId) {
+        try {
+          toast.loading("Verifying your purchase...");
+          const result = await completePurchase(sessionId);
+          
+          if (result.error) {
+            console.error("Error completing purchase:", result.error);
+            toast.error("There was an issue processing your payment confirmation. Please contact support.");
+          } else {
+            toast.success("Payment processed successfully. Your applications are now available.");
+            await loadData(); // Reload data to show newly purchased applications
+          }
+        } catch (error) {
+          console.error("Exception completing purchase:", error);
+          toast.error("An unexpected error occurred while processing your payment confirmation.");
+        } finally {
+          toast.dismiss();
+        }
+      } else if (paymentSuccess) {
+        toast.success("Payment processed successfully. Your applications are now available.");
+        await loadData();
+      } else if (paymentCancelled) {
+        toast.info("Payment was cancelled. You can try again when you're ready.");
+      }
+      
+      // Remove the URL parameters to prevent duplicate processing
+      if (shouldClearParams) {
+        setSearchParams(prev => {
+          const newParams = new URLSearchParams(prev);
+          newParams.delete('payment_success');
+          newParams.delete('payment_cancelled');
+          newParams.delete('session_id');
+          return newParams;
+        });
+      }
+    };
+    
+    if (paymentSuccess || paymentCancelled) {
+      handlePaymentResult();
     }
-  }, [paymentSuccess, paymentCancelled]);
+  }, [paymentSuccess, paymentCancelled, sessionId]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -281,9 +321,16 @@ const DealerDashboard = () => {
         }
         
         if (response.data?.url) {
+          // Show additional message before redirect
+          toast.success("Checkout session created. Redirecting to payment page...");
+          
+          // Add a small delay to ensure the toast is visible
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
           // Redirect to Stripe checkout
           console.log('Redirecting to checkout URL:', response.data.url);
-          toast.success("Checkout session created. Redirecting to payment page...");
+          
+          // Use window.location.href for a full page redirect
           window.location.href = response.data.url;
           return;
         } else {

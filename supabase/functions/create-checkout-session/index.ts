@@ -190,6 +190,10 @@ serve(async (req) => {
       );
     }
     
+    // Log whether we're in test or live mode
+    const isLiveMode = stripeSecretKey.startsWith('sk_live_');
+    console.log(`Using Stripe in ${isLiveMode ? 'LIVE' : 'TEST'} mode`);
+    
     const stripe = new Stripe(stripeSecretKey, {
       apiVersion: "2023-10-16",
       httpClient: Stripe.createFetchHttpClient(),
@@ -219,6 +223,34 @@ serve(async (req) => {
           .eq('id', dealer.id);
           
         console.log("Created new Stripe customer:", customerId);
+      } else {
+        // Verify the customer exists
+        try {
+          await stripe.customers.retrieve(customerId);
+          console.log("Using existing Stripe customer:", customerId);
+        } catch (customerError) {
+          console.error("Invalid customer ID, creating new one:", customerError);
+          
+          // Create a new customer
+          const customer = await stripe.customers.create({
+            email: user.email,
+            name: dealer.full_name || dealer.email,
+            metadata: {
+              dealer_id: dealer.id,
+              company: dealer.company_name || "Not specified"
+            }
+          });
+          
+          customerId = customer.id;
+          
+          // Update the customer ID in user_profiles
+          await supabase
+            .from('user_profiles')
+            .update({ stripe_customer_id: customerId })
+            .eq('id', dealer.id);
+            
+          console.log("Created replacement Stripe customer:", customerId);
+        }
       }
       
       // Calculate total price
@@ -256,8 +288,8 @@ serve(async (req) => {
           },
         ],
         mode: 'payment',
-        success_url: `${req.headers.get("origin")}/dealer-dashboard?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${req.headers.get("origin")}/dealer-dashboard?payment_cancelled=true`,
+        success_url: `${req.headers.get("origin") || 'https://loan-dream-driver.lovable.app'}/dealer-dashboard?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${req.headers.get("origin") || 'https://loan-dream-driver.lovable.app'}/dealer-dashboard?payment_cancelled=true`,
         metadata: {
           dealer_id: dealer.id,
           price_type: priceType,
@@ -280,17 +312,49 @@ serve(async (req) => {
       
       console.log("Creating checkout session with params:", JSON.stringify(sessionParams, null, 2));
       
-      const session = await stripe.checkout.sessions.create(sessionParams);
-      
-      console.log("Checkout session created:", session.id);
-      
-      return new Response(
-        JSON.stringify({ 
-          sessionId: session.id,
-          url: session.url
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      try {
+        const session = await stripe.checkout.sessions.create(sessionParams);
+        
+        console.log("Checkout session created:", session.id);
+        
+        if (!session.url) {
+          throw new Error("Checkout session created but no URL returned");
+        }
+        
+        // Ensure we have a valid URL
+        try {
+          new URL(session.url);
+        } catch (urlError) {
+          console.error("Invalid checkout URL:", session.url, urlError);
+          throw new Error(`Invalid checkout URL returned: ${session.url}`);
+        }
+        
+        return new Response(
+          JSON.stringify({ 
+            sessionId: session.id,
+            url: session.url,
+            isLiveMode
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (sessionError) {
+        console.error("Error creating checkout session:", sessionError);
+        
+        // Provide specific error for common Stripe issues
+        if (sessionError.message?.includes('amount_too_small')) {
+          return new Response(
+            JSON.stringify({ 
+              error: { 
+                message: "Stripe payment amount too small",
+                details: "The payment amount is below Stripe's minimum requirement."
+              }
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+          );
+        }
+        
+        throw sessionError;
+      }
     } catch (stripeError) {
       console.error("Error creating checkout session:", stripeError);
       return new Response(

@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button';
 import { ApplicationItem, DownloadedApplication, LockType, LockoutPeriod, SystemSettings } from '@/lib/types/dealer-dashboard';
 import DealerDashboardLayout from '@/components/DealerDashboardLayout';
 import ApplicationTable from '@/components/application-table/ApplicationTable';
+import ApplicationOptions from '@/components/application-table/ApplicationOptions';
 import DownloadedApplications from '@/components/DownloadedApplications';
 import DealerProfile from '@/components/DealerProfile';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import ApplicationDetails from '@/components/ApplicationDetails';
 import DealerInvoices from '@/components/DealerInvoices';
 import { useSearchParams } from 'react-router-dom';
+import { differenceInDays, parseISO } from 'date-fns';
 import { 
   fetchApplications as fetchAvailableApplications,
   getDownloadedApplications as fetchDownloadedApplications,
@@ -282,9 +284,31 @@ const DealerDashboard = () => {
         isPurchased: app.isPurchased
       })));
       
-      const filteredApps = appsData.filter(app => 
-        !app.isPurchased && !purchasedApplicationIds.includes(app.applicationId) && !downloadedAppIds.includes(app.applicationId)
-      );
+      let filteredApps = appsData.filter(app => {
+        if (hidePurchasedApplications && (app.isPurchased || purchasedApplicationIds.includes(app.applicationId) || downloadedAppIds.includes(app.applicationId))) {
+          return false;
+        }
+        
+        if (hideLockedApplications && app.lockInfo?.isLocked && !app.lockInfo?.isOwnLock) {
+          return false;
+        }
+        
+        if (hideOlderThan90Days && app.submissionDate) {
+          const submissionDate = parseISO(app.submissionDate);
+          const ageDays = differenceInDays(new Date(), submissionDate);
+          if (ageDays > 90) {
+            return false;
+          }
+        }
+        
+        return true;
+      });
+      
+      filteredApps.sort((a, b) => {
+        const dateA = a.submissionDate ? new Date(a.submissionDate).getTime() : 0;
+        const dateB = b.submissionDate ? new Date(b.submissionDate).getTime() : 0;
+        return dateB - dateA;
+      });
       
       const hiddenAppIds = hiddenApplications.map(app => app.applicationId);
       const visibleApps = filteredApps.filter(app => !hiddenAppIds.includes(app.applicationId));
@@ -634,6 +658,27 @@ const DealerDashboard = () => {
     );
   };
 
+  const handleToggleHideOlderThan90Days = (checked: boolean) => {
+    setHideOlderThan90Days(checked);
+    loadData();
+  };
+
+  const handleToggleHideLockedApplications = (checked: boolean) => {
+    setHideLockedApplications(checked);
+    loadData();
+  };
+
+  const handleToggleHidePurchasedApplications = (checked: boolean) => {
+    setHidePurchasedApplications(checked);
+    loadData();
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [hideOlderThan90Days, hideLockedApplications, hidePurchasedApplications]);
+
   return (
     <DealerDashboardLayout
       availableApplications={
@@ -656,6 +701,14 @@ const DealerDashboard = () => {
                 </TabsList>
                 
                 <TabsContent value="visible">
+                  <ApplicationOptions
+                    hideOlderThan90Days={hideOlderThan90Days}
+                    hideLockedApplications={hideLockedApplications}
+                    hidePurchasedApplications={hidePurchasedApplications}
+                    onToggleHideOlderThan90Days={handleToggleHideOlderThan90Days}
+                    onToggleHideLockedApplications={handleToggleHideLockedApplications}
+                    onToggleHidePurchasedApplications={handleToggleHidePurchasedApplications}
+                  />
                   <ApplicationTable
                     applications={applications}
                     isLoading={isLoading}

@@ -21,6 +21,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useQuery } from '@tanstack/react-query';
+import { fetchLockoutPeriods } from '@/lib/services/lock/lockService';
 
 interface BulkActionsBarProps {
   selectedCount: number;
@@ -49,6 +51,12 @@ const BulkActionsBar = ({
 }: BulkActionsBarProps) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [showPurchaseAlert, setShowPurchaseAlert] = useState(false);
+  
+  // Fetch available lockout periods
+  const { data: lockoutPeriods = [] } = useQuery({
+    queryKey: ['lockout-periods'],
+    queryFn: fetchLockoutPeriods
+  });
   
   if (selectedCount === 0) {
     return null;
@@ -85,13 +93,13 @@ const BulkActionsBar = ({
             Clear
           </Button>
           
-          {/* Only show Lock button if all items are purchased */}
-          {unpurchasedCount === 0 && (
+          {/* Show Lock button for purchased applications */}
+          {(unpurchasedCount === 0 || allDownloaded) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   size="sm"
-                  variant="outline"
+                  className="bg-amber-400 hover:bg-amber-500 text-amber-950"
                   disabled={isProcessing || selectedCount === 0}
                 >
                   <Lock className="mr-1 h-4 w-4" />
@@ -100,26 +108,38 @@ const BulkActionsBar = ({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => onBulkLock('24hours')}>
-                    24 Hours ($4.99 each)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onBulkLock('1week')}>
-                    1 Week ($9.99 each)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onBulkLock('permanent')}>
-                    Permanent ($29.99 each)
-                  </DropdownMenuItem>
+                  {lockoutPeriods.map(period => (
+                    <DropdownMenuItem 
+                      key={period.id} 
+                      onClick={() => onBulkLock(period.name.toLowerCase().replace(/\s+/g, '') as LockType)}
+                    >
+                      {period.name} (${period.fee.toFixed(2)} each)
+                    </DropdownMenuItem>
+                  ))}
+                  {lockoutPeriods.length === 0 && (
+                    <>
+                      <DropdownMenuItem onClick={() => onBulkLock('24hours')}>
+                        24 Hours ($4.99 each)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onBulkLock('1week')}>
+                        1 Week ($9.99 each)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onBulkLock('permanent')}>
+                        Permanent ($29.99 each)
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
           
           {/* Only show Download button if all items are purchased */}
-          {unpurchasedCount === 0 && selectedApplicationIds.length > 0 && (
+          {(unpurchasedCount === 0 || allDownloaded) && selectedApplicationIds.length > 0 && (
             <DownloadOptions
               applicationIds={selectedApplicationIds}
               isProcessing={isDownloading}
-              variant="outline"
+              variant="success"
               label="Download"
               showIcon
             />

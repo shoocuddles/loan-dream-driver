@@ -97,6 +97,9 @@ export const fetchLockoutPeriods = async (): Promise<LockoutPeriod[]> => {
       .order('hours', { ascending: true });
     
     if (error) throw error;
+    
+    console.log('Available lockout periods:', data);
+    
     return data.map(period => ({
       id: period.id,
       name: period.name,

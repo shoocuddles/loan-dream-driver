@@ -4,10 +4,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { format, isValid, parseISO } from 'date-fns';
-import { Eye, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { DownloadedApplication } from '@/lib/types/dealer-dashboard';
 import DownloadOptions from './application-table/DownloadOptions';
 import BulkActionsBar from './BulkActionsBar';
+import { lockApplication } from '@/lib/services/lock/lockService';
+import { toast } from 'sonner';
 
 interface DownloadedApplicationsProps {
   applications: DownloadedApplication[];
@@ -20,10 +22,10 @@ const DownloadedApplications = ({
   applications,
   isLoading,
   onDownload,
-  onViewDetails
 }: DownloadedApplicationsProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedApplications, setSelectedApplications] = useState<string[]>([]);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   
   const filteredApplications = applications.filter(app => 
@@ -72,7 +74,35 @@ const DownloadedApplications = ({
   const handleBulkDownload = async () => {
     // No need to purchase as these applications are already purchased
     console.log(`Bulk downloading ${selectedApplications.length} applications`);
-    // The download functionality is handled by the BulkActionsBar
+    // The download functionality is handled by the DownloadOptions component
+  };
+
+  // Handle bulk lock for purchased applications
+  const handleBulkLock = async (lockType: string) => {
+    try {
+      setIsProcessingAction(true);
+      console.log(`Locking ${selectedApplications.length} applications with lock type: ${lockType}`);
+      
+      // Process locks one by one
+      let successCount = 0;
+      
+      for (const appId of selectedApplications) {
+        const success = await lockApplication(appId, lockType);
+        if (success) successCount++;
+      }
+      
+      if (successCount === selectedApplications.length) {
+        toast.success(`Successfully locked ${successCount} applications`);
+        setSelectedApplications([]);
+      } else {
+        toast.info(`Locked ${successCount} of ${selectedApplications.length} applications`);
+      }
+    } catch (error) {
+      toast.error('Error locking applications');
+      console.error('Error during bulk lock:', error);
+    } finally {
+      setIsProcessingAction(false);
+    }
   };
 
   console.log("Downloaded applications to display:", applications);
@@ -164,14 +194,6 @@ const DownloadedApplications = ({
                     <TableCell>{safeFormatDate(application.downloadDate || application.purchaseDate)}</TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onViewDetails(application)}
-                          title="View Full Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
                         <DownloadOptions 
                           applicationIds={[application.applicationId]}
                           isProcessing={false}
@@ -191,9 +213,9 @@ const DownloadedApplications = ({
         <BulkActionsBar
           selectedCount={selectedApplications.length}
           onBulkDownload={handleBulkDownload}
-          onBulkLock={() => Promise.resolve()} // Not applicable for purchased applications
+          onBulkLock={handleBulkLock}
           onClearSelection={() => setSelectedApplications([])}
-          isProcessing={false}
+          isProcessing={isProcessingAction}
           selectedApplicationIds={selectedApplications}
           unpurchasedCount={0} // All applications here are purchased
           totalPurchaseCost={0} // No cost for already purchased applications

@@ -1,144 +1,118 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { FileDown, FileSpreadsheet, FileText, Table, Database, Code } from 'lucide-react';
-import { downloadAsPDF, downloadAsCSV, downloadAsExcel, downloadFullCsv, downloadRawData } from '@/lib/services/application/downloadService';
+import { Download, FileText, FileSpreadsheet, FilePieChart } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { 
+  downloadAsPDF, 
+  downloadAsExcel, 
+  downloadAsCSV, 
+  downloadRawData 
+} from '@/lib/services/application/download';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface DownloadOptionsProps {
   applicationIds: string[];
   isProcessing: boolean;
   onClose?: () => void;
   label?: string;
-  variant?: 'default' | 'outline' | 'ghost' | 'link';
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link' | 'success';
   size?: 'default' | 'sm' | 'lg' | 'icon';
+  showIcon?: boolean;
+  disabled?: boolean;
   className?: string;
-  showIcon?: boolean; // Added this property
 }
 
 const DownloadOptions = ({
   applicationIds,
   isProcessing,
   onClose,
-  label = "Download",
-  variant = "default",
-  size = "default",
-  className,
-  showIcon = true // Default to true for backward compatibility
+  label = 'Download',
+  variant = 'default',
+  size = 'default',
+  showIcon = false,
+  disabled = false,
+  className
 }: DownloadOptionsProps) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [downloadType, setDownloadType] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
-  
-  const handleDownload = async (type: string) => {
-    if (isProcessing || !applicationIds.length || isDownloading) return;
-    
-    setDownloadType(type);
-    setIsDownloading(true);
-    setIsOpen(false);
-    if (onClose) onClose();
-    
+
+  const handleDownload = async (format: 'pdf' | 'excel' | 'csv' | 'raw') => {
     try {
-      toast.info(`Preparing ${type} download...`);
-      console.log(`Downloading application(s) as ${type}:`, applicationIds);
-      
-      switch (type) {
-        case 'PDF':
+      setIsDownloading(true);
+      console.log(`Downloading application(s) as ${format.toUpperCase()}:`, applicationIds);
+
+      switch (format) {
+        case 'pdf':
           await downloadAsPDF(applicationIds);
           break;
-        case 'CSV':
-          await downloadAsCSV(applicationIds);
-          break;
-        case 'Excel':
+        case 'excel':
           await downloadAsExcel(applicationIds);
           break;
-        case 'Full CSV':
-          await downloadFullCsv(applicationIds);
+        case 'csv':
+          await downloadAsCSV(applicationIds);
           break;
-        case 'Raw Data':
+        case 'raw':
           await downloadRawData(applicationIds);
           break;
-        default:
-          throw new Error(`Unsupported download type: ${type}`);
       }
-    } catch (error) {
-      console.error(`Error downloading ${type}:`, error);
-      toast.error(`Failed to download ${type}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      if (onClose) onClose();
+    } catch (error: any) {
+      console.error(`Error downloading as ${format}:`, error);
+      toast.error(`Failed to download as ${format.toUpperCase()}: ${error.message || 'Unknown error'}`);
     } finally {
-      setDownloadType(null);
       setIsDownloading(false);
     }
   };
-  
+
+  // Use success variant (green) for the download button
+  const buttonVariant = variant === 'default' ? 'success' : variant;
+
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <Button 
-          variant={variant}
-          size={size}
-          disabled={isProcessing || !applicationIds.length || isDownloading}
-          className={className}
+          variant={buttonVariant} 
+          size={size} 
+          disabled={isProcessing || isDownloading || disabled || applicationIds.length === 0}
+          className={cn("text-white", className)}
         >
-          {showIcon && <FileDown className={size === "icon" ? "h-4 w-4" : "h-4 w-4 mr-2"} />}
-          {size !== "icon" && (isDownloading ? "Downloading..." : label)}
+          {showIcon && <Download className={label ? "mr-2 h-4 w-4" : "h-4 w-4"} />}
+          {label && label}
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-48 p-2">
-        <div className="flex flex-col space-y-1">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="justify-start" 
-            onClick={() => handleDownload('PDF')}
-            disabled={downloadType !== null || isDownloading}
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Download as PDF
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="justify-start" 
-            onClick={() => handleDownload('CSV')}
-            disabled={downloadType !== null || isDownloading}
-          >
-            <Table className="h-4 w-4 mr-2" />
-            Download as CSV
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="justify-start" 
-            onClick={() => handleDownload('Excel')}
-            disabled={downloadType !== null || isDownloading}
-          >
-            <FileSpreadsheet className="h-4 w-4 mr-2" />
-            Download as Excel
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="justify-start" 
-            onClick={() => handleDownload('Full CSV')}
-            disabled={downloadType !== null || isDownloading}
-          >
-            <Database className="h-4 w-4 mr-2" />
-            Download FULL CSV
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="justify-start" 
-            onClick={() => handleDownload('Raw Data')}
-            disabled={downloadType !== null || isDownloading}
-          >
-            <Code className="h-4 w-4 mr-2" />
-            Download Raw Data
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel>Download Format</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={() => handleDownload('pdf')} disabled={isDownloading}>
+            <FileText className="mr-2 h-4 w-4" />
+            PDF Document
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleDownload('excel')} disabled={isDownloading}>
+            <FilePieChart className="mr-2 h-4 w-4" />
+            Excel Spreadsheet
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleDownload('csv')} disabled={isDownloading}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            CSV File
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleDownload('raw')} disabled={isDownloading}>
+            <Download className="mr-2 h-4 w-4" />
+            Raw Data (JSON)
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 

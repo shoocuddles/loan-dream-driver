@@ -15,8 +15,8 @@ import ApplicationDetails from '@/components/ApplicationDetails';
 import DealerInvoices from '@/components/DealerInvoices';
 import { useSearchParams } from 'react-router-dom';
 import { 
-  fetchAvailableApplications,
-  fetchDownloadedApplications,
+  fetchDealerApplications as fetchAvailableApplications,
+  fetchDealerDownloads as fetchDownloadedApplications,
 } from '@/lib/services';
 import {
   lockApplication,

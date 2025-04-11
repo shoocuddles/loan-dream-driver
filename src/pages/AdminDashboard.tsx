@@ -260,7 +260,7 @@ const AdminDashboard = () => {
     <div className="min-h-screen flex flex-col">
       <Header />
       
-      <main className="flex-grow py-12 bg-ontario-gray">
+      <main className="flex-grow py-12 bg-ontario-gray pt-[75px]">
         <div className="container mx-auto px-4">
           <AdminHeader />
           

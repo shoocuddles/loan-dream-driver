@@ -36,7 +36,7 @@ const DealerDashboardLayout = ({
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50 pt-[75px]">
       <DealerHeader user={user} onSignOut={handleSignOut} />
       
       <div className="flex-grow container mx-auto py-6 px-4 md:px-6">

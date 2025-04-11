@@ -9,24 +9,13 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   createStripeCoupon, 
   listStripeCoupons,
-  getStripePrices
+  getStripePrices,
+  getStripeAccountInfo
 } from '@/lib/services/stripe/stripeService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
+import { AlertCircle, CheckCircle2, ExternalLink, InfoIcon, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
-interface Coupon {
-  id: string;
-  name: string;
-  percent_off?: number;
-  amount_off?: number;
-  duration: string;
-  duration_in_months?: number;
-  max_redemptions?: number;
-  times_redeemed: number;
-  created: number;
-  expires_at?: number;
-}
+import type { StripeCoupon } from '@/lib/types/stripe';
 
 const StripeSettings = () => {
   const [couponName, setCouponName] = useState('');
@@ -37,10 +26,12 @@ const StripeSettings = () => {
   const [maxRedemptions, setMaxRedemptions] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [coupons, setCoupons] = useState<StripeCoupon[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [stripeStatus, setStripeStatus] = useState<'connected' | 'error' | 'checking'>('checking');
   const [activeTab, setActiveTab] = useState('coupons');
+  const [accountInfo, setAccountInfo] = useState<any>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -50,14 +41,30 @@ const StripeSettings = () => {
 
   const checkStripeConnection = async () => {
     try {
-      const response = await getStripePrices();
-      if (response.error) {
+      setStripeStatus('checking');
+      setErrorDetails(null);
+      
+      // First try to get account info for more detailed connection status
+      const accountResponse = await getStripeAccountInfo();
+      
+      if (accountResponse.error) {
+        console.error("Error checking Stripe account:", accountResponse.error);
         setStripeStatus('error');
-      } else {
-        setStripeStatus('connected');
+        setErrorDetails(accountResponse.error.message);
+        return;
       }
-    } catch (error) {
+      
+      setAccountInfo(accountResponse.data);
+      setStripeStatus('connected');
+      
+      // Also check if prices are available
+      const pricesResponse = await getStripePrices();
+      if (pricesResponse.error) {
+        console.warn("Connected to Stripe, but error fetching prices:", pricesResponse.error);
+      }
+    } catch (error: any) {
       setStripeStatus('error');
+      setErrorDetails(error.message);
       console.error("Error checking Stripe connection:", error);
     }
   };
@@ -81,7 +88,7 @@ const StripeSettings = () => {
       console.error("Error loading coupons:", error);
       toast({
         title: "Error",
-        description: "Failed to load coupon data. Please try again.",
+        description: `Failed to load coupon data: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -188,12 +195,110 @@ const StripeSettings = () => {
       console.error("Error creating coupon:", error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: `An unexpected error occurred: ${error.message}`,
         variant: "destructive",
       });
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const renderAccountSection = () => {
+    if (!accountInfo) return null;
+    
+    return (
+      <div className="mt-4 p-4 border rounded-md bg-gray-50">
+        <h3 className="font-medium mb-3">Account Information</h3>
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+          <div>
+            <dt className="text-gray-600">Account ID</dt>
+            <dd>{accountInfo.id}</dd>
+          </div>
+          {accountInfo.display_name && (
+            <div>
+              <dt className="text-gray-600">Display Name</dt>
+              <dd>{accountInfo.display_name}</dd>
+            </div>
+          )}
+          {accountInfo.email && (
+            <div>
+              <dt className="text-gray-600">Email</dt>
+              <dd>{accountInfo.email}</dd>
+            </div>
+          )}
+          {accountInfo.country && (
+            <div>
+              <dt className="text-gray-600">Country</dt>
+              <dd>{accountInfo.country}</dd>
+            </div>
+          )}
+          {accountInfo.default_currency && (
+            <div>
+              <dt className="text-gray-600">Currency</dt>
+              <dd>{accountInfo.default_currency.toUpperCase()}</dd>
+            </div>
+          )}
+          <div>
+            <dt className="text-gray-600">Account Status</dt>
+            <dd className="flex items-center gap-1.5">
+              {accountInfo.details_submitted ? (
+                <span className="text-green-600 flex items-center gap-1">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Complete
+                </span>
+              ) : (
+                <span className="text-yellow-600 flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  Incomplete
+                </span>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-gray-600">Payments</dt>
+            <dd>
+              {accountInfo.charges_enabled ? (
+                <span className="text-green-600 flex items-center gap-1">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Enabled
+                </span>
+              ) : (
+                <span className="text-yellow-600 flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  Disabled
+                </span>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-gray-600">Payouts</dt>
+            <dd>
+              {accountInfo.payouts_enabled ? (
+                <span className="text-green-600 flex items-center gap-1">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Enabled
+                </span>
+              ) : (
+                <span className="text-yellow-600 flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  Disabled
+                </span>
+              )}
+            </dd>
+          </div>
+        </dl>
+        <div className="mt-4">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="text-xs"
+            onClick={() => window.open("https://dashboard.stripe.com/account", "_blank")}
+          >
+            View in Stripe Dashboard <ExternalLink className="ml-1 h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -215,8 +320,14 @@ const StripeSettings = () => {
             <Alert className="bg-green-50 text-green-800 border-green-200">
               <CheckCircle2 className="h-4 w-4" />
               <AlertTitle>Stripe Connected</AlertTitle>
-              <AlertDescription>
-                Your Stripe account is successfully connected and ready for use.
+              <AlertDescription className="flex flex-col gap-1">
+                <p>Your Stripe account is successfully connected and ready for use.</p>
+                {!accountInfo?.charges_enabled && (
+                  <p className="text-yellow-700 mt-1 flex items-center gap-1">
+                    <InfoIcon className="h-4 w-4" />
+                    Your account is not fully set up to accept payments. Please complete your Stripe account setup.
+                  </p>
+                )}
               </AlertDescription>
             </Alert>
           )}
@@ -225,17 +336,40 @@ const StripeSettings = () => {
             <Alert className="bg-red-50 text-red-800 border-red-200">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Connection Error</AlertTitle>
-              <AlertDescription>
-                There was an error connecting to your Stripe account. Please check your Stripe API key in the project settings.
+              <AlertDescription className="flex flex-col gap-1">
+                <p>There was an error connecting to your Stripe account.</p>
+                {errorDetails && (
+                  <div className="mt-2 p-2 bg-red-100 rounded text-sm font-mono overflow-x-auto">
+                    {errorDetails}
+                  </div>
+                )}
+                <p className="mt-2">
+                  Please check that your Stripe API keys are properly configured in the Supabase edge function secrets.
+                </p>
               </AlertDescription>
             </Alert>
           )}
+          
+          {renderAccountSection()}
+          
+          <div className="flex justify-end mt-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={checkStripeConnection} 
+              className="flex items-center gap-1.5"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${stripeStatus === 'checking' ? 'animate-spin' : ''}`} />
+              Refresh Connection
+            </Button>
+          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-4">
             <TabsTrigger value="coupons">Discount Coupons</TabsTrigger>
             <TabsTrigger value="products">Products & Prices</TabsTrigger>
+            <TabsTrigger value="transactions">Transactions</TabsTrigger>
           </TabsList>
           
           <TabsContent value="coupons">
@@ -457,6 +591,58 @@ const StripeSettings = () => {
                     <p className="text-sm text-gray-500">Discounted price after lock period expires</p>
                   </li>
                 </ul>
+                
+                <div className="mt-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => window.open("https://dashboard.stripe.com/products", "_blank")}
+                  >
+                    View Products in Stripe Dashboard <ExternalLink className="ml-1 h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="transactions">
+            <div className="space-y-6">
+              <div className="bg-blue-50 text-blue-800 p-4 rounded-md">
+                <p className="font-medium">Payment Transactions</p>
+                <p className="mt-1 text-sm">
+                  All payment transactions are processed and recorded in your Stripe account.
+                  You can view detailed transaction information in your Stripe Dashboard.
+                </p>
+              </div>
+              
+              <div className="flex flex-col gap-3">
+                <Button 
+                  variant="outline"
+                  className="text-sm flex items-center justify-between"
+                  onClick={() => window.open("https://dashboard.stripe.com/payments", "_blank")}
+                >
+                  <span>View Payments</span>
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  className="text-sm flex items-center justify-between"
+                  onClick={() => window.open("https://dashboard.stripe.com/balance", "_blank")}
+                >
+                  <span>View Balance & Payouts</span>
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  className="text-sm flex items-center justify-between"
+                  onClick={() => window.open("https://dashboard.stripe.com/customers", "_blank")}
+                >
+                  <span>View Customers</span>
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </TabsContent>

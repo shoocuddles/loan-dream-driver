@@ -1,13 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-
-interface StripePrice {
-  id: string;
-  product: string;
-  unit_amount: number;
-  currency: string;
-  active: boolean;
-}
+import { StripePrice, StripeCoupon, CreateCouponParams, StripeCheckoutParams, CheckoutSessionResponse } from '@/lib/types/stripe';
 
 interface StripeError {
   message: string;
@@ -19,14 +12,14 @@ interface StripeResponse<T> {
   error?: StripeError;
 }
 
-interface CreateCouponParams {
-  name: string;
-  percentOff?: number;
-  amountOff?: number;
-  duration: 'once' | 'forever' | 'repeating';
-  durationInMonths?: number;
-  maxRedemptions?: number;
-  expiresAt?: string;
+interface StripeAccount {
+  id: string;
+  email: string;
+  country: string;
+  business_type: string;
+  charges_enabled: boolean;
+  payouts_enabled: boolean;
+  details_submitted: boolean;
 }
 
 /**
@@ -79,7 +72,7 @@ export const createStripeCoupon = async (
 /**
  * Fetches all active coupons from Stripe
  */
-export const listStripeCoupons = async (): Promise<StripeResponse<any[]>> => {
+export const listStripeCoupons = async (): Promise<StripeResponse<StripeCoupon[]>> => {
   try {
     console.log('🔍 Fetching Stripe coupons');
     
@@ -110,6 +103,48 @@ export const getStripePrices = async (): Promise<StripeResponse<StripePrice[]>> 
     return { data };
   } catch (error: any) {
     console.error('❌ Error fetching prices:', error.message);
+    return { error: { message: error.message, code: error.code } };
+  }
+};
+
+/**
+ * Fetches Stripe account information
+ */
+export const getStripeAccountInfo = async (): Promise<StripeResponse<StripeAccount>> => {
+  try {
+    console.log('🔍 Fetching Stripe account information');
+    
+    const { data, error } = await supabase.functions.invoke('get-account-info');
+    
+    if (error) throw error;
+    
+    console.log('✅ Successfully fetched Stripe account info:', data);
+    return { data };
+  } catch (error: any) {
+    console.error('❌ Error fetching Stripe account info:', error.message);
+    return { error: { message: error.message, code: error.code } };
+  }
+};
+
+/**
+ * Creates a checkout session for the application download purchase
+ */
+export const createCheckoutSession = async (
+  params: StripeCheckoutParams
+): Promise<StripeResponse<CheckoutSessionResponse>> => {
+  try {
+    console.log('🛒 Creating checkout session:', params);
+    
+    const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+      body: params
+    });
+    
+    if (error) throw error;
+    
+    console.log('✅ Successfully created checkout session:', data);
+    return { data };
+  } catch (error: any) {
+    console.error('❌ Error creating checkout session:', error.message);
     return { error: { message: error.message, code: error.code } };
   }
 };

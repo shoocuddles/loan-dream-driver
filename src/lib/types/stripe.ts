@@ -41,3 +41,15 @@ export interface CheckoutSessionResponse {
   sessionId: string;
   url: string;
 }
+
+export interface StripeAccountInfo {
+  id: string;
+  business_type?: string;
+  country?: string;
+  email?: string;
+  charges_enabled: boolean;
+  payouts_enabled: boolean;
+  details_submitted: boolean;
+  default_currency?: string;
+  display_name?: string;
+}

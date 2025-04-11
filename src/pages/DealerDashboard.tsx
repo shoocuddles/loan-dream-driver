@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -78,6 +78,8 @@ const DealerDashboard = () => {
   });
   const [activeApplicationTab, setActiveApplicationTab] = useState<'visible' | 'hidden'>('visible');
   
+  const selectionBeforePayment = useRef<string[]>([]);
+  
   const [searchParams, setSearchParams] = useSearchParams();
   const paymentSuccess = searchParams.get('payment_success') === 'true';
   const paymentCancelled = searchParams.get('payment_cancelled') === 'true';
@@ -148,6 +150,13 @@ const DealerDashboard = () => {
           } else {
             toast.success("Payment processed successfully. Your applications are now available in the Purchased tab.");
             await loadData();
+            
+            if (selectionBeforePayment.current.length > 0) {
+              setTimeout(() => {
+                setSelectedApplications(selectionBeforePayment.current);
+                selectionBeforePayment.current = [];
+              }, 500);
+            }
           }
         } catch (error) {
           console.error("Exception completing purchase:", error);
@@ -158,6 +167,13 @@ const DealerDashboard = () => {
       } else if (paymentSuccess) {
         toast.success("Payment processed successfully. Your applications are now available in the Purchased tab.");
         await loadData();
+        
+        if (selectionBeforePayment.current.length > 0) {
+          setTimeout(() => {
+            setSelectedApplications(selectionBeforePayment.current);
+            selectionBeforePayment.current = [];
+          }, 500);
+        }
       } else if (paymentCancelled) {
         toast.info("Payment was cancelled. You can try again when you're ready.");
       }
@@ -363,6 +379,8 @@ const DealerDashboard = () => {
     const unpurchasedApps = getUnpurchasedApplications();
     
     if (unpurchasedApps.length > 0) {
+      selectionBeforePayment.current = [...selectedApplications];
+      
       setPendingAction({
         type: 'download',
         applicationIds: unpurchasedApps
@@ -379,6 +397,8 @@ const DealerDashboard = () => {
     const notDownloaded = getUnpurchasedApplications();
     
     if (notDownloaded.length > 0) {
+      selectionBeforePayment.current = [...selectedApplications];
+      
       setPendingAction({
         type: 'download',
         applicationIds: notDownloaded
@@ -414,7 +434,6 @@ const DealerDashboard = () => {
           
           if (!app) return { id: appId, price: 0, isAgeDiscounted: false };
           
-          // Calculate the price properly based on all discount conditions
           const priceValue = getPriceValue(app, ageDiscountSettings);
           
           return { 
@@ -525,6 +544,16 @@ const DealerDashboard = () => {
     
     return total;
   };
+  
+  const areAllSelectedDownloaded = () => {
+    if (!Array.isArray(downloadedApps) || !Array.isArray(selectedApplications) || selectedApplications.length === 0) {
+      return false;
+    }
+    
+    return selectedApplications.every(id => 
+      downloadedApps.some(app => app.applicationId === id)
+    );
+  };
 
   return (
     <DealerDashboardLayout
@@ -564,6 +593,7 @@ const DealerDashboard = () => {
                     lockOptions={lockOptions}
                     ageDiscountSettings={ageDiscountSettings}
                     showActions={false}
+                    isHiddenView={false}
                   />
                   
                   <BulkActionsBar
@@ -576,6 +606,7 @@ const DealerDashboard = () => {
                     unpurchasedCount={getUnpurchasedApplications().length}
                     totalPurchaseCost={calculateTotalPurchaseCost(getUnpurchasedApplications())}
                     onPurchaseSelected={handleBulkPurchase}
+                    allDownloaded={areAllSelectedDownloaded()}
                   />
                 </TabsContent>
                 
@@ -600,6 +631,7 @@ const DealerDashboard = () => {
                       ageDiscountSettings={ageDiscountSettings}
                       onHideApplication={handleUnhideApplication}
                       showActions={false}
+                      isHiddenView={true}
                     />
                   )}
                 </TabsContent>

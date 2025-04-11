@@ -41,11 +41,13 @@ export interface StripeCheckoutParams {
   priceType: 'standard' | 'discounted';
   couponId?: string;
   ageDiscounts?: AgeDiscountInfo[];
+  returnToSelection?: boolean;
 }
 
 export interface CheckoutSessionResponse {
   sessionId: string;
   url: string;
+  isLiveMode?: boolean;
 }
 
 export interface StripeAccountInfo {

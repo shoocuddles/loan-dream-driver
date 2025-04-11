@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ApplicationItem, LockType } from '@/lib/types/dealer-dashboard';
@@ -41,6 +42,7 @@ interface ApplicationTableProps {
   lockOptions: LockOption[];
   ageDiscountSettings?: AgeDiscountSettings;
   showActions?: boolean;
+  isHiddenView?: boolean;
 }
 
 const ApplicationTable = ({
@@ -58,7 +60,8 @@ const ApplicationTable = ({
   processingId,
   lockOptions,
   ageDiscountSettings,
-  showActions = true
+  showActions = true,
+  isHiddenView = false
 }: ApplicationTableProps) => {
   const allSelected = applications.length > 0 && selectedApplications.length === applications.length;
   const someSelected = selectedApplications.length > 0 && !allSelected;
@@ -177,7 +180,7 @@ const ApplicationTable = ({
                   variant="ghost" 
                   size="icon" 
                   onClick={() => onHideApplication(row.original.applicationId)}
-                  title="Hide application"
+                  title={isHiddenView ? "Unhide application" : "Hide application"}
                 >
                   <EyeOff className="h-4 w-4" />
                 </Button>
@@ -190,11 +193,16 @@ const ApplicationTable = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => onHideApplication(row.original.applicationId)}
-                  title="Hide application"
+                  title={isHiddenView ? "Unhide application" : "Hide application"}
                   className="flex items-center gap-1"
                 >
-                  <EyeOff className="h-4 w-4" />
-                  <span className="sr-only">Hide</span>
+                  {isHiddenView ? (
+                    <Eye className="h-4 w-4" />
+                  ) : (
+                    <EyeOff className="h-4 w-4" />
+                  )}
+                  <span className="sr-only">{isHiddenView ? "Unhide" : "Hide"}</span>
+                  {isHiddenView && <span className="text-xs">Unhide</span>}
                 </Button>
               )}
               <Button
@@ -206,7 +214,7 @@ const ApplicationTable = ({
                 <Eye className="h-4 w-4" />
                 <span className="text-xs">View Details</span>
               </Button>
-              {onPurchase && (
+              {onPurchase && !row.original.isDownloaded && (
                 <Button
                   onClick={() => onPurchase(row.original.applicationId)}
                   variant="default"

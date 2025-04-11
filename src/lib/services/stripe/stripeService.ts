@@ -151,6 +151,15 @@ export const createCheckoutSession = async (
       };
     }
     
+    // Store selection state in local storage to restore after payment
+    if (params.applicationIds.length > 0) {
+      try {
+        localStorage.setItem('pendingPaymentSelections', JSON.stringify(params.applicationIds));
+      } catch (e) {
+        console.warn('Could not store selection state in localStorage', e);
+      }
+    }
+    
     // Call create-checkout-session edge function
     const functionName = 'create-checkout-session';
     const { data, error } = await supabase.functions.invoke(functionName, { body: params });

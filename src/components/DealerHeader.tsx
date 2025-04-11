@@ -2,8 +2,16 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 
-const DealerHeader = () => {
-  const { profile, signOut } = useAuth();
+interface DealerHeaderProps {
+  user?: any;
+  onSignOut?: () => Promise<void>;
+}
+
+const DealerHeader = ({ user, onSignOut }: DealerHeaderProps) => {
+  // Use props if provided, otherwise fallback to context
+  const authContext = useAuth();
+  const profile = authContext.profile;
+  const handleSignOut = onSignOut || authContext.signOut;
 
   return (
     <div className="flex justify-between items-center mb-8">
@@ -13,7 +21,7 @@ const DealerHeader = () => {
       </div>
       <Button 
         variant="outline" 
-        onClick={signOut}
+        onClick={handleSignOut}
         className="text-ontario-blue border-ontario-blue hover:bg-ontario-blue/10"
       >
         Logout

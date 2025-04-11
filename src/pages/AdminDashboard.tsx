@@ -13,14 +13,14 @@ import DealerManagement from "@/components/DealerManagement";
 import DealerPurchases from "@/components/DealerPurchases";
 import { SortableTable, ColumnDef } from "@/components/ui/sortable-table";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Download, Unlock } from 'lucide-react';
+import { Eye, Unlock } from 'lucide-react';
 import { 
   getAllApplications, 
   getApplicationDetails, 
-  unlockApplication,
-  generateApplicationPDF
+  unlockApplication
 } from "@/lib/supabase";
 import { isValid, parseISO, format } from 'date-fns';
+import DownloadOptions from "@/components/application-table/DownloadOptions";
 
 interface ApplicationItem {
   applicationId: string;
@@ -95,45 +95,6 @@ const AdminDashboard = () => {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDownload = async (applicationId: string) => {
-    try {
-      setProcessingId(applicationId);
-      
-      const details = await getApplicationDetails(applicationId);
-      
-      if (!details) {
-        throw new Error("Application details not found");
-      }
-      
-      const pdfBlob = generateApplicationPDF(details, true);
-      
-      const url = URL.createObjectURL(pdfBlob);
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `ontario-loans-admin-${applicationId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      toast({
-        title: "Download Complete",
-        description: "The application details have been downloaded successfully.",
-      });
-    } catch (error) {
-      console.error("Download error:", error);
-      toast({
-        title: "Download Failed",
-        description: "There was a problem downloading the application details.",
-        variant: "destructive",
-      });
-    } finally {
-      setProcessingId(null);
     }
   };
 
@@ -237,15 +198,12 @@ const AdminDashboard = () => {
               <Eye className="h-4 w-4" />
             </Button>
 
-            <Button
-              onClick={() => handleDownload(app.applicationId)}
-              disabled={processingId === app.applicationId}
+            <DownloadOptions
+              applicationIds={[app.applicationId]}
+              isProcessing={processingId === app.applicationId}
               variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-            >
-              <Download className="h-4 w-4" />
-            </Button>
+              size="icon"
+            />
             
             {app.isLocked && (
               <Button

@@ -6,11 +6,35 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { isValid, parseISO, format } from 'date-fns';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Check, ChevronsUpDown } from 'lucide-react';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface DealerPurchase {
   id: string;
   dealerName: string;
   dealerEmail: string;
+  dealerId: string;
   clientName: string;
   vehicleType: string;
   purchaseDate: string;
@@ -18,20 +42,55 @@ interface DealerPurchase {
   status: string;
 }
 
+interface DealerInfo {
+  id: string;
+  name: string;
+  email: string;
+}
+
 const DealerPurchases = () => {
   const [purchases, setPurchases] = useState<DealerPurchase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dealers, setDealers] = useState<DealerInfo[]>([]);
+  const [selectedDealers, setSelectedDealers] = useState<string[]>([]);
+  const [openDealer, setOpenDealer] = useState(false);
 
   useEffect(() => {
+    fetchDealers();
     fetchDealerPurchases();
   }, []);
+  
+  useEffect(() => {
+    fetchDealerPurchases(selectedDealers);
+  }, [selectedDealers]);
 
-  const fetchDealerPurchases = async () => {
+  const fetchDealers = async () => {
+    try {
+      const { data: dealersData, error } = await supabase
+        .from('user_profiles')
+        .select('id, full_name, email')
+        .eq('role', 'dealer');
+      
+      if (error) throw error;
+      
+      const formattedDealers: DealerInfo[] = dealersData.map(dealer => ({
+        id: dealer.id,
+        name: dealer.full_name || 'Unknown Dealer',
+        email: dealer.email || ''
+      }));
+      
+      setDealers(formattedDealers);
+    } catch (error: any) {
+      console.error('Error fetching dealers:', error.message);
+      toast.error('Failed to load dealers');
+    }
+  };
+
+  const fetchDealerPurchases = async (dealerIds: string[] = []) => {
     try {
       setIsLoading(true);
       
-      // Query all application downloads with dealer and application info
-      const { data: downloadsData, error: downloadsError } = await supabase
+      let query = supabase
         .from('application_downloads')
         .select(`
           id,
@@ -39,10 +98,17 @@ const DealerPurchases = () => {
           payment_amount,
           dealer_id,
           application_id,
-          user_profiles(full_name, email),
+          user_profiles(id, full_name, email),
           applications(fullname, vehicletype, status)
         `)
         .order('downloaded_at', { ascending: false });
+      
+      // Filter by selected dealers if any are selected
+      if (dealerIds.length > 0) {
+        query = query.in('dealer_id', dealerIds);
+      }
+      
+      const { data: downloadsData, error: downloadsError } = await query;
       
       if (downloadsError) {
         console.error('Error fetching dealer purchases:', downloadsError.message);
@@ -54,6 +120,7 @@ const DealerPurchases = () => {
       // Transform the data format
       const formattedData: DealerPurchase[] = downloadsData.map(item => ({
         id: item.id,
+        dealerId: item.dealer_id,
         dealerName: item.user_profiles?.[0]?.full_name || 'Unknown Dealer',
         dealerEmail: item.user_profiles?.[0]?.email || 'N/A',
         clientName: item.applications?.[0]?.fullname || 'Unknown Client',
@@ -71,6 +138,18 @@ const DealerPurchases = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDealerSelectionChange = (selectedValues: string[]) => {
+    setSelectedDealers(selectedValues);
+  };
+
+  const toggleDealerSelection = (dealerId: string) => {
+    setSelectedDealers(current => 
+      current.includes(dealerId)
+        ? current.filter(id => id !== dealerId)
+        : [...current, dealerId]
+    );
   };
 
   // Helper function to safely format dates
@@ -165,8 +244,78 @@ const DealerPurchases = () => {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Dealer Purchases</CardTitle>
+        <div className="flex items-center space-x-2">
+          <Popover open={openDealer} onOpenChange={setOpenDealer}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={openDealer}
+                className="min-w-[200px] justify-between"
+              >
+                {selectedDealers.length > 0
+                  ? `${selectedDealers.length} dealer${selectedDealers.length > 1 ? 's' : ''} selected`
+                  : "Select dealers..."}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0">
+              <Command>
+                <CommandInput placeholder="Search dealers..." />
+                <CommandList>
+                  <CommandEmpty>No dealers found.</CommandEmpty>
+                  <CommandGroup>
+                    {dealers.map((dealer) => (
+                      <CommandItem
+                        key={dealer.id}
+                        value={dealer.id}
+                        onSelect={() => toggleDealerSelection(dealer.id)}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedDealers.includes(dealer.id) ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <div>
+                          <p>{dealer.name}</p>
+                          <p className="text-xs text-gray-500">{dealer.email}</p>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+                <div className="border-t p-2 flex justify-between">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedDealers([])}
+                  >
+                    Clear
+                  </Button>
+                  {selectedDealers.length === 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedDealers(dealers.map(d => d.id))}
+                    >
+                      Select All
+                    </Button>
+                  )}
+                </div>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          <Button 
+            variant="outline" 
+            onClick={() => fetchDealerPurchases(selectedDealers)}
+          >
+            Refresh
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <SortableTable

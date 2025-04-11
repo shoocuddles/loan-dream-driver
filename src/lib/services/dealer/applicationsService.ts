@@ -2,6 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationItem, DownloadedApplication } from '@/lib/types/dealer-dashboard';
 import { fetchApplications } from '@/lib/dealerDashboardService';
+import { isApplicationPurchased } from '@/lib/services/purchase/purchaseService';
 
 /**
  * Fetch downloaded applications for a dealer
@@ -29,7 +30,7 @@ export const fetchDownloadedApplications = async (dealerId: string): Promise<Dow
     }
 
     // Only log the count, not the entire array
-    console.log(`Downloaded applications count: ${data.length}`);
+    console.log(`Retrieved ${data.length} downloaded applications from database`);
     
     return data as DownloadedApplication[];
   } catch (error) {
@@ -50,9 +51,18 @@ export const fetchAvailableApplications = async (dealerId: string): Promise<Appl
       return [];
     }
     
+    // Get all applications
     const applications = await fetchApplications(dealerId);
-    console.log(`Retrieved ${applications.length} available applications`);
-    return applications;
+    
+    // Get purchased application IDs
+    const purchasedIds = await getPurchasedApplicationIds(dealerId);
+    console.log(`Retrieved ${purchasedIds.length} purchased application IDs`);
+    
+    // Filter out purchased applications
+    const availableApps = applications.filter(app => !purchasedIds.includes(app.applicationId));
+    
+    console.log(`Retrieved ${availableApps.length} available applications after filtering out purchased ones`);
+    return availableApps;
   } catch (error) {
     console.error('Error fetching available applications:', error);
     return [];
@@ -161,5 +171,28 @@ export const isApplicationHidden = async (applicationId: string, dealerId: strin
   } catch (error) {
     console.error('Error checking if application is hidden:', error);
     return false;
+  }
+};
+
+/**
+ * Get purchased application IDs for a dealer
+ */
+export const getPurchasedApplicationIds = async (dealerId: string): Promise<string[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('dealer_purchases')
+      .select('application_id')
+      .eq('dealer_id', dealerId)
+      .eq('is_active', true);
+    
+    if (error) {
+      console.error('Error fetching purchased application IDs:', error);
+      throw error;
+    }
+    
+    return (data || []).map(item => item.application_id);
+  } catch (error) {
+    console.error('Error fetching purchased application IDs:', error);
+    return [];
   }
 };

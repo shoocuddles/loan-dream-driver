@@ -26,7 +26,10 @@ import {
   createCheckoutSession,
   completePurchase
 } from '@/lib/services/stripe/stripeService';
-import { fetchSystemSettings } from '@/lib/services/settings/settingsService';
+import { 
+  fetchSystemSettings,
+  getPurchasedApplicationIds
+} from '@/lib/services/settings/settingsService';
 import { AgeDiscountSettings, getPrice, getPriceValue } from '@/components/application-table/priceUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EyeOff, Eye } from 'lucide-react';
@@ -77,6 +80,7 @@ const DealerDashboard = () => {
     discountPercentage: 25
   });
   const [activeApplicationTab, setActiveApplicationTab] = useState<'visible' | 'hidden'>('visible');
+  const [purchasedApplicationIds, setPurchasedApplicationIds] = useState<string[]>([]);
   
   const selectionBeforePayment = useRef<string[]>([]);
   
@@ -112,8 +116,21 @@ const DealerDashboard = () => {
       loadData();
       loadLockOptions();
       loadSystemSettings();
+      loadPurchasedApplicationIds();
     }
   }, [user]);
+  
+  const loadPurchasedApplicationIds = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const ids = await getPurchasedApplicationIds(user.id);
+      setPurchasedApplicationIds(ids);
+      console.log(`Loaded ${ids.length} purchased application IDs`);
+    } catch (error) {
+      console.error("Error loading purchased application IDs:", error);
+    }
+  };
   
   const loadSystemSettings = async () => {
     try {
@@ -146,6 +163,7 @@ const DealerDashboard = () => {
           } else {
             toast.success("Payment processed successfully. Your applications are now available in the Purchased tab.");
             await loadData();
+            await loadPurchasedApplicationIds();
             
             if (selectionBeforePayment.current.length > 0) {
               setTimeout(() => {
@@ -163,6 +181,7 @@ const DealerDashboard = () => {
       } else if (paymentSuccess) {
         toast.success("Payment processed successfully. Your applications are now available in the Purchased tab.");
         await loadData();
+        await loadPurchasedApplicationIds();
         
         if (selectionBeforePayment.current.length > 0) {
           setTimeout(() => {
@@ -201,8 +220,8 @@ const DealerDashboard = () => {
       const downloadedAppsList = Array.isArray(downloadedData) ? downloadedData : [];
       setDownloadedApps(downloadedAppsList);
       
-      const purchasedAppIds = downloadedAppsList.map(app => app.applicationId);
-      console.log('Downloaded application IDs:', purchasedAppIds);
+      const downloadedAppIds = downloadedAppsList.map(app => app.applicationId);
+      console.log('Downloaded application IDs:', downloadedAppIds);
       
       const appsData = await fetchAvailableApplications(user?.id || '');
       console.log('Loaded applications with lock info:', appsData.map(app => ({
@@ -211,13 +230,14 @@ const DealerDashboard = () => {
         isDownloaded: app.isDownloaded
       })));
       
-      const updatedApps = appsData.map(app => ({
-        ...app,
-        isDownloaded: app.isDownloaded || purchasedAppIds.includes(app.applicationId)
-      }));
+      await loadPurchasedApplicationIds();
+      
+      const filteredApps = appsData.filter(app => 
+        !purchasedApplicationIds.includes(app.applicationId)
+      );
       
       const hiddenAppIds = hiddenApplications.map(app => app.applicationId);
-      const visibleApps = updatedApps.filter(app => !hiddenAppIds.includes(app.applicationId));
+      const visibleApps = filteredApps.filter(app => !hiddenAppIds.includes(app.applicationId));
       
       setApplications(visibleApps);
       
@@ -318,9 +338,10 @@ const DealerDashboard = () => {
     try {
       setProcessingId(applicationId);
       
+      const isPurchased = purchasedApplicationIds.includes(applicationId);
       const isDownloaded = Array.isArray(downloadedApps) && downloadedApps.some(app => app.applicationId === applicationId);
       
-      if (isDownloaded) {
+      if (isPurchased || isDownloaded) {
         console.log('This application has already been purchased, showing it for free');
         toast.success("Application is already purchased and available for viewing");
         
@@ -518,12 +539,12 @@ const DealerDashboard = () => {
   };
 
   const getUnpurchasedApplications = () => {
-    if (!Array.isArray(downloadedApps) || !Array.isArray(selectedApplications)) {
+    if (!Array.isArray(selectedApplications)) {
       return [];
     }
     
     return selectedApplications.filter(id => 
-      !downloadedApps.some(app => app.applicationId === id)
+      !purchasedApplicationIds.includes(id)
     );
   };
   
@@ -544,12 +565,12 @@ const DealerDashboard = () => {
   };
   
   const areAllSelectedDownloaded = () => {
-    if (!Array.isArray(downloadedApps) || !Array.isArray(selectedApplications) || selectedApplications.length === 0) {
+    if (!Array.isArray(selectedApplications) || selectedApplications.length === 0) {
       return false;
     }
     
     return selectedApplications.every(id => 
-      downloadedApps.some(app => app.applicationId === id)
+      purchasedApplicationIds.includes(id)
     );
   };
 
@@ -654,7 +675,7 @@ const DealerDashboard = () => {
             application={detailsApplication as ApplicationItem}
             isOpen={showDetails}
             onClose={() => setShowDetails(false)}
-            isDownloaded={Array.isArray(downloadedApps) && downloadedApps.some(app => app.applicationId === detailsApplication?.applicationId)}
+            isDownloaded={purchasedApplicationIds.includes(detailsApplication?.applicationId || '')}
             onDownload={handleDownload}
             onLock={handleLockApplication}
             onUnlock={handleUnlockApplication}

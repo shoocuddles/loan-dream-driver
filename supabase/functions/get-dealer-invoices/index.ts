@@ -42,10 +42,10 @@ serve(async (req) => {
       );
     }
     
-    // Get dealer info from user_profiles
+    // Get dealer's email from user_profiles
     const { data: dealer, error: dealerError } = await supabase
       .from('user_profiles')
-      .select('stripe_customer_id')
+      .select('email')
       .eq('id', user.id)
       .single();
     
@@ -57,8 +57,44 @@ serve(async (req) => {
       );
     }
     
-    // Stripe customer ID is required to fetch invoices
-    if (!dealer.stripe_customer_id) {
+    // Initialize Stripe
+    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
+      apiVersion: "2023-10-16",
+      httpClient: Stripe.createFetchHttpClient(),
+    });
+    
+    // Find customer by email since stripe_customer_id isn't available
+    const customers = await stripe.customers.list({ 
+      email: dealer.email,
+      limit: 1 
+    });
+    
+    let customerId = null;
+    if (customers.data.length > 0) {
+      customerId = customers.data[0].id;
+      
+      // Update the user_profiles table with stripe_customer_id for future use
+      try {
+        await supabase.rpc('add_stripe_customer_id_if_missing', { 
+          p_user_id: user.id, 
+          p_customer_id: customerId 
+        });
+      } catch (updateError) {
+        // Continue even if update fails - the RPC might not exist yet
+        console.log("Note: Could not update stripe_customer_id in user_profiles. This is expected if the column doesn't exist yet.");
+      }
+    } else {
+      // No Stripe customer found for this email
+      return new Response(
+        JSON.stringify({ 
+          invoices: [],
+          message: "No Stripe customer found with this email address"
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    if (!customerId) {
       return new Response(
         JSON.stringify({ 
           invoices: [],
@@ -68,22 +104,16 @@ serve(async (req) => {
       );
     }
     
-    // Initialize Stripe
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
-      apiVersion: "2023-10-16",
-      httpClient: Stripe.createFetchHttpClient(),
-    });
-    
     // Fetch invoices for the customer
     const invoices = await stripe.invoices.list({
-      customer: dealer.stripe_customer_id,
+      customer: customerId,
       limit: 50,
       expand: ['data.charge']
     });
     
     // Also fetch Stripe charges (we need those for older entries that don't have invoices)
     const charges = await stripe.charges.list({
-      customer: dealer.stripe_customer_id,
+      customer: customerId,
       limit: 50,
     });
     
@@ -158,7 +188,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         invoices: combinedData,
-        customer_id: dealer.stripe_customer_id
+        customer_id: customerId
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

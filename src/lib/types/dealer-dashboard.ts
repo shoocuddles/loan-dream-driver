@@ -1,3 +1,4 @@
+
 // Add these to the existing types
 
 export interface DealerPurchase {
@@ -56,6 +57,7 @@ export interface DownloadedApplication {
   province?: string;
   postalCode?: string;
   vehicleType?: string;
+  lockInfo?: LockInfo;
   // Include all other application fields
   requiredFeatures?: string;
   unwantedColors?: string;

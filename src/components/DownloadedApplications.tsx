@@ -4,12 +4,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { format, isValid, parseISO } from 'date-fns';
-import { Search } from 'lucide-react';
+import { Search, Lock } from 'lucide-react';
 import { DownloadedApplication, LockType } from '@/lib/types/dealer-dashboard';
 import DownloadOptions from './application-table/DownloadOptions';
 import BulkActionsBar from './BulkActionsBar';
 import { lockApplication } from '@/lib/services/lock/lockService';
 import { toast } from 'sonner';
+import { createCheckoutSession } from '@/lib/services/stripe/stripeService';
 
 interface DownloadedApplicationsProps {
   applications: DownloadedApplication[];
@@ -49,6 +50,32 @@ const DownloadedApplications = ({
     }
   };
 
+  const formatLockStatus = (application: DownloadedApplication) => {
+    if (!application.lockInfo || !application.lockInfo.isLocked) {
+      return 'Not locked';
+    }
+
+    if (application.lockInfo.lockType === 'permanent') {
+      return 'Perm. Locked';
+    }
+
+    if (application.lockInfo.expiresAt) {
+      try {
+        const expiryDate = parseISO(application.lockInfo.expiresAt);
+        if (isValid(expiryDate)) {
+          if (expiryDate < new Date()) {
+            return 'Lock expired';
+          }
+          return `Locked until ${format(expiryDate, 'MMM d, h:mm a')}`;
+        }
+      } catch (error) {
+        console.error('Error formatting lock date:', error);
+      }
+    }
+    
+    return 'Locked';
+  };
+
   const toggleApplicationSelection = (applicationId: string) => {
     setSelectedApplications(prev => 
       prev.includes(applicationId)
@@ -77,30 +104,61 @@ const DownloadedApplications = ({
     // The download functionality is handled by the DownloadOptions component
   };
 
-  // Handle bulk lock for purchased applications
+  // Handle bulk lock for purchased applications with Stripe payment
   const handleBulkLock = async (lockType: LockType) => {
     try {
       setIsProcessingAction(true);
-      console.log(`Locking ${selectedApplications.length} applications with lock type: ${lockType}`);
+      console.log(`Initiating payment for locking ${selectedApplications.length} applications with lock type: ${lockType}`);
       
-      // Process locks one by one
-      let successCount = 0;
-      
-      for (const appId of selectedApplications) {
-        const success = await lockApplication(appId, lockType);
-        if (success) successCount++;
+      // Get the fee amount for this lock type from lockoutPeriods
+      // This would typically come from your database via an API call
+      let lockFee = 0;
+      switch(lockType) {
+        case '24hours':
+          lockFee = 4.99;
+          break;
+        case '1week':
+          lockFee = 9.99;
+          break;
+        case 'permanent':
+          lockFee = 29.99;
+          break;
+        default:
+          lockFee = 4.99;
       }
       
-      if (successCount === selectedApplications.length) {
-        toast.success(`Successfully locked ${successCount} applications`);
-        setSelectedApplications([]);
+      const totalAmount = lockFee * selectedApplications.length;
+      
+      // Create Stripe checkout session for lock payment
+      const { data: checkoutData, error } = await createCheckoutSession({
+        applicationIds: selectedApplications,
+        priceType: 'standard',
+        lockType: lockType,
+        lockFee: lockFee,
+        isLockPayment: true
+      });
+      
+      if (error) {
+        toast.error(`Payment setup failed: ${error.message}`);
+        setIsProcessingAction(false);
+        return;
+      }
+      
+      // Redirect to Stripe checkout
+      if (checkoutData?.url) {
+        // Store selected applications and lock type in session storage
+        sessionStorage.setItem('pendingLockApplications', JSON.stringify(selectedApplications));
+        sessionStorage.setItem('pendingLockType', lockType);
+        
+        // Redirect to Stripe
+        window.location.href = checkoutData.url;
       } else {
-        toast.info(`Locked ${successCount} of ${selectedApplications.length} applications`);
+        toast.error('Could not create payment session');
+        setIsProcessingAction(false);
       }
     } catch (error) {
-      toast.error('Error locking applications');
-      console.error('Error during bulk lock:', error);
-    } finally {
+      toast.error('Error setting up lock payment');
+      console.error('Error during bulk lock payment:', error);
       setIsProcessingAction(false);
     }
   };
@@ -142,13 +200,14 @@ const DownloadedApplications = ({
                 <TableHead>Address</TableHead>
                 <TableHead>Vehicle Type</TableHead>
                 <TableHead>Downloaded</TableHead>
+                <TableHead>Lock Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     <div className="flex items-center justify-center">
                       <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-ontario-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -160,7 +219,7 @@ const DownloadedApplications = ({
                 </TableRow>
               ) : filteredApplications.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     {searchTerm ? 'No applications match your search' : 'No purchased applications yet'}
                   </TableCell>
                 </TableRow>
@@ -192,6 +251,13 @@ const DownloadedApplications = ({
                     </TableCell>
                     <TableCell>{application.vehicleType || 'N/A'}</TableCell>
                     <TableCell>{safeFormatDate(application.downloadDate || application.purchaseDate)}</TableCell>
+                    <TableCell>
+                      <div className={`text-sm ${application.lockInfo?.isLocked ? 
+                        (application.lockInfo.lockType === 'permanent' ? 'text-amber-600 font-semibold' : 'text-blue-600') : 
+                        'text-gray-500'}`}>
+                        {formatLockStatus(application)}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-2">
                         <DownloadOptions 

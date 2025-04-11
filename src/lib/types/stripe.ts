@@ -42,6 +42,9 @@ export interface StripeCheckoutParams {
   couponId?: string;
   ageDiscounts?: AgeDiscountInfo[];
   returnToSelection?: boolean;
+  lockType?: string;
+  lockFee?: number;
+  isLockPayment?: boolean;
 }
 
 export interface CheckoutSessionResponse {

@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Stripe } from "https://esm.sh/stripe@14.20.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -126,6 +125,98 @@ serve(async (req) => {
         );
       }
       
+      // Check if this is a lock payment or a purchase payment
+      const isLockPayment = session.metadata?.is_lock_payment === 'true';
+      const lockType = session.metadata?.lock_type;
+      
+      // Handle lock payments
+      if (isLockPayment && lockType) {
+        console.log(`Processing lock payment for ${applicationIds.length} applications, lock type: ${lockType}`);
+        
+        const timestamp = new Date().toISOString();
+        const unitFee = parseFloat(session.metadata?.lock_fee || "0");
+        let lockSuccessCount = 0;
+        
+        // Calculate lock expiration based on lock type
+        let expiryHours = 24; // Default to 24 hours
+        let isPermanent = false;
+        
+        if (lockType === 'permanent') {
+          isPermanent = true;
+          expiryHours = 87600; // 10 years
+        } else if (lockType === '1week') {
+          expiryHours = 168; // 7 days
+        }
+        
+        const expiryDate = new Date();
+        expiryDate.setHours(expiryDate.getHours() + expiryHours);
+        
+        for (const appId of applicationIds) {
+          try {
+            // Remove any existing locks from the dealer
+            const { data: existingLocks } = await supabase
+              .from('application_locks')
+              .select('id')
+              .eq('application_id', appId)
+              .eq('dealer_id', dealerId)
+              .gt('expires_at', timestamp);
+              
+            if (existingLocks && existingLocks.length > 0) {
+              console.log(`Updating ${existingLocks.length} existing locks for application ${appId}`);
+              
+              for (const lock of existingLocks) {
+                await supabase
+                  .from('application_locks')
+                  .update({ expires_at: timestamp })
+                  .eq('id', lock.id);
+              }
+            }
+            
+            // Create a new lock
+            const { error: lockError } = await supabase
+              .from('application_locks')
+              .insert({
+                application_id: appId,
+                dealer_id: dealerId,
+                lock_type: isPermanent ? 'permanent' : lockType,
+                expires_at: expiryDate.toISOString(),
+                is_paid: true,
+                payment_id: sessionId,
+                payment_amount: unitFee
+              });
+              
+            if (lockError) {
+              console.error(`Error creating lock for application ${appId}:`, lockError);
+              continue;
+            }
+            
+            // If permanent lock, mark the application as unavailable to other dealers
+            if (isPermanent) {
+              await supabase.rpc('mark_application_permanently_locked', {
+                p_application_id: appId
+              }).catch(err => {
+                console.error('Error marking application as permanently locked:', err);
+              });
+            }
+            
+            lockSuccessCount++;
+          } catch (error) {
+            console.error(`Error processing lock for application ${appId}:`, error);
+          }
+        }
+        
+        return new Response(
+          JSON.stringify({ 
+            success: true,
+            isLockPayment: true,
+            locksProcessed: lockSuccessCount,
+            message: `Successfully locked ${lockSuccessCount} of ${applicationIds.length} applications`
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Handle regular purchases
       // Record purchases in the database
       const timestamp = new Date().toISOString();
       let allSuccessful = true;

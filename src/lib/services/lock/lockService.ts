@@ -40,6 +40,25 @@ export const lockApplication = async (applicationId: string, lockType: LockType,
       throw new Error('User not authenticated');
     }
     
+    // First check if the application already has a lock by this dealer
+    const currentLock = await checkApplicationLock(applicationId);
+    
+    // If the application is already permanently locked by this dealer, don't charge again
+    if (currentLock?.isLocked && currentLock.isOwnLock && currentLock.lockType === 'permanent') {
+      console.log('Application is already permanently locked by this dealer - no additional lock needed');
+      return true;
+    }
+    
+    // If the application has a temporary lock by this dealer that hasn't expired,
+    // don't allow another temporary lock but allow upgrade to permanent
+    if (currentLock?.isLocked && currentLock.isOwnLock && 
+        currentLock.lockType !== 'permanent' && lockType !== 'permanent') {
+      console.log('Application already has a temporary lock by this dealer - cannot add another temporary lock');
+      toast.warning('This application already has a temporary lock. You can only upgrade to a permanent lock.');
+      return false;
+    }
+    
+    // Create or update the lock
     const { data, error } = await rpcCall<{ success: boolean, lockId?: string }>('lock_application', {
       p_application_id: applicationId,
       p_dealer_id: userId.user.id,
@@ -49,6 +68,18 @@ export const lockApplication = async (applicationId: string, lockType: LockType,
     });
     
     if (error) throw error;
+    
+    // If successful and this is a permanent lock, we should update any other dealers' view
+    // by making the application unavailable in the available section
+    if (data?.success && lockType === 'permanent') {
+      await rpcCall('mark_application_permanently_locked', {
+        p_application_id: applicationId
+      }).catch(err => {
+        console.error('Error marking application as permanently locked:', err);
+        // Don't throw here, the lock itself was successful
+      });
+    }
+    
     return data?.success || false;
   } catch (error: any) {
     console.error('❌ Error locking application:', error.message);
@@ -110,5 +141,32 @@ export const fetchLockoutPeriods = async (): Promise<LockoutPeriod[]> => {
   } catch (error: any) {
     console.error('❌ Error fetching lockout periods:', error.message);
     return [];
+  }
+};
+
+/**
+ * Process locks after payment has been confirmed
+ */
+export const processLocksAfterPayment = async (
+  applicationIds: string[],
+  lockType: LockType,
+  paymentId: string,
+  paymentAmount: number
+): Promise<number> => {
+  try {
+    console.log(`Processing locks for ${applicationIds.length} applications after payment confirmation`);
+    
+    let successCount = 0;
+    
+    // Process each application lock
+    for (const appId of applicationIds) {
+      const lockSuccess = await lockApplication(appId, lockType, paymentId, paymentAmount / applicationIds.length);
+      if (lockSuccess) successCount++;
+    }
+    
+    return successCount;
+  } catch (error) {
+    console.error('Error processing locks after payment:', error);
+    return 0;
   }
 };

@@ -358,6 +358,9 @@ export type Database = {
       }
       system_settings: {
         Row: {
+          age_discount_enabled: boolean | null
+          age_discount_percentage: number | null
+          age_discount_threshold: number | null
           discounted_price: number
           id: number
           standard_price: number
@@ -365,6 +368,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          age_discount_enabled?: boolean | null
+          age_discount_percentage?: number | null
+          age_discount_threshold?: number | null
           discounted_price?: number
           id?: number
           standard_price?: number
@@ -372,6 +378,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          age_discount_enabled?: boolean | null
+          age_discount_percentage?: number | null
+          age_discount_threshold?: number | null
           discounted_price?: number
           id?: number
           standard_price?: number

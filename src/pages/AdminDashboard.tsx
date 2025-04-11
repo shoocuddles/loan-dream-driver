@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -167,7 +166,6 @@ const AdminDashboard = () => {
   };
 
   const handleUploadSuccess = (count: number) => {
-    // Refresh applications list after successful upload
     loadApplications();
   };
 

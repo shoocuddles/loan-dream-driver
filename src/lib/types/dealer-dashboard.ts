@@ -23,6 +23,7 @@ export interface ApplicationItem {
   discountedPrice?: number;
   vehicleType?: string; // This field is now properly handled in the mapping function
   isAgeDiscounted?: boolean; // Added to track if an application has age-based discount
+  isHidden?: boolean; // Added to track if an application is hidden
 }
 
 export interface DownloadedApplication {

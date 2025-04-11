@@ -8,6 +8,16 @@ import { ApplicationActions } from './ApplicationActions';
 import { safeFormatDate } from './dateUtils';
 import { getPrice, AgeDiscountSettings } from './priceUtils';
 import { SelectionHeader } from './SelectionHeader';
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationItem, 
+  PaginationLink, 
+  PaginationNext, 
+  PaginationPrevious 
+} from '@/components/ui/pagination';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight, EyeOff, ShoppingCart } from 'lucide-react';
 
 type LockOption = {
   id: number;
@@ -26,9 +36,12 @@ interface ApplicationTableProps {
   onUnlock: (applicationId: string) => Promise<void>;
   onDownload: (applicationId: string) => Promise<void>;
   onViewDetails: (application: ApplicationItem) => void;
+  onHideApplication?: (applicationId: string) => void;
+  onPurchase?: (applicationId: string) => void;
   processingId: string | null;
   lockOptions: LockOption[];
   ageDiscountSettings?: AgeDiscountSettings;
+  showActions?: boolean;
 }
 
 const ApplicationTable = ({
@@ -41,12 +54,23 @@ const ApplicationTable = ({
   onUnlock,
   onDownload,
   onViewDetails,
+  onHideApplication,
+  onPurchase,
   processingId,
   lockOptions,
-  ageDiscountSettings
+  ageDiscountSettings,
+  showActions = true
 }: ApplicationTableProps) => {
   const allSelected = applications.length > 0 && selectedApplications.length === applications.length;
   const someSelected = selectedApplications.length > 0 && !allSelected;
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+  
+  // Calculate pagination info
+  const totalPages = Math.ceil(applications.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, applications.length);
+  const currentApplications = applications.slice(startIndex, endIndex);
 
   // Debug log for applications data
   console.log('Applications with lock info:', applications.map(app => ({ 
@@ -60,6 +84,12 @@ const ApplicationTable = ({
   if (ageDiscountSettings?.isEnabled) {
     console.log('Age discount settings:', ageDiscountSettings);
   }
+
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+    // Reset selection when changing pages
+    selectAll(false);
+  };
 
   const columns: ColumnDef<ApplicationItem>[] = [
     {
@@ -135,15 +165,53 @@ const ApplicationTable = ({
       header: 'Actions',
       enableSorting: false,
       cell: ({ row }) => (
-        <ApplicationActions
-          application={row.original}
-          onViewDetails={onViewDetails}
-          onLock={onLock}
-          onUnlock={onUnlock}
-          onDownload={onDownload}
-          processingId={processingId}
-          lockOptions={lockOptions}
-        />
+        <div className="flex gap-2 justify-end">
+          {showActions ? (
+            <>
+              <ApplicationActions
+                application={row.original}
+                onViewDetails={onViewDetails}
+                onLock={onLock}
+                onUnlock={onUnlock}
+                onDownload={onDownload}
+                processingId={processingId}
+                lockOptions={lockOptions}
+              />
+              {onHideApplication && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => onHideApplication(row.original.applicationId)}
+                  title="Hide application"
+                >
+                  <EyeOff className="h-4 w-4" />
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button
+                onClick={() => onViewDetails(row.original)}
+                variant="outline"
+                size="sm"
+              >
+                View
+              </Button>
+              {onPurchase && (
+                <Button
+                  onClick={() => onPurchase(row.original.applicationId)}
+                  variant="default"
+                  size="sm"
+                  className="bg-ontario-blue hover:bg-ontario-blue/90"
+                  disabled={processingId === row.original.applicationId}
+                >
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  Purchase
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       )
     },
   ];
@@ -158,11 +226,91 @@ const ApplicationTable = ({
         />
       </div>
       <SortableTable
-        data={applications}
+        data={currentApplications}
         columns={columns}
         isLoading={isLoading}
         noDataMessage="No applications available"
       />
+      
+      {totalPages > 1 && (
+        <div className="py-4 border-t">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => currentPage > 1 && handlePageChange(currentPage - 1)}
+                  className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} 
+                />
+              </PaginationItem>
+              
+              {/* First page */}
+              {currentPage > 2 && (
+                <PaginationItem>
+                  <PaginationLink onClick={() => handlePageChange(1)}>1</PaginationLink>
+                </PaginationItem>
+              )}
+              
+              {/* Ellipsis if needed */}
+              {currentPage > 3 && (
+                <PaginationItem>
+                  <span className="flex h-9 w-9 items-center justify-center">...</span>
+                </PaginationItem>
+              )}
+              
+              {/* Previous page if not first */}
+              {currentPage > 1 && (
+                <PaginationItem>
+                  <PaginationLink onClick={() => handlePageChange(currentPage - 1)}>
+                    {currentPage - 1}
+                  </PaginationLink>
+                </PaginationItem>
+              )}
+              
+              {/* Current page */}
+              <PaginationItem>
+                <PaginationLink isActive onClick={() => handlePageChange(currentPage)}>
+                  {currentPage}
+                </PaginationLink>
+              </PaginationItem>
+              
+              {/* Next page if not last */}
+              {currentPage < totalPages && (
+                <PaginationItem>
+                  <PaginationLink onClick={() => handlePageChange(currentPage + 1)}>
+                    {currentPage + 1}
+                  </PaginationLink>
+                </PaginationItem>
+              )}
+              
+              {/* Ellipsis if needed */}
+              {currentPage < totalPages - 2 && (
+                <PaginationItem>
+                  <span className="flex h-9 w-9 items-center justify-center">...</span>
+                </PaginationItem>
+              )}
+              
+              {/* Last page if not current or adjacent */}
+              {currentPage < totalPages - 1 && (
+                <PaginationItem>
+                  <PaginationLink onClick={() => handlePageChange(totalPages)}>
+                    {totalPages}
+                  </PaginationLink>
+                </PaginationItem>
+              )}
+              
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => currentPage < totalPages && handlePageChange(currentPage + 1)}
+                  className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} 
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+          <div className="text-center text-sm text-gray-500 mt-2">
+            Page {currentPage} of {totalPages} • Showing {startIndex + 1}-{endIndex} of {applications.length} applications
+          </div>
+        </div>
+      )}
     </div>
   );
 };

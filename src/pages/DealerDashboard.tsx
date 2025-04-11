@@ -29,6 +29,8 @@ import {
 } from '@/lib/services/stripe/stripeService';
 import { fetchSystemSettings } from '@/lib/services/settings/settingsService';
 import { AgeDiscountSettings } from '@/components/application-table/priceUtils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { EyeOff, Eye } from 'lucide-react';
 
 const generateApplicationPDF = (application: { 
   id: string; 
@@ -51,6 +53,7 @@ const generateApplicationPDF = (application: {
 const DealerDashboard = () => {
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [downloadedApps, setDownloadedApps] = useState<DownloadedApplication[]>([]);
+  const [hiddenApplications, setHiddenApplications] = useState<ApplicationItem[]>([]);
   const [selectedApplications, setSelectedApplications] = useState<string[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,6 +77,7 @@ const DealerDashboard = () => {
     daysThreshold: 30,
     discountPercentage: 25
   });
+  const [activeApplicationTab, setActiveApplicationTab] = useState<'visible' | 'hidden'>('visible');
   
   const [searchParams, setSearchParams] = useSearchParams();
   const paymentSuccess = searchParams.get('payment_success') === 'true';
@@ -81,6 +85,28 @@ const DealerDashboard = () => {
   const sessionId = searchParams.get('session_id');
 
   const { user } = useAuth();
+  
+  // Load hidden applications from local storage on component mount
+  useEffect(() => {
+    if (user) {
+      const storedHiddenApps = localStorage.getItem(`hidden-apps-${user.id}`);
+      if (storedHiddenApps) {
+        try {
+          const parsedHiddenApps = JSON.parse(storedHiddenApps);
+          setHiddenApplications(parsedHiddenApps);
+        } catch (error) {
+          console.error("Error parsing hidden applications from localStorage:", error);
+        }
+      }
+    }
+  }, [user]);
+
+  // Save hidden applications to local storage whenever they change
+  useEffect(() => {
+    if (user && hiddenApplications.length > 0) {
+      localStorage.setItem(`hidden-apps-${user.id}`, JSON.stringify(hiddenApplications));
+    }
+  }, [hiddenApplications, user]);
 
   useEffect(() => {
     if (user) {
@@ -183,7 +209,11 @@ const DealerDashboard = () => {
         isDownloaded: purchasedAppIds.includes(app.applicationId)
       }));
       
-      setApplications(updatedApps);
+      // Filter out hidden applications from visible ones
+      const hiddenAppIds = hiddenApplications.map(app => app.applicationId);
+      const visibleApps = updatedApps.filter(app => !hiddenAppIds.includes(app.applicationId));
+      
+      setApplications(visibleApps);
       
       if (!Array.isArray(downloadedData)) {
         console.error("Downloaded applications data is not an array:", downloadedData);
@@ -309,6 +339,39 @@ const DealerDashboard = () => {
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const handleHideApplication = (applicationId: string) => {
+    const appToHide = applications.find(app => app.applicationId === applicationId);
+    if (!appToHide) return;
+    
+    // Add to hidden applications
+    setHiddenApplications(prev => [...prev, appToHide]);
+    
+    // Remove from visible applications
+    setApplications(prev => prev.filter(app => app.applicationId !== applicationId));
+    
+    // Remove from selected if it was selected
+    setSelectedApplications(prev => prev.filter(id => id !== applicationId));
+    
+    toast.success("Application hidden successfully");
+  };
+
+  const handleUnhideApplication = (applicationId: string) => {
+    const appToUnhide = hiddenApplications.find(app => app.applicationId === applicationId);
+    if (!appToUnhide) return;
+    
+    // Add back to visible applications
+    setApplications(prev => [...prev, appToUnhide]);
+    
+    // Remove from hidden applications
+    setHiddenApplications(prev => prev.filter(app => app.applicationId !== applicationId));
+    
+    toast.success("Application unhidden successfully");
+  };
+
+  const handlePurchase = (applicationId: string) => {
+    handleDownload(applicationId);
   };
 
   const handleBulkPurchase = async () => {
@@ -470,32 +533,75 @@ const DealerDashboard = () => {
               <CardTitle>Available Applications</CardTitle>
             </CardHeader>
             <CardContent>
-              <ApplicationTable
-                applications={applications}
-                isLoading={isLoading}
-                selectedApplications={selectedApplications}
-                toggleApplicationSelection={toggleApplicationSelection}
-                selectAll={handleSelectAll}
-                onLock={handleLockApplication}
-                onUnlock={handleUnlockApplication}
-                onDownload={handleDownload}
-                onViewDetails={handleViewDetails}
-                processingId={processingId}
-                lockOptions={lockOptions}
-                ageDiscountSettings={ageDiscountSettings}
-              />
-              
-              <BulkActionsBar
-                selectedCount={selectedApplications.length}
-                onBulkDownload={handleBulkDownload}
-                onBulkLock={handleBulkLock}
-                onClearSelection={() => setSelectedApplications([])}
-                isProcessing={!!processingId}
-                selectedApplicationIds={selectedApplications}
-                unpurchasedCount={getUnpurchasedApplications().length}
-                totalPurchaseCost={calculateTotalPurchaseCost(getUnpurchasedApplications())}
-                onPurchaseSelected={handleBulkPurchase}
-              />
+              <Tabs defaultValue="visible" value={activeApplicationTab} onValueChange={(value) => setActiveApplicationTab(value as 'visible' | 'hidden')}>
+                <TabsList className="mb-4">
+                  <TabsTrigger value="visible" className="flex items-center gap-2">
+                    <Eye className="h-4 w-4" />
+                    Visible
+                  </TabsTrigger>
+                  <TabsTrigger value="hidden" className="flex items-center gap-2">
+                    <EyeOff className="h-4 w-4" />
+                    Hidden ({hiddenApplications.length})
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="visible">
+                  <ApplicationTable
+                    applications={applications}
+                    isLoading={isLoading}
+                    selectedApplications={selectedApplications}
+                    toggleApplicationSelection={toggleApplicationSelection}
+                    selectAll={handleSelectAll}
+                    onLock={handleLockApplication}
+                    onUnlock={handleUnlockApplication}
+                    onDownload={handleDownload}
+                    onViewDetails={handleViewDetails}
+                    onHideApplication={handleHideApplication}
+                    onPurchase={handlePurchase}
+                    processingId={processingId}
+                    lockOptions={lockOptions}
+                    ageDiscountSettings={ageDiscountSettings}
+                    showActions={false}
+                  />
+                  
+                  <BulkActionsBar
+                    selectedCount={selectedApplications.length}
+                    onBulkDownload={handleBulkDownload}
+                    onBulkLock={handleBulkLock}
+                    onClearSelection={() => setSelectedApplications([])}
+                    isProcessing={!!processingId}
+                    selectedApplicationIds={selectedApplications}
+                    unpurchasedCount={getUnpurchasedApplications().length}
+                    totalPurchaseCost={calculateTotalPurchaseCost(getUnpurchasedApplications())}
+                    onPurchaseSelected={handleBulkPurchase}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="hidden">
+                  {hiddenApplications.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      No hidden applications. Applications you hide will appear here.
+                    </div>
+                  ) : (
+                    <ApplicationTable
+                      applications={hiddenApplications}
+                      isLoading={false}
+                      selectedApplications={[]}
+                      toggleApplicationSelection={() => {}}
+                      selectAll={() => {}}
+                      onLock={handleLockApplication}
+                      onUnlock={handleUnlockApplication}
+                      onDownload={handleDownload}
+                      onViewDetails={handleViewDetails}
+                      processingId={processingId}
+                      lockOptions={lockOptions}
+                      ageDiscountSettings={ageDiscountSettings}
+                      onHideApplication={handleUnhideApplication}
+                      showActions={false}
+                    />
+                  )}
+                </TabsContent>
+              </Tabs>
               
               <div className="mt-6 text-sm text-gray-500">
                 <p>

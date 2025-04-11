@@ -15,3 +15,14 @@ verify_jwt = true
 [functions.list-coupons]
 verify_jwt = true
 
+[functions.verify-purchase]
+verify_jwt = true
+
+[functions.get-prices]
+verify_jwt = true
+
+[functions.sync-prices]
+verify_jwt = true
+
+[functions.create-coupon]
+verify_jwt = true

@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 const StripeDebug = () => {
   const [isChecking, setIsChecking] = useState(false);
   const [status, setStatus] = useState<Record<string, any>>({});
+  const [edgeFunctions, setEdgeFunctions] = useState<string[]>([]);
 
   const checkFunction = async (functionName: string) => {
     try {
@@ -16,7 +17,7 @@ const StripeDebug = () => {
       });
       
       return {
-        available: true,
+        available: !error,
         error: error ? error.message : null,
         data: data || null
       };
@@ -28,6 +29,47 @@ const StripeDebug = () => {
       };
     }
   };
+  
+  const listEdgeFunctions = async () => {
+    try {
+      // This is just a way to check if functions are registered
+      // It doesn't actually list all functions but checks specific ones
+      const functionsToCheck = [
+        'create-checkout-session',
+        'verify-purchase',
+        'list-coupons',
+        'get-account-info',
+        'stripe-webhook',
+        'get-prices',
+        'sync-prices',
+        'create-coupon'
+      ];
+      
+      const availableFunctions: string[] = [];
+      
+      for (const fn of functionsToCheck) {
+        try {
+          // Just a head request to see if the endpoint exists
+          const response = await fetch(
+            `${supabase.functions.url}/${fn}`,
+            { method: 'HEAD' }
+          );
+          
+          // If we get any response (even an error), the function exists
+          if (response) {
+            availableFunctions.push(fn);
+          }
+        } catch (error) {
+          // Ignore errors, just means the function isn't available
+        }
+      }
+      
+      return availableFunctions;
+    } catch (error) {
+      console.error("Error listing functions:", error);
+      return [];
+    }
+  };
 
   const runDiagnostics = async () => {
     setIsChecking(true);
@@ -36,16 +78,27 @@ const StripeDebug = () => {
     toast.info("Running Stripe function diagnostics...");
     
     try {
-      // Check all relevant functions
-      const functions = [
+      // First check which edge functions are available
+      const functions = await listEdgeFunctions();
+      setEdgeFunctions(functions);
+      
+      // Then check critical functions
+      const criticalFunctions = [
         'create-checkout-session',
         'list-coupons',
-        'get-account-info',
-        'stripe-webhook'
+        'get-account-info'
       ];
       
-      for (const fn of functions) {
-        results[fn] = await checkFunction(fn);
+      for (const fn of criticalFunctions) {
+        if (functions.includes(fn)) {
+          results[fn] = await checkFunction(fn);
+        } else {
+          results[fn] = { 
+            available: false, 
+            error: "Function not deployed",
+            data: null
+          };
+        }
       }
       
       // Also check Stripe secret key availability
@@ -95,6 +148,20 @@ const StripeDebug = () => {
           >
             {isChecking ? 'Checking...' : 'Check Stripe Functions'}
           </Button>
+          
+          {edgeFunctions.length > 0 && (
+            <div className="border rounded-md p-4 mt-4">
+              <h3 className="font-medium mb-2">Deployed Edge Functions</h3>
+              <div className="space-y-1">
+                {edgeFunctions.map((fn) => (
+                  <div key={fn} className="flex items-center gap-2">
+                    <span className="text-sm font-mono">{fn}</span>
+                    <span className="text-xs text-green-500">✓</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
           {Object.keys(status).length > 0 && (
             <div className="border rounded-md p-4 mt-4">

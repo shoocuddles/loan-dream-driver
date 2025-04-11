@@ -1,82 +1,117 @@
 
-import { useState, useEffect } from "react";
+import { useState } from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { supabase } from "@/lib/supabase";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/components/ui/use-toast";
+import { AlertCircle } from "lucide-react";
+import { getStripeAccountInfo } from "@/lib/services/stripe/stripeService";
+import StripeDebug from './StripeDebug';
 
 const PaymentSettings = () => {
-  const [totalSpent, setTotalSpent] = useState(0);
-  const [totalDownloads, setTotalDownloads] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  useEffect(() => {
-    const loadPaymentStats = async () => {
-      try {
-        setIsLoading(true);
-        
-        // In a real implementation, we would query Supabase for download history
-        // For demo purposes, let's use mock data
-        const downloadsMock = [
-          { paymentAmount: 10.99 },
-          { paymentAmount: 10.99 },
-          { paymentAmount: 5.99 }
-        ];
-        
-        const total = downloadsMock.reduce((sum, download) => sum + download.paymentAmount, 0);
-        
-        setTotalSpent(total);
-        setTotalDownloads(downloadsMock.length);
-      } catch (error) {
-        console.error("Error loading payment stats:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [stripeAccount, setStripeAccount] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const checkStripeAccount = async () => {
+    setIsLoading(true);
+    setError(null);
     
-    loadPaymentStats();
-  }, []);
-  
-  const handleUpdatePaymentMethod = () => {
-    // In a real implementation, this would redirect to Stripe Customer Portal
-    window.open("https://stripe.com", "_blank");
+    try {
+      const response = await getStripeAccountInfo();
+      
+      if (response.error) {
+        setError(response.error.message);
+        toast({
+          variant: "destructive",
+          title: "Error checking Stripe account",
+          description: response.error.message,
+        });
+      } else if (response.data) {
+        setStripeAccount(response.data);
+        toast({
+          title: "Stripe account retrieved",
+          description: "Successfully connected to your Stripe account.",
+        });
+      }
+    } catch (err: any) {
+      setError(err.message);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: err.message,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
-  
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Payment Settings</CardTitle>
-        <CardDescription>Manage your payment methods and view your purchase history</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-gray-500">Total Spent</p>
-            <p className="text-2xl font-bold text-ontario-blue">
-              ${isLoading ? '...' : totalSpent.toFixed(2)}
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">Payment Settings</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <h3 className="font-medium">Stripe Account</h3>
+            <p className="text-sm text-gray-600">
+              View your connected Stripe account details.
             </p>
+            
+            <Button 
+              onClick={checkStripeAccount} 
+              disabled={isLoading}
+              className="mt-2"
+            >
+              {isLoading ? 'Checking...' : 'Check Stripe Account'}
+            </Button>
+            
+            {error && (
+              <Alert variant="destructive" className="mt-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            {stripeAccount && (
+              <div className="mt-4 p-4 border rounded-md space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Account Email</p>
+                  <p className="text-sm">{stripeAccount.email}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Account ID</p>
+                  <p className="text-sm font-mono">{stripeAccount.id}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Country</p>
+                  <p className="text-sm">{stripeAccount.country}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Status</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    <span className={`text-xs px-2 py-1 rounded-full ${stripeAccount.charges_enabled ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
+                      {stripeAccount.charges_enabled ? 'Charges Enabled' : 'Charges Disabled'}
+                    </span>
+                    <span className={`text-xs px-2 py-1 rounded-full ${stripeAccount.payouts_enabled ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
+                      {stripeAccount.payouts_enabled ? 'Payouts Enabled' : 'Payouts Disabled'}
+                    </span>
+                    <span className={`text-xs px-2 py-1 rounded-full ${stripeAccount.details_submitted ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
+                      {stripeAccount.details_submitted ? 'Details Complete' : 'Details Incomplete'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="p-4 bg-green-50 rounded-lg">
-            <p className="text-sm text-gray-500">Downloads</p>
-            <p className="text-2xl font-bold text-green-700">
-              {isLoading ? '...' : totalDownloads}
-            </p>
-          </div>
-        </div>
-        
-        <div className="pt-4 border-t">
-          <h3 className="font-medium mb-2">Payment Method</h3>
-          <Button 
-            onClick={handleUpdatePaymentMethod}
-            className="w-full bg-ontario-blue hover:bg-ontario-blue/90"
-          >
-            Update Payment Method
-          </Button>
-          <p className="mt-2 text-xs text-gray-500">
-            Your payment information is securely stored with Stripe.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+      
+      {/* Include the StripeDebug component for diagnosing issues */}
+      <StripeDebug />
+    </div>
   );
 };
 

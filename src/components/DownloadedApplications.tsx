@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { format, isValid, parseISO } from 'date-fns';
 import { Search } from 'lucide-react';
-import { DownloadedApplication } from '@/lib/types/dealer-dashboard';
+import { DownloadedApplication, LockType } from '@/lib/types/dealer-dashboard';
 import DownloadOptions from './application-table/DownloadOptions';
 import BulkActionsBar from './BulkActionsBar';
 import { lockApplication } from '@/lib/services/lock/lockService';
@@ -78,7 +78,7 @@ const DownloadedApplications = ({
   };
 
   // Handle bulk lock for purchased applications
-  const handleBulkLock = async (lockType: string) => {
+  const handleBulkLock = async (lockType: LockType) => {
     try {
       setIsProcessingAction(true);
       console.log(`Locking ${selectedApplications.length} applications with lock type: ${lockType}`);

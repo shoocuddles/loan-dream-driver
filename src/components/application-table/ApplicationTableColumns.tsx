@@ -121,15 +121,33 @@ export const createColumns = ({
       cell: ({ row }) => {
         const application = row.original;
         const price = getPrice(application, ageDiscountSettings);
-        const isDiscounted = application.isAgeDiscounted || 
-                            (application.lockInfo?.isLocked && !application.lockInfo?.isOwnLock);
+        
+        // Determine if there's a discount and what type
+        let isDiscounted = false;
+        let discountReason = "";
+        
+        if (application.isPurchased) {
+          return (
+            <div className="font-medium text-right">
+              Free
+            </div>
+          );
+        }
+        
+        if (application.isAgeDiscounted) {
+          isDiscounted = true;
+          discountReason = "Age";
+        } else if (application.lockInfo?.isLocked && !application.lockInfo?.isOwnLock) {
+          isDiscounted = true;
+          discountReason = "Prev Lock";
+        }
         
         return (
           <div className={`font-medium text-right ${isDiscounted ? 'text-green-600 font-bold' : ''}`}>
             {price}
             {isDiscounted && (
               <div className="text-xs text-green-500">
-                Discounted
+                Discounted - {discountReason}
               </div>
             )}
           </div>

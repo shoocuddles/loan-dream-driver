@@ -4,3 +4,4 @@ export * from './application/applicationService';
 export * from './lock/lockService';
 export * from './settings/settingsService';
 export * from './application/download';
+export * from './stripe/stripeService';

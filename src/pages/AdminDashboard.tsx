@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -7,6 +8,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AdminHeader from "@/components/AdminHeader";
 import PricingSettings from "@/components/PricingSettings";
+import StripeSettings from "@/components/StripeSettings";
 import AdminPasswordChange from "@/components/AdminPasswordChange";
 import CompanyPricingSettings from "@/components/CompanyPricingSettings";
 import DealerManagement from "@/components/DealerManagement";
@@ -236,6 +238,7 @@ const AdminDashboard = () => {
               <TabsTrigger value="purchases">Dealer Purchases</TabsTrigger>
               <TabsTrigger value="dealers">Dealer Management</TabsTrigger>
               <TabsTrigger value="settings">System Settings</TabsTrigger>
+              <TabsTrigger value="stripe">Stripe Integration</TabsTrigger>
               <TabsTrigger value="company-pricing">Company Pricing</TabsTrigger>
             </TabsList>
             
@@ -265,6 +268,10 @@ const AdminDashboard = () => {
                 <PricingSettings />
                 <AdminPasswordChange />
               </div>
+            </TabsContent>
+
+            <TabsContent value="stripe">
+              <StripeSettings />
             </TabsContent>
 
             <TabsContent value="company-pricing">

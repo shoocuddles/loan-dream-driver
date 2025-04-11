@@ -10,9 +10,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ApplicationItem, LockType } from '@/lib/types/dealer-dashboard';
-import { StatusBadge, LockStatusBadge, DownloadStatusBadge } from './StatusBadge';
+import { StatusBadge, LockStatusBadge } from './StatusBadge';
 import { getPrice } from './priceUtils';
 import { AgeDiscountSettings } from './priceUtils';
+import { safeFormatDate } from './dateUtils';
 
 interface CreateColumnsProps {
   selectedApplications: string[];
@@ -96,6 +97,9 @@ export const createColumns = ({
     {
       accessorKey: "submissionDate",
       header: "Submission Date",
+      cell: ({ row }) => (
+        <div>{safeFormatDate(row.original.submissionDate)}</div>
+      ),
     },
     {
       accessorKey: "status",
@@ -112,20 +116,25 @@ export const createColumns = ({
       ),
     },
     {
-      accessorKey: "isDownloaded",
-      header: "Download Status",
-      cell: ({ row }) => (
-        <DownloadStatusBadge isDownloaded={row.original.isDownloaded} />
-      ),
-    },
-    {
       accessorKey: "price",
       header: "Price",
-      cell: ({ row }) => (
-        <div className="font-medium text-right">
-          {getPrice(row.original, ageDiscountSettings)}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const application = row.original;
+        const price = getPrice(application, ageDiscountSettings);
+        const isDiscounted = application.isAgeDiscounted || 
+                            (application.lockInfo?.isLocked && !application.lockInfo?.isOwnLock);
+        
+        return (
+          <div className={`font-medium text-right ${isDiscounted ? 'text-green-600 font-bold' : ''}`}>
+            {price}
+            {isDiscounted && (
+              <div className="text-xs text-green-500">
+                Discounted
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: "actions",

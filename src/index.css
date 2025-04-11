@@ -96,6 +96,19 @@
   }
 }
 
+@keyframes hero-zoom {
+  0% {
+    transform: scale(1.1) translate(2%, 2%);
+  }
+  100% {
+    transform: scale(1) translate(0, 0);
+  }
+}
+
+.animate-hero-zoom {
+  animation: hero-zoom 10s ease-out forwards;
+}
+
 .animate-fade-in {
   animation: fade-in 1s ease forwards;
 }

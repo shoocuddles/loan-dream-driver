@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,20 +43,19 @@ const StripeSettings = () => {
       setStripeStatus('checking');
       setErrorDetails(null);
       
-      // First try to get account info for more detailed connection status
       const accountResponse = await getStripeAccountInfo();
       
       if (accountResponse.error) {
         console.error("Error checking Stripe account:", accountResponse.error);
         setStripeStatus('error');
-        setErrorDetails(accountResponse.error.message);
+        const errorMessage = accountResponse.error.details || accountResponse.error.message;
+        setErrorDetails(errorMessage);
         return;
       }
       
       setAccountInfo(accountResponse.data);
       setStripeStatus('connected');
       
-      // Also check if prices are available
       const pricesResponse = await getStripePrices();
       if (pricesResponse.error) {
         console.warn("Connected to Stripe, but error fetching prices:", pricesResponse.error);
@@ -98,7 +96,6 @@ const StripeSettings = () => {
 
   const handleCreateCoupon = async () => {
     try {
-      // Validate inputs
       if (!couponName.trim()) {
         toast({
           title: "Missing Information",
@@ -127,20 +124,17 @@ const StripeSettings = () => {
         return;
       }
 
-      // Build coupon params
       const params: any = {
         name: couponName,
         duration,
       };
 
-      // Add discount type (either percent_off or amount_off)
       if (discountType === 'percent') {
         params.percentOff = discountValueNum;
       } else {
-        params.amountOff = discountValueNum * 100; // Convert to cents
+        params.amountOff = discountValueNum * 100;
       }
 
-      // Add optional parameters if provided
       if (duration === 'repeating' && durationMonths) {
         const months = parseInt(durationMonths);
         if (isNaN(months) || months <= 0) {
@@ -183,7 +177,6 @@ const StripeSettings = () => {
           description: `Coupon "${couponName}" has been created successfully!`,
         });
         
-        // Clear form and reload coupons
         setCouponName('');
         setDiscountValue('');
         setDurationMonths('');
@@ -307,7 +300,6 @@ const StripeSettings = () => {
         <CardTitle>Stripe Integration</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Stripe Connection Status */}
         <div className="mb-6">
           {stripeStatus === 'checking' && (
             <Alert className="bg-yellow-50 text-yellow-800 border-yellow-200">
@@ -346,6 +338,14 @@ const StripeSettings = () => {
                 <p className="mt-2">
                   Please check that your Stripe API keys are properly configured in the Supabase edge function secrets.
                 </p>
+                <div className="mt-3 p-2 bg-blue-50 rounded text-blue-800">
+                  <p className="font-semibold">Troubleshooting steps:</p>
+                  <ol className="list-decimal list-inside pl-2 mt-1 space-y-1 text-sm">
+                    <li>Verify that you've added the STRIPE_SECRET_KEY to your Supabase edge function secrets</li>
+                    <li>Make sure you're using a valid Stripe API key with correct permissions</li>
+                    <li>Check that your Stripe account is properly set up and active</li>
+                  </ol>
+                </div>
               </AlertDescription>
             </Alert>
           )}

@@ -1,53 +1,38 @@
 
 project_id = "kgtfpuvksmqyaraijoal"
 
-[api]
-enabled = true
-port = 54321
-schemas = ["public", "storage"]
-extra_search_path = ["public", "extensions"]
-max_rows = 1000
-
-[db]
-port = 54322
-shadow_port = 54320
-major_version = 15
-
-[studio]
-enabled = true
-port = 54323
-api_url = "http://localhost"
-
-[inbucket]
-enabled = true
-port = 54324
-
-[storage]
-enabled = true
-port = 54325
-
-[auth]
-enabled = true
-port = 54326
-
-[realtime]
-enabled = true
-
-[functions]
-[functions.create-checkout-session]
+[functions.get-account-info]
 verify_jwt = true
 
-[functions.create-coupon]
-verify_jwt = true
-
-[functions.get-prices]
-verify_jwt = true
+[functions.get-account-info.secrets]
+STRIPE_SECRET_KEY = "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"
 
 [functions.list-coupons]
 verify_jwt = true
 
+[functions.list-coupons.secrets]
+STRIPE_SECRET_KEY = "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"
+
+[functions.create-checkout-session]
+verify_jwt = true
+
+[functions.create-checkout-session.secrets]
+STRIPE_SECRET_KEY = "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"
+
+[functions.create-coupon]
+verify_jwt = true
+
+[functions.create-coupon.secrets]
+STRIPE_SECRET_KEY = "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"
+
+[functions.get-prices]
+verify_jwt = true
+
+[functions.get-prices.secrets]
+STRIPE_SECRET_KEY = "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"
+
 [functions.sync-prices]
 verify_jwt = true
 
-[functions.get-account-info]
-verify_jwt = true
+[functions.sync-prices.secrets]
+STRIPE_SECRET_KEY = "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"

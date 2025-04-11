@@ -1,4 +1,3 @@
-
 import { useState, useRef, useCallback, useEffect } from "react";
 import { ApplicationForm } from "@/lib/types";
 import { submitApplicationToSupabase } from "@/lib/applicationService";
@@ -39,8 +38,8 @@ const initialFormState: ApplicationForm = {
   additionalNotes: ""
 };
 
-// 10 minutes in milliseconds
-const INACTIVITY_TIMEOUT = 10 * 60 * 1000;
+// 1 hour in milliseconds (changed from 10 minutes)
+const INACTIVITY_TIMEOUT = 60 * 60 * 1000;
 
 export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -89,16 +88,9 @@ export const useApplicationForm = (onSuccessfulSubmit: () => void) => {
     // Only set timer if we have a draft and haven't submitted yet
     if (draftId && !applicationSubmitted.current) {
       inactivityTimer.current = window.setTimeout(() => {
-        console.log("⏰ Application inactivity timeout reached (10 minutes)");
+        console.log("⏰ Application inactivity timeout reached (1 hour)");
         if (!applicationSubmitted.current) {
-          toast.info("Your application has been automatically submitted due to inactivity");
-          uiToast({
-            title: "Application Submitted",
-            description: "Your application has been automatically submitted as you haven't completed it within 10 minutes.",
-            variant: "default",
-          });
-          
-          // Auto-submit the application
+          // Silently auto-submit the application without notifying the user
           autoSubmitApplication();
         }
       }, INACTIVITY_TIMEOUT);

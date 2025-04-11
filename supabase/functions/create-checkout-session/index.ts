@@ -129,7 +129,7 @@ serve(async (req) => {
     // Get application info for each application
     const { data: applications, error: appError } = await supabase
       .from('applications')
-      .select('id, fullname, email, city, submission_date')
+      .select('id, fullname, email, city, created_at')
       .in('id', applicationIds);
     
     if (appError || !applications || applications.length === 0) {
@@ -210,7 +210,6 @@ serve(async (req) => {
     
     const stripe = new Stripe(stripeSecretKey, {
       apiVersion: "2023-10-16",
-      httpClient: Stripe.createFetchHttpClient(),
     });
     
     // Check or create Stripe customer
@@ -319,6 +318,7 @@ serve(async (req) => {
           price_type: priceType,
           application_count: applicationsToCharge.length.toString(),
           application_ids: applicationsToCharge.map(app => app.id).join(','),
+          unit_price: priceType === 'discounted' ? settings.discounted_price : settings.standard_price,
           has_age_discounts: ageDiscounts && ageDiscounts.length > 0 ? 'true' : 'false'
         }
       };

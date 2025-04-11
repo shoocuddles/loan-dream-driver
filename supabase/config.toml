@@ -1,37 +1,51 @@
 
-# This file is used to configure the Supabase CLI.
+# This file controls the configuration for your Supabase project.
 
 project_id = "kgtfpuvksmqyaraijoal"
 
-[functions.create-checkout]
-verify_jwt = true
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
 
-[functions.create-checkout-session]
-verify_jwt = true
+[db]
+port = 54322
+shadow_port = 54320
 
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[auth]
+enabled = true
+port = 54325
+
+[storage]
+enabled = true
+port = 54326
+
+[realtime]
+enabled = true
+port = 54327
+
+[functions]
 [functions.stripe-webhook]
 verify_jwt = false
-
-[functions.get-account-info]
+[functions.create-checkout-session]
 verify_jwt = true
-
-[functions.list-coupons]
-verify_jwt = true
-
 [functions.verify-purchase]
 verify_jwt = true
-
-[functions.get-prices]
-verify_jwt = true
-
-[functions.sync-prices]
-verify_jwt = true
-
 [functions.create-coupon]
 verify_jwt = true
-
-[functions.create-connect-account]
+[functions.list-coupons]
 verify_jwt = true
-
-[functions.disconnect-stripe-account]
+[functions.get-prices]
+verify_jwt = true
+[functions.get-account-info]
+verify_jwt = true
+[functions.sync-prices]
 verify_jwt = true

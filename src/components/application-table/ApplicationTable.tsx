@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import {
   ColumnDef,
@@ -80,6 +81,26 @@ const ApplicationTable = ({
     pageSize: 10,
   });
 
+  // Helper function to calculate price based on application state
+  const getPrice = (application: ApplicationItem) => {
+    if (application.isPurchased) {
+      return "Free";
+    }
+    
+    // Check if there's age-based discount
+    if (application.isAgeDiscounted) {
+      return `$${application.discountedPrice.toFixed(2)}`;
+    }
+    
+    // Check if there's lock-based discount
+    const lockInfo = application.lockInfo;
+    const wasLocked = lockInfo?.isLocked && !lockInfo?.isOwnLock;
+    
+    return wasLocked ? 
+      `$${application.discountedPrice.toFixed(2)}` : 
+      `$${application.standardPrice.toFixed(2)}`;
+  };
+
   const columns: ColumnDef<ApplicationItem>[] = [
     {
       id: "select",
@@ -120,6 +141,13 @@ const ApplicationTable = ({
       header: "City",
     },
     {
+      accessorKey: "vehicleType",
+      header: "Vehicle Type",
+      cell: ({ row }) => (
+        <div>{row.original.vehicleType || 'N/A'}</div>
+      ),
+    },
+    {
       accessorKey: "submissionDate",
       header: "Submission Date",
     },
@@ -142,6 +170,15 @@ const ApplicationTable = ({
       header: "Download Status",
       cell: ({ row }) => (
         <DownloadStatusBadge isDownloaded={row.original.isDownloaded} />
+      ),
+    },
+    {
+      accessorKey: "price",
+      header: "Price",
+      cell: ({ row }) => (
+        <div className="font-medium text-right">
+          {getPrice(row.original)}
+        </div>
       ),
     },
     {

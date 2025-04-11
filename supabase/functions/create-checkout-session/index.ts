@@ -15,8 +15,12 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Processing checkout session request");
+    
     // Get request data
     const { applicationIds, priceType, couponId } = await req.json();
+    
+    console.log("Request data:", { applicationIds, priceType, couponId });
     
     if (!applicationIds || !applicationIds.length || !priceType) {
       return new Response(
@@ -31,14 +35,28 @@ serve(async (req) => {
     }
     
     // Initialize Supabase client
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Missing Supabase credentials");
+      return new Response(
+        JSON.stringify({ 
+          error: { 
+            message: "Server configuration error",
+            details: "Missing Supabase credentials"
+          }
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     // Get the authentication header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error("Missing Authorization header");
       return new Response(
         JSON.stringify({ 
           error: { 
@@ -56,6 +74,7 @@ serve(async (req) => {
     );
     
     if (userError || !user) {
+      console.error("Auth error:", userError);
       return new Response(
         JSON.stringify({ 
           error: { 
@@ -67,14 +86,17 @@ serve(async (req) => {
       );
     }
     
-    // Get dealer info
+    console.log("Authenticated user:", user.id);
+    
+    // Get dealer info from user_profiles instead of dealers table
     const { data: dealer, error: dealerError } = await supabase
-      .from('dealers')
+      .from('user_profiles')
       .select('*')
       .eq('id', user.id)
       .single();
     
     if (dealerError || !dealer) {
+      console.error("Dealer profile not found:", dealerError);
       return new Response(
         JSON.stringify({ 
           error: { 
@@ -85,6 +107,8 @@ serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
       );
     }
+    
+    console.log("Found dealer profile:", dealer.id);
     
     // Get application info for each application
     const { data: applications, error: appError } = await supabase
@@ -105,6 +129,8 @@ serve(async (req) => {
       );
     }
     
+    console.log("Found applications:", applications.length);
+    
     // Get system settings for pricing
     const { data: settings, error: settingsError } = await supabase
       .from('system_settings')
@@ -112,6 +138,7 @@ serve(async (req) => {
       .single();
     
     if (settingsError || !settings) {
+      console.error("System settings not found:", settingsError);
       return new Response(
         JSON.stringify({ 
           error: { 
@@ -132,6 +159,8 @@ serve(async (req) => {
     
     const downloadedIds = downloadedApps ? downloadedApps.map(d => d.application_id) : [];
     const applicationsToCharge = applications.filter(app => !downloadedIds.includes(app.id));
+    
+    console.log("Applications to charge:", applicationsToCharge.length);
     
     if (applicationsToCharge.length === 0) {
       // All applications already purchased
@@ -171,20 +200,22 @@ serve(async (req) => {
         // Create a new customer
         const customer = await stripe.customers.create({
           email: user.email,
-          name: dealer.name,
+          name: dealer.full_name || dealer.email,
           metadata: {
             dealer_id: dealer.id,
-            company: dealer.company
+            company: dealer.company_name || "Not specified"
           }
         });
         
         customerId = customer.id;
         
-        // Save customer ID back to dealer record
+        // Save customer ID back to user_profiles record
         await supabase
-          .from('dealers')
+          .from('user_profiles')
           .update({ stripe_customer_id: customerId })
           .eq('id', dealer.id);
+          
+        console.log("Created new Stripe customer:", customerId);
       } catch (stripeError) {
         console.error("Error creating Stripe customer:", stripeError);
         return new Response(
@@ -203,6 +234,8 @@ serve(async (req) => {
     const unitPrice = priceType === 'discounted' ? settings.discounted_price : settings.standard_price;
     const totalAmount = Math.round(unitPrice * applicationsToCharge.length * 100); // Convert to cents for Stripe
     
+    console.log("Calculated price:", { unitPrice, totalAmount });
+    
     try {
       // Create a checkout session
       const sessionParams = {
@@ -216,14 +249,14 @@ serve(async (req) => {
                 name: `Application Purchase${applicationsToCharge.length > 1 ? ' (Multiple)' : ''}`,
                 description: `${applicationsToCharge.length} Application${applicationsToCharge.length > 1 ? 's' : ''}`
               },
-              unit_amount: totalAmount / applicationsToCharge.length,
+              unit_amount: unitPrice * 100, // Convert to cents
               tax_behavior: 'exclusive',
             },
             quantity: applicationsToCharge.length,
           },
         ],
         mode: 'payment',
-        success_url: `${req.headers.get("origin")}/dealer-dashboard?payment_success=true`,
+        success_url: `${req.headers.get("origin")}/dealer-dashboard?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${req.headers.get("origin")}/dealer-dashboard?payment_cancelled=true`,
         metadata: {
           dealer_id: dealer.id,
@@ -243,7 +276,11 @@ serve(async (req) => {
         ];
       }
       
+      console.log("Creating checkout session with params:", JSON.stringify(sessionParams, null, 2));
+      
       const session = await stripe.checkout.sessions.create(sessionParams);
+      
+      console.log("Checkout session created:", session.id);
       
       return new Response(
         JSON.stringify({ 
@@ -265,7 +302,7 @@ serve(async (req) => {
       );
     }
   } catch (error) {
-    console.error("Error creating checkout session:", error);
+    console.error("Unexpected error:", error);
     return new Response(
       JSON.stringify({ 
         error: { 

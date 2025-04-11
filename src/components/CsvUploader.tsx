@@ -39,6 +39,9 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
       'additionalnotes', 'status', 'iscomplete', 'created_at', 'updated_at'
     ].join(',');
 
+    // Format the date as YYYY-MM-DD HH:MM:SS.MSSSSS+00:00 to match provided format
+    const formattedDate = new Date().toISOString().replace('Z', '+00:00');
+    
     const sampleRow = [
       '', // Leave id blank for Supabase to generate
       'John Smith', 
@@ -52,7 +55,7 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
       'Leather Seats, Backup Camera', 
       'Red, Yellow', 
       'Honda CR-V', 
-      'true', // Using string 'true' for CSV consistency
+      'FALSE', // Using uppercase 'FALSE' for CSV consistency with provided data
       '$350/month', 
       '$15000', 
       '2018 Toyota Corolla', 
@@ -61,9 +64,9 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
       '$5500', 
       'Looking for family vehicle', 
       'submitted',
-      'true', // Always set iscomplete to true
-      currentDate, // Current date for created_at
-      currentDate  // Current date for updated_at
+      'TRUE', // Always set iscomplete to TRUE (uppercase)
+      formattedDate, // Current date for created_at in the requested format
+      formattedDate  // Current date for updated_at in the requested format
     ].join(',');
 
     const csvContent = `${headers}\n${sampleRow}`;
@@ -93,7 +96,6 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
     const lines = csv.split('\n');
     const headers = lines[0].split(',').map(h => h.trim());
     const result = [];
-    const currentDate = new Date().toISOString();
 
     for (let i = 1; i < lines.length; i++) {
       if (!lines[i].trim()) continue; // Skip empty lines
@@ -103,6 +105,13 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
       
       headers.forEach((header, index) => {
         let value = values[index]?.trim() ?? '';
+        
+        // Special handling for boolean values
+        if (header === 'hasexistingloan' || header === 'iscomplete') {
+          // Convert TRUE/FALSE to string 'true'/'false' for Supabase
+          value = value.toUpperCase() === 'TRUE' ? 'true' : 'false';
+        }
+        
         entry[header] = value;
       });
       
@@ -113,13 +122,18 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
       // Always set iscomplete to true string
       entry.iscomplete = 'true';
       
-      // Set created_at and updated_at if not provided
+      // Ensure created_at and updated_at are properly set with values or defaults
       if (!entry.created_at || entry.created_at === '') {
-        entry.created_at = currentDate;
+        entry.created_at = new Date().toISOString();
       }
       
       if (!entry.updated_at || entry.updated_at === '') {
-        entry.updated_at = currentDate;
+        entry.updated_at = new Date().toISOString();
+      }
+      
+      // Check for valid status
+      if (!entry.status || entry.status === '') {
+        entry.status = 'submitted';
       }
       
       result.push(entry);
@@ -142,30 +156,62 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
         throw new Error("No valid data rows found in CSV");
       }
       
-      console.log("Parsed CSV data:", jsonData);
+      console.log("Parsed CSV data first row:", jsonData[0]);
+      console.log(`Total rows to upload: ${jsonData.length}`);
       
-      const { data, error } = await supabase
-        .from('applications')
-        .insert(jsonData)
-        .select();
+      // Upload in batches to avoid overwhelming Supabase
+      const batchSize = 20;
+      const batches = [];
+      
+      for (let i = 0; i < jsonData.length; i += batchSize) {
+        batches.push(jsonData.slice(i, i + batchSize));
+      }
+      
+      console.log(`Uploading in ${batches.length} batches of ${batchSize} records max`);
+      
+      let totalUploaded = 0;
+      const errors = [];
+      
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        console.log(`Processing batch ${i+1}/${batches.length}, ${batch.length} records`);
+        
+        try {
+          const { data, error } = await supabase
+            .from('applications')
+            .insert(batch)
+            .select();
 
-      if (error) {
-        console.error("Supabase error:", error);
-        setResult({
-          success: false,
-          message: `Error uploading applications: ${error.message}`,
-          errors: [error.message]
-        });
-        toast.error(`Upload failed: ${error.message}`);
-      } else {
-        console.log("Upload response:", data);
+          if (error) {
+            console.error(`Error in batch ${i+1}:`, error);
+            errors.push(`Batch ${i+1}: ${error.message}`);
+          } else if (data) {
+            totalUploaded += data.length;
+            console.log(`Successfully uploaded ${data.length} records in batch ${i+1}`);
+          }
+        } catch (batchError: any) {
+          console.error(`Exception in batch ${i+1}:`, batchError);
+          errors.push(`Batch ${i+1}: ${batchError.message}`);
+        }
+      }
+      
+      if (totalUploaded > 0) {
         setResult({
           success: true,
-          message: `Successfully uploaded ${data.length} application(s)`,
-          count: data.length
+          message: `Successfully uploaded ${totalUploaded} application(s)${errors.length > 0 ? ' with some errors' : ''}`,
+          count: totalUploaded,
+          errors: errors.length > 0 ? errors : undefined
         });
-        toast.success(`Successfully uploaded ${data.length} application(s)`);
-        if (onSuccess) onSuccess(data.length);
+        
+        toast.success(`Successfully uploaded ${totalUploaded} application(s)`);
+        if (onSuccess) onSuccess(totalUploaded);
+      } else {
+        setResult({
+          success: false,
+          message: "Failed to upload any applications",
+          errors
+        });
+        toast.error("Upload failed: No applications were successfully uploaded");
       }
     } catch (err: any) {
       console.error("Upload error:", err);
@@ -201,7 +247,7 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
             />
             <p className="text-sm text-gray-500">
               File should be in CSV format with columns matching the application table fields.
-              The "iscomplete" field will automatically be set to "true".
+              The "iscomplete" field will automatically be set to "true" and dates will be preserved.
             </p>
           </div>
 

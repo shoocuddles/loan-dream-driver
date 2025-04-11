@@ -9,6 +9,7 @@ import { fetchSystemSettings } from "@/lib/services/settings/settingsService";
 import { syncPricesToStripe } from "@/lib/services/stripe/stripeService";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
 
 interface PricingSettingsState {
   standardPrice: string;
@@ -18,6 +19,9 @@ interface PricingSettingsState {
   isSaving: boolean;
   syncingStripe: boolean;
   stripeError: string | null;
+  ageDiscountEnabled: boolean;
+  ageDiscountThreshold: string;
+  ageDiscountPercentage: string;
 }
 
 const PricingSettings = () => {
@@ -28,7 +32,10 @@ const PricingSettings = () => {
     isLoading: true,
     isSaving: false,
     syncingStripe: false,
-    stripeError: null
+    stripeError: null,
+    ageDiscountEnabled: false,
+    ageDiscountThreshold: "30",
+    ageDiscountPercentage: "25"
   });
   
   const { toast } = useToast();
@@ -49,7 +56,10 @@ const PricingSettings = () => {
           ...prev,
           standardPrice: settings.standardPrice.toString(),
           discountedPrice: settings.discountedPrice.toString(),
-          temporaryLockMinutes: settings.temporaryLockMinutes.toString()
+          temporaryLockMinutes: settings.temporaryLockMinutes.toString(),
+          ageDiscountEnabled: settings.ageDiscountEnabled || false,
+          ageDiscountThreshold: settings.ageDiscountThreshold?.toString() || "30",
+          ageDiscountPercentage: settings.ageDiscountPercentage?.toString() || "25"
         }));
       }
     } catch (error) {
@@ -64,7 +74,7 @@ const PricingSettings = () => {
     }
   };
   
-  const updateField = (field: keyof PricingSettingsState, value: string) => {
+  const updateField = (field: keyof PricingSettingsState, value: string | boolean) => {
     setState(prev => ({ ...prev, [field]: value }));
   };
   
@@ -112,6 +122,31 @@ const PricingSettings = () => {
       return false;
     }
     
+    // Validate age-based discount settings if enabled
+    if (state.ageDiscountEnabled) {
+      // Validate days threshold
+      const daysThreshold = parseInt(state.ageDiscountThreshold);
+      if (isNaN(daysThreshold) || daysThreshold <= 0) {
+        toast({
+          title: "Invalid Age Threshold",
+          description: "Age threshold must be a positive number of days.",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      // Validate discount percentage
+      const discountPercentage = parseInt(state.ageDiscountPercentage);
+      if (isNaN(discountPercentage) || discountPercentage <= 0 || discountPercentage >= 100) {
+        toast({
+          title: "Invalid Discount Percentage",
+          description: "Discount percentage must be between 1 and 99.",
+          variant: "destructive",
+        });
+        return false;
+      }
+    }
+    
     return true;
   };
   
@@ -154,12 +189,17 @@ const PricingSettings = () => {
       const standardPrice = parseFloat(state.standardPrice);
       const discountedPrice = parseFloat(state.discountedPrice);
       const temporaryLockMinutes = parseInt(state.temporaryLockMinutes);
+      const ageDiscountThreshold = parseInt(state.ageDiscountThreshold);
+      const ageDiscountPercentage = parseInt(state.ageDiscountPercentage);
       
       // Log the values being saved for debugging
       console.log("Saving system settings:", {
         standardPrice,
         discountedPrice,
-        temporaryLockMinutes
+        temporaryLockMinutes,
+        ageDiscountEnabled: state.ageDiscountEnabled,
+        ageDiscountThreshold,
+        ageDiscountPercentage
       });
       
       // First, try to sync with Stripe
@@ -180,7 +220,10 @@ const PricingSettings = () => {
         body: JSON.stringify({
           standardPrice,
           discountedPrice,
-          temporaryLockMinutes
+          temporaryLockMinutes,
+          ageDiscountEnabled: state.ageDiscountEnabled,
+          ageDiscountThreshold,
+          ageDiscountPercentage
         }),
       });
       
@@ -277,6 +320,56 @@ const PricingSettings = () => {
             min="1"
           />
           <p className="text-xs text-gray-500">How long applications are locked for other dealers after download</p>
+        </div>
+
+        <div className="border-t pt-4 mt-6">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="ageDiscountEnabled" className="font-semibold">Age-Based Discount</Label>
+            <Switch
+              id="ageDiscountEnabled"
+              checked={state.ageDiscountEnabled}
+              onCheckedChange={checked => updateField('ageDiscountEnabled', checked)}
+              disabled={state.isLoading}
+            />
+          </div>
+          <p className="text-sm text-gray-500 mt-1 mb-4">
+            Automatically discount older applications to make them more attractive to dealers
+          </p>
+          
+          {state.ageDiscountEnabled && (
+            <div className="space-y-4 pl-2 border-l-2 border-green-200">
+              <div className="space-y-2">
+                <Label htmlFor="ageDiscountThreshold">Discount applications older than (days)</Label>
+                <Input 
+                  id="ageDiscountThreshold"
+                  value={state.ageDiscountThreshold}
+                  onChange={e => updateField('ageDiscountThreshold', e.target.value)}
+                  placeholder="e.g. 30"
+                  disabled={state.isLoading}
+                  type="number"
+                  min="1"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="ageDiscountPercentage">Discount percentage (%)</Label>
+                <div className="relative">
+                  <Input 
+                    id="ageDiscountPercentage"
+                    value={state.ageDiscountPercentage}
+                    onChange={e => updateField('ageDiscountPercentage', e.target.value)}
+                    placeholder="e.g. 25"
+                    disabled={state.isLoading}
+                    type="number"
+                    min="1"
+                    max="99"
+                  />
+                  <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500">%</span>
+                </div>
+                <p className="text-xs text-gray-500">Discounted prices will show in green on the dealer dashboard</p>
+              </div>
+            </div>
+          )}
         </div>
         
         <Button 

@@ -21,7 +21,10 @@ export const fetchSystemSettings = async (): Promise<SystemSettings | null> => {
       id: data.id,
       standardPrice: data.standard_price,
       discountedPrice: data.discounted_price,
-      temporaryLockMinutes: data.temporary_lock_minutes
+      temporaryLockMinutes: data.temporary_lock_minutes,
+      ageDiscountEnabled: data.age_discount_enabled,
+      ageDiscountThreshold: data.age_discount_threshold,
+      ageDiscountPercentage: data.age_discount_percentage
     };
   } catch (error: any) {
     console.error('❌ Error fetching system settings:', error.message);
@@ -41,7 +44,10 @@ export const updateSystemSettings = async (settings: Partial<SystemSettings>): P
       .update({
         standard_price: settings.standardPrice,
         discounted_price: settings.discountedPrice,
-        temporary_lock_minutes: settings.temporaryLockMinutes
+        temporary_lock_minutes: settings.temporaryLockMinutes,
+        age_discount_enabled: settings.ageDiscountEnabled,
+        age_discount_threshold: settings.ageDiscountThreshold,
+        age_discount_percentage: settings.ageDiscountPercentage
       })
       .eq('id', 1) // Assuming settings have a single row with id=1
       .select()
@@ -53,7 +59,10 @@ export const updateSystemSettings = async (settings: Partial<SystemSettings>): P
       id: data.id,
       standardPrice: data.standard_price,
       discountedPrice: data.discounted_price,
-      temporaryLockMinutes: data.temporary_lock_minutes
+      temporaryLockMinutes: data.temporary_lock_minutes,
+      ageDiscountEnabled: data.age_discount_enabled,
+      ageDiscountThreshold: data.age_discount_threshold,
+      ageDiscountPercentage: data.age_discount_percentage
     };
   } catch (error: any) {
     console.error('❌ Error updating system settings:', error.message);

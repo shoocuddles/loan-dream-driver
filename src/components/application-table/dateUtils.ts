@@ -1,5 +1,5 @@
 
-import { format, isValid, parseISO } from 'date-fns';
+import { format, isValid, parseISO, differenceInDays } from 'date-fns';
 
 export const safeFormatDate = (dateString: string) => {
   try {
@@ -48,5 +48,20 @@ export const formatDateForSupabase = (dateStr: string): string => {
   } catch (error) {
     console.error(`Error formatting date "${dateStr}":`, error);
     return new Date().toISOString();
+  }
+};
+
+// Calculate age of lead in days
+export const calculateLeadAge = (submissionDate: string): number => {
+  try {
+    if (!submissionDate) return 0;
+    
+    const date = parseISO(submissionDate);
+    if (!isValid(date)) return 0;
+    
+    return differenceInDays(new Date(), date);
+  } catch (error) {
+    console.error('Error calculating lead age:', error);
+    return 0;
   }
 };

@@ -22,6 +22,7 @@ export interface ApplicationItem {
   standardPrice?: number;
   discountedPrice?: number;
   vehicleType?: string; // This field is now properly handled in the mapping function
+  isAgeDiscounted?: boolean; // Added to track if an application has age-based discount
 }
 
 export interface DownloadedApplication {
@@ -54,6 +55,9 @@ export interface SystemSettings {
   standardPrice: number;
   discountedPrice: number;
   temporaryLockMinutes: number;
+  ageDiscountEnabled?: boolean;
+  ageDiscountThreshold?: number;
+  ageDiscountPercentage?: number;
 }
 
 export type LockType = 'temporary' | '24hours' | '1week' | 'permanent';

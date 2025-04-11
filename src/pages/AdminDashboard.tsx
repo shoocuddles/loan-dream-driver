@@ -21,9 +21,11 @@ import {
   getApplicationDetails, 
   unlockApplication
 } from "@/lib/supabase";
+import { fetchSystemSettings } from "@/lib/services/settings/settingsService";
 import { isValid, parseISO, format } from 'date-fns';
 import DownloadOptions from "@/components/application-table/DownloadOptions";
 import CsvUploader from "@/components/CsvUploader";
+import { AgeDiscountSettings } from "@/components/application-table/priceUtils";
 
 interface ApplicationItem {
   applicationId: string;
@@ -43,6 +45,11 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("applications");
+  const [ageDiscountSettings, setAgeDiscountSettings] = useState<AgeDiscountSettings>({
+    isEnabled: false,
+    daysThreshold: 30,
+    discountPercentage: 25
+  });
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -70,7 +77,28 @@ const AdminDashboard = () => {
     }
     
     loadApplications();
+    loadSettings();
   }, [navigate]);
+
+  const loadSettings = async () => {
+    try {
+      const settings = await fetchSystemSettings();
+      if (settings && settings.ageDiscountEnabled) {
+        setAgeDiscountSettings({
+          isEnabled: settings.ageDiscountEnabled,
+          daysThreshold: settings.ageDiscountThreshold || 30,
+          discountPercentage: settings.ageDiscountPercentage || 25
+        });
+        console.log("Loaded age discount settings:", {
+          isEnabled: settings.ageDiscountEnabled,
+          daysThreshold: settings.ageDiscountThreshold,
+          discountPercentage: settings.ageDiscountPercentage
+        });
+      }
+    } catch (error) {
+      console.error("Error loading settings:", error);
+    }
+  };
 
   const loadApplications = async () => {
     try {

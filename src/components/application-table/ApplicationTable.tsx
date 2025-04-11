@@ -6,7 +6,7 @@ import { SortableTable, ColumnDef } from '@/components/ui/sortable-table';
 import { StatusBadge, LockStatusBadge, DownloadStatusBadge } from './StatusBadge';
 import { ApplicationActions } from './ApplicationActions';
 import { safeFormatDate } from './dateUtils';
-import { getPrice } from './priceUtils';
+import { getPrice, AgeDiscountSettings } from './priceUtils';
 import { SelectionHeader } from './SelectionHeader';
 
 type LockOption = {
@@ -28,6 +28,7 @@ interface ApplicationTableProps {
   onViewDetails: (application: ApplicationItem) => void;
   processingId: string | null;
   lockOptions: LockOption[];
+  ageDiscountSettings?: AgeDiscountSettings;
 }
 
 const ApplicationTable = ({
@@ -41,7 +42,8 @@ const ApplicationTable = ({
   onDownload,
   onViewDetails,
   processingId,
-  lockOptions
+  lockOptions,
+  ageDiscountSettings
 }: ApplicationTableProps) => {
   const allSelected = applications.length > 0 && selectedApplications.length === applications.length;
   const someSelected = selectedApplications.length > 0 && !allSelected;
@@ -112,9 +114,15 @@ const ApplicationTable = ({
     {
       accessorKey: 'price',
       header: 'Price',
-      cell: ({ row }) => (
-        <div className="font-medium text-right">{getPrice(row.original)}</div>
-      )
+      cell: ({ row }) => {
+        // Process the application to determine if it should be age discounted
+        const price = getPrice(row.original, ageDiscountSettings);
+        return (
+          <div className={`font-medium text-right ${row.original.isAgeDiscounted ? 'text-green-600' : ''}`}>
+            {price}
+          </div>
+        );
+      }
     },
     {
       accessorKey: 'actions',

@@ -128,12 +128,16 @@ export const getStripePrices = async (): Promise<StripeResponse<StripePrice[]>> 
 
 /**
  * Fetches Stripe account information
+ * If accountId is provided, fetches that specific account (for dealer accounts)
+ * Otherwise fetches the platform account information
  */
-export const getStripeAccountInfo = async (): Promise<StripeResponse<StripeAccount>> => {
+export const getStripeAccountInfo = async (accountId?: string): Promise<StripeResponse<StripeAccount>> => {
   try {
-    console.log('🔍 Fetching Stripe account information');
+    console.log(`🔍 Fetching Stripe account information${accountId ? ' for account: ' + accountId : ''}`);
     
-    const { data, error } = await supabase.functions.invoke('get-account-info');
+    const { data, error } = await supabase.functions.invoke('get-account-info', {
+      body: accountId ? { accountId } : undefined
+    });
     
     if (error) throw error;
     

@@ -26,3 +26,9 @@ verify_jwt = true
 
 [functions.create-coupon]
 verify_jwt = true
+
+[functions.create-connect-account]
+verify_jwt = true
+
+[functions.disconnect-stripe-account]
+verify_jwt = true

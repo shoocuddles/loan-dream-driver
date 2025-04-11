@@ -39,11 +39,25 @@ serve(async (req) => {
       apiVersion: "2023-10-16",
     });
     
+    // Check if we're retrieving info for a specific account
+    let accountId: string | undefined;
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        accountId = body.accountId;
+        console.log(`Requested account info for specific account: ${accountId}`);
+      } catch (e) {
+        console.log("No accountId provided in request body");
+      }
+    }
+    
     console.log("Fetching account information from Stripe");
     
     try {
       // Get account information
-      const account = await stripe.account.retrieve();
+      const account = accountId 
+        ? await stripe.accounts.retrieve(accountId) 
+        : await stripe.account.retrieve();
       
       console.log("Successfully retrieved Stripe account:", account.id);
       

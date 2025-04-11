@@ -1,7 +1,11 @@
 
-// Re-export all dealer services from their respective modules
+// Export all services for easy access
+
+// Dealer dashboard
 export * from './application/applicationService';
-export * from './lock/lockService';
+export * from './dealer/dealerService';
 export * from './settings/settingsService';
-export * from './application/download';
 export * from './stripe/stripeService';
+export * from './purchase/purchaseService';
+
+// Add any other service exports here

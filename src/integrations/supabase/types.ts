@@ -279,6 +279,69 @@ export type Database = {
         }
         Relationships: []
       }
+      dealer_purchases: {
+        Row: {
+          application_id: string
+          created_at: string
+          dealer_id: string
+          discount_amount: number | null
+          discount_applied: boolean | null
+          discount_type: string | null
+          download_count: number | null
+          downloaded_at: string | null
+          id: string
+          ip_address: string | null
+          is_active: boolean | null
+          payment_amount: number
+          payment_id: string
+          payment_status: string
+          purchase_date: string
+          stripe_customer_id: string | null
+          stripe_session_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          dealer_id: string
+          discount_amount?: number | null
+          discount_applied?: boolean | null
+          discount_type?: string | null
+          download_count?: number | null
+          downloaded_at?: string | null
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          payment_amount: number
+          payment_id: string
+          payment_status?: string
+          purchase_date?: string
+          stripe_customer_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          dealer_id?: string
+          discount_amount?: number | null
+          discount_applied?: boolean | null
+          discount_type?: string | null
+          download_count?: number | null
+          downloaded_at?: string | null
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          payment_amount?: number
+          payment_id?: string
+          payment_status?: string
+          purchase_date?: string
+          stripe_customer_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           company_id: string
@@ -479,6 +542,10 @@ export type Database = {
         Args: { p_dealer_id: string }
         Returns: Json
       }
+      get_dealer_purchases: {
+        Args: { p_dealer_id: string }
+        Returns: Json
+      }
       get_default_pin: {
         Args: { p_dealer_id: string }
         Returns: string
@@ -517,6 +584,10 @@ export type Database = {
         }
         Returns: Json
       }
+      mark_purchase_downloaded: {
+        Args: { p_dealer_id: string; p_application_id: string }
+        Returns: Json
+      }
       pause_dealer: {
         Args: {
           p_dealer_id: string
@@ -532,6 +603,21 @@ export type Database = {
           p_dealer_id: string
           p_payment_id?: string
           p_payment_amount?: number
+        }
+        Returns: Json
+      }
+      record_dealer_purchase: {
+        Args: {
+          p_dealer_id: string
+          p_application_id: string
+          p_payment_id: string
+          p_payment_amount: number
+          p_stripe_session_id?: string
+          p_stripe_customer_id?: string
+          p_discount_applied?: boolean
+          p_discount_type?: string
+          p_discount_amount?: number
+          p_ip_address?: string
         }
         Returns: Json
       }

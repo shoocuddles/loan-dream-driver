@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { StripePrice, StripeCoupon, CreateCouponParams, StripeCheckoutParams, CheckoutSessionResponse, StripeError, PurchaseResult } from '@/lib/types/stripe';
+import { recordPurchase } from '@/lib/dealerDashboardService';
 
 interface StripeResponse<T> {
   data?: T;

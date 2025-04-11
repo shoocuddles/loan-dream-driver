@@ -97,34 +97,28 @@ async function handleSuccessfulPayment(session, supabase) {
   // Process each application
   for (const appId of applicationIds) {
     try {
-      // Check for existing download - summarized logging
-      const { data: existingDownload } = await supabase
-        .from('application_downloads')
-        .select('id')
-        .eq('application_id', appId)
-        .eq('dealer_id', dealerId)
-        .maybeSingle();
-      
-      if (!existingDownload) {
-        // Log summary rather than individual details
-        console.log(`Recording download for application ${appId}`);
-        
-        const { data: downloadData, error: downloadError } = await supabase
-          .from('application_downloads')
-          .insert({
-            application_id: appId,
-            dealer_id: dealerId,
-            payment_id: session.id,
-            payment_amount: unitPrice
-          })
-          .select()
-          .single();
-        
-        if (downloadError) {
-          console.error(`Error recording download for ${appId}:`, downloadError);
-          continue;
+      // Record the purchase in the dealer_purchases table
+      const { data: purchaseData, error: purchaseError } = await supabase.rpc(
+        'record_dealer_purchase',
+        {
+          p_dealer_id: dealerId,
+          p_application_id: appId,
+          p_payment_id: session.id,
+          p_payment_amount: unitPrice,
+          p_stripe_session_id: session.id,
+          p_stripe_customer_id: session.customer,
+          p_discount_applied: session.metadata?.has_discount === 'true',
+          p_discount_type: session.metadata?.discount_type,
+          p_discount_amount: session.metadata?.discount_amount ? parseFloat(session.metadata.discount_amount) : null
         }
+      );
+      
+      if (purchaseError) {
+        console.error(`Error recording purchase for ${appId}:`, purchaseError);
+        continue;
       }
+      
+      console.log(`Purchase recorded for application ${appId}:`, purchaseData?.is_new ? 'New purchase' : 'Already purchased');
       
       // Apply automatic lock (24 hours for purchased applications)
       const lockExpiry = new Date();

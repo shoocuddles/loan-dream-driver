@@ -1,34 +1,53 @@
+// Add these to the existing types
 
-import { Application, UserProfile } from './supabase';
+export interface DealerPurchase {
+  id: string;
+  applicationId: string;
+  purchaseDate: string;
+  paymentId: string;
+  paymentAmount: number;
+  downloadedAt?: string;
+  downloadCount: number;
+  discountApplied: boolean;
+  discountType?: string;
+  discountAmount?: number;
+}
+
+// Extend ApplicationItem to include purchased state
+export interface ApplicationItem {
+  id: string;
+  applicationId: string;
+  fullName: string;
+  city: string;
+  submissionDate: string;
+  status: string;
+  lockInfo: LockInfo;
+  isDownloaded: boolean;
+  isPurchased?: boolean;
+  standardPrice: number;
+  discountedPrice: number;
+  vehicleType: string;
+  isAgeDiscounted?: boolean;
+}
+
+// Keep existing types for LockType, LockInfo, DownloadedApplication, etc.
+export type LockType = '24hours' | '1week' | 'permanent' | 'temporary';
 
 export interface LockInfo {
   isLocked: boolean;
   lockedBy?: string;
   expiresAt?: string;
-  lockType?: string;
+  lockType?: LockType;
   isOwnLock?: boolean;
 }
 
-// Removed extending Partial<Application> since it causes type conflicts
-export interface ApplicationItem {
-  id: string;
-  applicationId: string;
-  fullName: string;
-  city?: string;
-  submissionDate: string;
-  status: string; // Changed from specific union type to string to accommodate any status from the backend
-  lockInfo?: LockInfo;
-  isDownloaded?: boolean;
-  standardPrice?: number;
-  discountedPrice?: number;
-  vehicleType?: string; // This field is now properly handled in the mapping function
-  isAgeDiscounted?: boolean; // Added to track if an application has age-based discount
-  isHidden?: boolean; // Added to track if an application is hidden
-}
-
 export interface DownloadedApplication {
-  downloadId: string;
+  id: string;
+  purchaseId?: string;
   applicationId: string;
+  downloadDate?: string;
+  purchaseDate?: string;
+  paymentAmount?: number;
   fullName: string;
   phoneNumber?: string;
   email?: string;
@@ -37,10 +56,23 @@ export interface DownloadedApplication {
   province?: string;
   postalCode?: string;
   vehicleType?: string;
-  downloadDate: string; // This field is used instead of submissionDate
-  paymentAmount?: number;
-  // Allow any other fields that might be returned from the database
-  [key: string]: any;
+  // Include all other application fields
+  requiredFeatures?: string;
+  unwantedColors?: string;
+  preferredMakeModel?: string;
+  hasExistingLoan?: boolean;
+  currentVehicle?: string;
+  currentPayment?: string;
+  amountOwed?: string;
+  mileage?: string;
+  employmentStatus?: string;
+  monthlyIncome?: string;
+  employerName?: string;
+  jobTitle?: string;
+  employmentDuration?: string;
+  additionalNotes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LockoutPeriod {
@@ -52,13 +84,10 @@ export interface LockoutPeriod {
 }
 
 export interface SystemSettings {
-  id: number;
   standardPrice: number;
   discountedPrice: number;
   temporaryLockMinutes: number;
-  ageDiscountEnabled?: boolean;
-  ageDiscountThreshold?: number;
-  ageDiscountPercentage?: number;
+  ageDiscountEnabled: boolean;
+  ageDiscountThreshold: number;
+  ageDiscountPercentage: number;
 }
-
-export type LockType = 'temporary' | '24hours' | '1week' | 'permanent';

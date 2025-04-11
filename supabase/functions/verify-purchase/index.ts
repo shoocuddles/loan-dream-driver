@@ -126,39 +126,44 @@ serve(async (req) => {
         );
       }
       
-      // Record the downloads in the database
+      // Record purchases in the database
       const timestamp = new Date().toISOString();
       let allSuccessful = true;
       console.log(`Processing purchased applications for dealer ${dealerId}, count: ${applicationIds.length}`);
       
+      // Prepare discount information if available
+      const discountApplied = session.metadata?.has_discount === 'true';
+      const discountType = session.metadata?.discount_type || (discountApplied ? 'age_discount' : undefined);
+      const discountAmount = session.metadata?.discount_amount ? 
+        parseFloat(session.metadata.discount_amount) : undefined;
+      const unitPrice = parseFloat(session.metadata?.unit_price || "0");
+      
       for (const appId of applicationIds) {
-        // Check if already downloaded
-        const { data: existingDownload } = await supabase
-          .from('application_downloads')
-          .select('id')
-          .eq('application_id', appId)
-          .eq('dealer_id', dealerId)
-          .maybeSingle();
-        
-        if (!existingDownload) {
-          // Log that we're adding a download record (less noisy)
-          console.log(`Adding download record for application ${appId}`);
+        try {
+          // Record purchase in dealer_purchases table
+          const { data: purchaseData, error: purchaseError } = await supabase.rpc(
+            'record_dealer_purchase',
+            {
+              p_dealer_id: dealerId,
+              p_application_id: appId,
+              p_payment_id: sessionId,
+              p_payment_amount: unitPrice,
+              p_stripe_session_id: sessionId,
+              p_stripe_customer_id: session.customer,
+              p_discount_applied: discountApplied,
+              p_discount_type: discountType,
+              p_discount_amount: discountAmount,
+              p_ip_address: req.headers.get('x-forwarded-for') || null
+            }
+          );
           
-          const { error: downloadError } = await supabase
-            .from('application_downloads')
-            .insert({
-              application_id: appId,
-              dealer_id: dealerId,
-              downloaded_at: timestamp,
-              payment_session_id: sessionId,
-              payment_id: sessionId,
-              payment_amount: session.metadata?.unit_price || 0
-            });
-            
-          if (downloadError) {
-            console.error(`Error recording download for application ${appId}:`, downloadError);
+          if (purchaseError) {
+            console.error(`Error recording purchase for application ${appId}:`, purchaseError);
             allSuccessful = false;
+            continue;
           }
+          
+          console.log(`Purchase recorded for application ${appId}:`, purchaseData?.is_new ? 'New purchase' : 'Already purchased');
           
           // Create 24-hour lock for the application
           const lockExpiry = new Date();
@@ -213,8 +218,9 @@ serve(async (req) => {
               console.error(`Error creating lock for application ${appId}:`, lockError);
             }
           }
-        } else {
-          console.log(`Application ${appId} already downloaded by dealer ${dealerId}`);
+        } catch (error) {
+          console.error(`Error processing purchase for application ${appId}:`, error);
+          allSuccessful = false;
         }
       }
       
@@ -223,7 +229,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: allSuccessful,
-          message: allSuccessful ? "Downloads recorded successfully" : "Some downloads could not be recorded"
+          message: allSuccessful ? "Purchases recorded successfully" : "Some purchases could not be recorded"
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

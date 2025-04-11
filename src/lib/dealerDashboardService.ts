@@ -1,7 +1,8 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { ApplicationItem, LockType, LockInfo, DownloadedApplication } from '@/lib/types/dealer-dashboard';
+import { ApplicationItem, LockType, LockInfo, DownloadedApplication, DealerPurchase } from '@/lib/types/dealer-dashboard';
 import { formatDistanceToNow, parseISO, differenceInDays } from 'date-fns';
+import { toast } from 'sonner';
 
 export const fetchApplications = async (dealerId: string): Promise<ApplicationItem[]> => {
   try {
@@ -83,6 +84,26 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
       }
     }
 
+    // Fetch dealer purchases to identify which applications have been purchased
+    const { data: purchasesData, error: purchasesError } = await supabase.rpc('get_dealer_purchases', { 
+      p_dealer_id: dealerId 
+    });
+    
+    if (purchasesError) {
+      console.error("Error fetching dealer purchases:", purchasesError);
+    } else if (purchasesData && Array.isArray(purchasesData)) {
+      // Mark applications as purchased/downloaded
+      const purchasedAppIds = purchasesData.map((purchase: any) => purchase.applicationId);
+      console.log(`Dealer has ${purchasedAppIds.length} purchased applications`);
+      
+      applications.forEach(app => {
+        if (purchasedAppIds.includes(app.applicationId)) {
+          app.isDownloaded = true;
+          app.isPurchased = true;
+        }
+      });
+    }
+
     return applications;
   } catch (error) {
     console.error('Error fetching applications:', error);
@@ -93,8 +114,19 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
 export const lockApplication = async (applicationId: string, dealerId: string, lockType: LockType): Promise<boolean> => {
   try {
     console.log(`Locking application ${applicationId} for dealer ${dealerId} with lock type: ${lockType}`);
-    // Simulate successful lock
-    return true;
+    
+    const { data, error } = await supabase.rpc('lock_application', {
+      p_application_id: applicationId,
+      p_dealer_id: dealerId,
+      p_lock_type: lockType
+    });
+    
+    if (error) {
+      console.error("Error locking application:", error);
+      return false;
+    }
+    
+    return data?.success || false;
   } catch (error) {
     console.error("Error locking application:", error);
     return false;
@@ -104,8 +136,18 @@ export const lockApplication = async (applicationId: string, dealerId: string, l
 export const unlockApplication = async (applicationId: string, dealerId: string): Promise<boolean> => {
   try {
     console.log(`Unlocking application ${applicationId} for dealer ${dealerId}`);
-    // Simulate successful unlock
-    return true;
+    
+    const { data, error } = await supabase.rpc('unlock_application', {
+      p_application_id: applicationId,
+      p_dealer_id: dealerId
+    });
+    
+    if (error) {
+      console.error("Error unlocking application:", error);
+      return false;
+    }
+    
+    return data?.success || false;
   } catch (error) {
     console.error("Error unlocking application:", error);
     return false;
@@ -114,9 +156,28 @@ export const unlockApplication = async (applicationId: string, dealerId: string)
 
 export const downloadApplication = async (applicationId: string, dealerId: string): Promise<boolean> => {
   try {
-    console.log(`Downloading application ${applicationId} for dealer ${dealerId}`);
-    // Simulate successful download
-    return true;
+    console.log(`Recording download for application ${applicationId} for dealer ${dealerId}`);
+    
+    // First check if application has been purchased
+    const isPurchased = await isApplicationPurchased(applicationId, dealerId);
+    
+    if (!isPurchased) {
+      console.warn("Attempt to download application that hasn't been purchased");
+      return false;
+    }
+    
+    // Record the download
+    const { data, error } = await supabase.rpc('mark_purchase_downloaded', {
+      p_dealer_id: dealerId,
+      p_application_id: applicationId
+    });
+    
+    if (error) {
+      console.error("Error recording download:", error);
+      return false;
+    }
+    
+    return data?.success || false;
   } catch (error) {
     console.error("Error downloading application:", error);
     return false;
@@ -124,12 +185,169 @@ export const downloadApplication = async (applicationId: string, dealerId: strin
 };
 
 export const getDownloadedApplications = async (dealerId: string): Promise<DownloadedApplication[]> => {
-    try {
-      console.log(`Fetching downloaded applications for dealer ${dealerId}`);
-      // Simulate fetching downloaded applications
-      return [];
-    } catch (error) {
-      console.error("Error fetching downloaded applications:", error);
+  try {
+    console.log(`Fetching downloaded applications for dealer ${dealerId}`);
+    
+    // Use the new get_dealer_purchases function
+    const { data, error } = await supabase.rpc('get_dealer_purchases', {
+      p_dealer_id: dealerId
+    });
+    
+    if (error) {
+      console.error("Error fetching dealer purchases:", error);
+      throw error;
+    }
+    
+    if (!data || !Array.isArray(data)) {
       return [];
     }
-  };
+    
+    // Fetch full application details for each purchased application
+    const applicationIds = data.map((purchase: any) => purchase.applicationId);
+    
+    if (applicationIds.length === 0) {
+      return [];
+    }
+    
+    const { data: applicationsData, error: applicationsError } = await supabase
+      .from('applications')
+      .select('*')
+      .in('id', applicationIds);
+    
+    if (applicationsError) {
+      console.error("Error fetching application details:", applicationsError);
+      return [];
+    }
+    
+    // Map purchases to application details
+    return data.map((purchase: any) => {
+      const appDetails = applicationsData?.find((app: any) => app.id === purchase.applicationId) || {};
+      
+      return {
+        id: purchase.id,
+        purchaseId: purchase.id,
+        applicationId: purchase.applicationId,
+        downloadDate: purchase.downloadedAt || purchase.purchaseDate,
+        purchaseDate: purchase.purchaseDate,
+        paymentAmount: purchase.paymentAmount,
+        fullName: appDetails.fullname || 'Unknown',
+        phoneNumber: appDetails.phonenumber,
+        email: appDetails.email,
+        address: appDetails.streetaddress,
+        city: appDetails.city,
+        province: appDetails.province,
+        postalCode: appDetails.postalcode,
+        vehicleType: appDetails.vehicletype,
+        requiredFeatures: appDetails.requiredfeatures,
+        unwantedColors: appDetails.unwantedcolors,
+        preferredMakeModel: appDetails.preferredmakemodel,
+        hasExistingLoan: appDetails.hasexistingloan,
+        currentVehicle: appDetails.currentvehicle,
+        currentPayment: appDetails.currentpayment,
+        amountOwed: appDetails.amountowed,
+        mileage: appDetails.mileage,
+        employmentStatus: appDetails.employmentstatus,
+        monthlyIncome: appDetails.monthlyincome,
+        employerName: appDetails.employer_name,
+        jobTitle: appDetails.job_title,
+        employmentDuration: appDetails.employment_duration,
+        additionalNotes: appDetails.additionalnotes,
+        createdAt: appDetails.created_at,
+        updatedAt: appDetails.updated_at
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching downloaded applications:", error);
+    toast.error("Failed to load purchased applications");
+    return [];
+  }
+};
+
+export const isApplicationPurchased = async (applicationId: string, dealerId: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('dealer_purchases')
+      .select('id')
+      .eq('dealer_id', dealerId)
+      .eq('application_id', applicationId)
+      .eq('is_active', true)
+      .maybeSingle();
+    
+    if (error) {
+      console.error("Error checking purchase status:", error);
+      return false;
+    }
+    
+    return !!data;
+  } catch (error) {
+    console.error("Error checking purchase status:", error);
+    return false;
+  }
+};
+
+export const getDealerPurchases = async (dealerId: string): Promise<DealerPurchase[]> => {
+  try {
+    const { data, error } = await supabase.rpc('get_dealer_purchases', {
+      p_dealer_id: dealerId
+    });
+    
+    if (error) {
+      console.error("Error fetching dealer purchases:", error);
+      return [];
+    }
+    
+    if (!data || !Array.isArray(data)) {
+      return [];
+    }
+    
+    return data.map((purchase: any) => ({
+      id: purchase.id,
+      applicationId: purchase.applicationId,
+      purchaseDate: purchase.purchaseDate,
+      paymentId: purchase.paymentId,
+      paymentAmount: purchase.paymentAmount,
+      downloadedAt: purchase.downloadedAt,
+      downloadCount: purchase.downloadCount,
+      discountApplied: purchase.discountApplied,
+      discountType: purchase.discountType,
+      discountAmount: purchase.discountAmount
+    }));
+  } catch (error) {
+    console.error("Error fetching dealer purchases:", error);
+    return [];
+  }
+};
+
+export const recordPurchase = async (
+  dealerId: string, 
+  applicationId: string, 
+  paymentId: string, 
+  paymentAmount: number,
+  stripeSessionId?: string,
+  discountApplied?: boolean,
+  discountType?: string,
+  discountAmount?: number
+): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase.rpc('record_dealer_purchase', {
+      p_dealer_id: dealerId,
+      p_application_id: applicationId,
+      p_payment_id: paymentId,
+      p_payment_amount: paymentAmount,
+      p_stripe_session_id: stripeSessionId,
+      p_discount_applied: discountApplied || false,
+      p_discount_type: discountType,
+      p_discount_amount: discountAmount
+    });
+    
+    if (error) {
+      console.error("Error recording purchase:", error);
+      return false;
+    }
+    
+    return data?.success || false;
+  } catch (error) {
+    console.error("Error recording purchase:", error);
+    return false;
+  }
+};

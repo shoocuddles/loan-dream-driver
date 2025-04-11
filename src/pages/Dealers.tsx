@@ -97,7 +97,7 @@ const Dealers = () => {
       
       <main className="flex-grow py-16 bg-ontario-gray">
         <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold text-center mb-10 text-ontario-blue">Ontario Loans Dealer Portal</h1>
+          <h1 className="text-3xl font-bold text-center mb-10 text-ontario-blue pt-[75px]">Ontario Loans Dealer Portal</h1>
           
           {showDebugInfo && (
             <div className="max-w-md mx-auto mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-md">

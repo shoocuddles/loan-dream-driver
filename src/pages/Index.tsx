@@ -9,8 +9,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useState } from "react";
+import { Zap, Database, DollarSign } from "lucide-react";
 
 const Index = () => {
+  const [hoveredFeature, setHoveredFeature] = useState<string | null>(null);
+  
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -20,11 +24,11 @@ const Index = () => {
         <section 
           className="bg-cover bg-center h-[500px] flex flex-col justify-center items-center text-white relative"
           style={{ 
-            backgroundImage: "url('https://images.unsplash.com/photo-1517026759088-d5e56c29c1d6?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80')",
-            backgroundPosition: "center 40%"
+            backgroundImage: "url('https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80')",
+            backgroundPosition: "center"
           }}
         >
-          <div className="absolute inset-0 bg-black/50"></div>
+          <div className="absolute inset-0 bg-black/60"></div>
           <div className="relative z-10 text-center px-4">
             <h1 className="text-4xl md:text-5xl font-bold mb-4 drop-shadow-lg">Drive Today. Pay Later.</h1>
             <p className="text-xl md:text-2xl mb-8 max-w-2xl mx-auto drop-shadow-md">
@@ -47,29 +51,44 @@ const Index = () => {
           <div className="container mx-auto px-4">
             <h2 className="text-3xl font-bold text-center mb-12 text-ontario-blue">Why Choose Ontario Loans?</h2>
             <div className="grid md:grid-cols-3 gap-8">
-              <div className="bg-white p-6 rounded-lg shadow-md text-center">
-                <div className="w-16 h-16 bg-ontario-blue rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
+              <div 
+                className="bg-white p-6 rounded-lg shadow-md text-center"
+                onMouseEnter={() => setHoveredFeature('approvals')}
+                onMouseLeave={() => setHoveredFeature(null)}
+              >
+                <div className="w-16 h-16 bg-ontario-blue rounded-full flex items-center justify-center mx-auto mb-4 transition-all duration-300">
+                  <Zap 
+                    className="h-8 w-8" 
+                    color={hoveredFeature === 'approvals' ? '#22c55e' : 'white'} 
+                  />
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Fast Approvals</h3>
                 <p className="text-gray-600">Get approved in minutes, not days. Our streamlined process makes it quick and easy.</p>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow-md text-center">
+              <div 
+                className="bg-white p-6 rounded-lg shadow-md text-center"
+                onMouseEnter={() => setHoveredFeature('inventory')}
+                onMouseLeave={() => setHoveredFeature(null)}
+              >
                 <div className="w-16 h-16 bg-ontario-blue rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  <Database 
+                    className="h-8 w-8" 
+                    color={hoveredFeature === 'inventory' ? '#22c55e' : 'white'} 
+                  />
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Massive Inventory</h3>
                 <p className="text-gray-600">Access to hundreds of vehicles across Ontario and Quebec to find your perfect match.</p>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow-md text-center">
+              <div 
+                className="bg-white p-6 rounded-lg shadow-md text-center"
+                onMouseEnter={() => setHoveredFeature('options')}
+                onMouseLeave={() => setHoveredFeature(null)}
+              >
                 <div className="w-16 h-16 bg-ontario-blue rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  <DollarSign 
+                    className="h-8 w-8" 
+                    color={hoveredFeature === 'options' ? '#22c55e' : 'white'} 
+                  />
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Flexible Options</h3>
                 <p className="text-gray-600">Solutions for all credit types with competitive rates and flexible terms.</p>

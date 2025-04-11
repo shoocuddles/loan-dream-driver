@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ApplicationItem, LockType } from '@/lib/types/dealer-dashboard';
 import { SortableTable, ColumnDef } from '@/components/ui/sortable-table';
@@ -67,6 +67,7 @@ const ApplicationTable = ({
   const someSelected = selectedApplications.length > 0 && !allSelected;
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
+  const tableRef = useRef<HTMLDivElement>(null);
   
   const totalPages = Math.ceil(applications.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -88,6 +89,11 @@ const ApplicationTable = ({
   const handlePageChange = (pageNumber: number) => {
     setCurrentPage(pageNumber);
     selectAll(false);
+    
+    // Scroll to the top of the table
+    if (tableRef.current) {
+      tableRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   const columns: ColumnDef<ApplicationItem>[] = [
@@ -234,7 +240,7 @@ const ApplicationTable = ({
   ];
 
   return (
-    <div className="border rounded-md">
+    <div className="border rounded-md" ref={tableRef}>
       <div className="text-sm text-gray-500 p-2">
         <SelectionHeader 
           allSelected={allSelected} 

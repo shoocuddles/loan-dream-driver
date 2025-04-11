@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -23,6 +22,7 @@ const DownloadedApplications = ({
 }: DownloadedApplicationsProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedApplications, setSelectedApplications] = useState<string[]>([]);
+  const cardRef = useRef<HTMLDivElement>(null);
   
   const filteredApplications = applications.filter(app => 
     app.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -53,13 +53,19 @@ const DownloadedApplications = ({
     );
   };
 
+  const scrollToTop = () => {
+    if (cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   const handleBulkDownload = () => {
     if (selectedApplications.length === 0) return;
     // Let the DownloadOptions component handle the download
   };
 
   return (
-    <Card>
+    <Card ref={cardRef}>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-xl font-bold">Downloaded Applications</CardTitle>
         <div className="flex items-center gap-4">

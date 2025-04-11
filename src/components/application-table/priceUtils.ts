@@ -13,18 +13,25 @@ export const getPrice = (application: ApplicationItem, ageDiscountSettings?: Age
     return 'Free';
   }
 
-  // Check if there's age-based discount
-  if (application.isAgeDiscounted) {
-    return `$${application.discountedPrice.toFixed(2)}`;
+  // Calculate the appropriate price based on discounts
+  // Start with standard price as base
+  let basePrice = application.standardPrice;
+  let finalPrice = basePrice;
+  let isDiscounted = false;
+  
+  // Check for age-based discount
+  if (application.isAgeDiscounted && ageDiscountSettings?.isEnabled) {
+    isDiscounted = true;
+    const discountMultiplier = (100 - ageDiscountSettings.discountPercentage) / 100;
+    finalPrice = basePrice * discountMultiplier;
+  } 
+  // Check for lock-based discount (only if not already discounted by age)
+  else if (application.lockInfo?.isLocked && !application.lockInfo?.isOwnLock) {
+    isDiscounted = true;
+    finalPrice = application.discountedPrice;
   }
   
-  // Check if there's lock-based discount
-  const lockInfo = application.lockInfo;
-  const wasLocked = lockInfo?.isLocked && !lockInfo?.isOwnLock;
-  
-  return wasLocked ? 
-    `$${application.discountedPrice.toFixed(2)}` : 
-    `$${application.standardPrice.toFixed(2)}`;
+  return `$${finalPrice.toFixed(2)}`;
 };
 
 export const getPriceValue = (application: ApplicationItem, ageDiscountSettings?: AgeDiscountSettings): number => {
@@ -32,24 +39,18 @@ export const getPriceValue = (application: ApplicationItem, ageDiscountSettings?
     return 0;
   }
   
-  const lockInfo = application.lockInfo;
-  const wasLocked = lockInfo?.isLocked && lockInfo.lockedBy !== 'currentDealerId';
+  // Start with standard price as base
+  let basePrice = application.standardPrice;
   
-  // Get base price based on lock status
-  let basePrice = wasLocked ? 
-    application.discountedPrice : 
-    application.standardPrice;
-    
-  if (!basePrice) return 0;
+  // Apply age discount if applicable
+  if (application.isAgeDiscounted && ageDiscountSettings?.isEnabled) {
+    const discountMultiplier = (100 - ageDiscountSettings.discountPercentage) / 100;
+    return basePrice * discountMultiplier;
+  }
   
-  // Calculate age-based discount if enabled
-  if (ageDiscountSettings?.isEnabled) {
-    const leadAge = calculateLeadAge(application.submissionDate);
-    
-    if (leadAge >= ageDiscountSettings.daysThreshold) {
-      const discountMultiplier = (100 - ageDiscountSettings.discountPercentage) / 100;
-      return basePrice * discountMultiplier;
-    }
+  // Apply lock discount if applicable (and no age discount)
+  if (application.lockInfo?.isLocked && !application.lockInfo?.isOwnLock) {
+    return application.discountedPrice;
   }
   
   return basePrice;

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Button } from "@/components/ui/button";
@@ -23,8 +22,8 @@ interface CreateColumnsProps {
   onUnlock: (applicationId: string) => Promise<void>;
   onDownload: (applicationId: string) => Promise<void>;
   onViewDetails: (application: ApplicationItem) => void;
-  onHideApplication: (applicationId: string) => void;
-  onPurchase: (applicationId: string) => void;
+  onHideApplication: (applicationId: string) => Promise<void>;
+  onPurchase: (applicationId: string) => Promise<void>;
   processingId: string | null;
   lockOptions: { id: number, name: string, type: LockType, fee: number }[];
   ageDiscountSettings: AgeDiscountSettings;

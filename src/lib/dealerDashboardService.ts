@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationItem, LockType, LockInfo, DownloadedApplication, DealerPurchase } from '@/lib/types/dealer-dashboard';
 import { formatDistanceToNow, parseISO, differenceInDays } from 'date-fns';
@@ -86,7 +85,7 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
     }
 
     // Fetch dealer purchases to identify which applications have been purchased
-    // Use direct table query instead of RPC function to avoid the GROUP BY issue
+    // Use direct table query instead of RPC function
     const { data: purchasesData, error: purchasesError } = await supabase
       .from('dealer_purchases')
       .select('application_id')
@@ -295,39 +294,6 @@ export const isApplicationPurchased = async (applicationId: string, dealerId: st
   } catch (error) {
     console.error("Error checking purchase status:", error);
     return false;
-  }
-};
-
-export const getDealerPurchases = async (dealerId: string): Promise<DealerPurchase[]> => {
-  try {
-    const { data, error } = await supabase.rpc('get_dealer_purchases', {
-      p_dealer_id: dealerId
-    });
-    
-    if (error) {
-      console.error("Error fetching dealer purchases:", error);
-      return [];
-    }
-    
-    if (!data || !Array.isArray(data)) {
-      return [];
-    }
-    
-    return data.map((purchase: any) => ({
-      id: purchase.id,
-      applicationId: purchase.applicationId,
-      purchaseDate: purchase.purchaseDate,
-      paymentId: purchase.paymentId,
-      paymentAmount: purchase.paymentAmount,
-      downloadedAt: purchase.downloadedAt,
-      downloadCount: purchase.downloadCount,
-      discountApplied: purchase.discountApplied,
-      discountType: purchase.discountType,
-      discountAmount: purchase.discountAmount
-    }));
-  } catch (error) {
-    console.error("Error fetching dealer purchases:", error);
-    return [];
   }
 };
 

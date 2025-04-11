@@ -100,7 +100,6 @@ const DealerDashboard = () => {
       setApplications(appsData);
 
       const downloadedData = await fetchDownloadedApplications();
-      // Ensure downloadedData is always an array
       setDownloadedApps(Array.isArray(downloadedData) ? downloadedData : []);
       
       if (!Array.isArray(downloadedData)) {
@@ -110,7 +109,6 @@ const DealerDashboard = () => {
     } catch (error) {
       console.error("Error loading data:", error);
       toast.error("Failed to load data. Please try again.");
-      // Ensure downloadedApps is at least an empty array if there's an error
       setDownloadedApps([]);
     } finally {
       setIsLoading(false);
@@ -265,7 +263,9 @@ const DealerDashboard = () => {
         });
         
         if (response.error) {
-          if (response.error.message.includes('already purchased')) {
+          console.error('Error response from checkout session:', response.error);
+          
+          if (response.error.message && response.error.message.includes('already purchased')) {
             // Handle case where applications were already purchased
             toast.success("All selected applications have already been purchased");
             await loadData();
@@ -279,8 +279,11 @@ const DealerDashboard = () => {
         
         if (response.data?.url) {
           // Redirect to Stripe checkout
+          console.log('Redirecting to checkout URL:', response.data.url);
           window.location.href = response.data.url;
           return;
+        } else {
+          throw new Error('No checkout URL returned from Stripe');
         }
       } else if (pendingAction.type === 'lock' && pendingAction.lockType) {
         // Handle lock extension payment - currently using a simplified approach
@@ -293,9 +296,9 @@ const DealerDashboard = () => {
         toast.success(`${pendingAction.applicationIds.length} application(s) locked`);
         await loadData();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error processing payment:", error);
-      toast.error("Failed to process payment: " + (error.message || "Unknown error"));
+      toast.error(`Failed to process payment: ${error.message || "Unknown error"}`);
     } finally {
       setShowPaymentDialog(false);
       setPendingAction(null);

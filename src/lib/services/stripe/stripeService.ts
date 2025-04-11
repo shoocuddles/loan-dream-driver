@@ -1,5 +1,6 @@
+
 import { supabase } from '@/integrations/supabase/client';
-import { StripePrice, StripeCoupon, CreateCouponParams, StripeCheckoutParams, CheckoutSessionResponse, StripeError } from '@/lib/types/stripe';
+import { StripePrice, StripeCoupon, CreateCouponParams, StripeCheckoutParams, CheckoutSessionResponse, StripeError, PurchaseResult } from '@/lib/types/stripe';
 
 interface StripeResponse<T> {
   data?: T;
@@ -163,17 +164,24 @@ export const createCheckoutSession = async (
       body: params
     });
     
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error from Supabase functions:', error);
+      throw new Error(`Function error: ${error.message || JSON.stringify(error)}`);
+    }
+    
+    if (!data) {
+      throw new Error('No data returned from checkout session creation');
+    }
     
     console.log('✅ Successfully created checkout session:', data);
     return { data };
   } catch (error: any) {
-    console.error('❌ Error creating checkout session:', error.message);
+    console.error('❌ Error creating checkout session:', error);
     return { 
       error: { 
-        message: error.message, 
-        code: error.code,
-        details: error.details || error.message
+        message: error.message || 'Unknown error creating checkout session',
+        code: error.code || 'unknown_error',
+        details: error.details || error.message || 'Check that the Supabase function is deployed correctly'
       } 
     };
   }

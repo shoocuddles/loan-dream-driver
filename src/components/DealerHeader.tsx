@@ -14,18 +14,28 @@ const DealerHeader = ({ user, onSignOut }: DealerHeaderProps) => {
   const handleSignOut = onSignOut || authContext.signOut;
 
   return (
-    <div className="flex justify-between items-center mb-8">
-      <div>
-        <h1 className="text-3xl font-bold text-ontario-blue">Dealer Dashboard</h1>
-        <p className="text-gray-600">Welcome, {profile?.full_name || "Dealer"}</p>
+    <div className="flex flex-col items-center pb-4">
+      <div className="w-full flex justify-center mb-4">
+        <img 
+          src="/lovable-uploads/06403d44-3c3b-4d15-9e8d-a397fdfb1c97.png" 
+          alt="Ontario Loans Logo" 
+          className="h-20 object-contain"
+        />
       </div>
-      <Button 
-        variant="outline" 
-        onClick={handleSignOut}
-        className="text-ontario-blue border-ontario-blue hover:bg-ontario-blue/10"
-      >
-        Logout
-      </Button>
+      
+      <div className="w-full flex justify-between items-center pt-6">
+        <div className="pt-[25px]">
+          <h1 className="text-3xl font-bold text-ontario-blue">Dealer Dashboard</h1>
+          <p className="text-gray-600">Welcome, {profile?.full_name || "Dealer"}</p>
+        </div>
+        <Button 
+          variant="outline" 
+          onClick={handleSignOut}
+          className="text-ontario-blue border-ontario-blue hover:bg-ontario-blue/10"
+        >
+          Logout
+        </Button>
+      </div>
     </div>
   );
 };

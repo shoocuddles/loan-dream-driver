@@ -32,7 +32,7 @@ export const calculateLeadAge = (dateString: string): number => {
     
     return ageInDays;
   } catch (error) {
-    console.error('Error calculating lead age:', dateString, error);
+    console.error('Error calculating lead age:', error);
     return 0;
   }
 };

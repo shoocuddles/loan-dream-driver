@@ -54,6 +54,12 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
       
       // Apply age discounts without logging every calculation
       let discountedCount = 0;
+      let ageRanges = {
+        "30-60 days": 0,
+        "61-90 days": 0,
+        "90+ days": 0
+      };
+      
       applications.forEach(app => {
         if (app.submissionDate) {
           const submissionDate = parseISO(app.submissionDate);
@@ -62,12 +68,18 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
           if (ageDays >= ageSettings.daysThreshold) {
             app.isAgeDiscounted = true;
             discountedCount++;
+            
+            // Count applications in different age ranges
+            if (ageDays <= 60) ageRanges["30-60 days"]++;
+            else if (ageDays <= 90) ageRanges["61-90 days"]++;
+            else ageRanges["90+ days"]++;
           }
         }
       });
       
       if (discountedCount > 0) {
         console.log(`Applied age discount to ${discountedCount} applications`);
+        console.log(`Age distribution: `, ageRanges);
       }
     }
 

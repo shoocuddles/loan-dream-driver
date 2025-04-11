@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ApplicationItem, LockType } from '@/lib/types/dealer-dashboard';
@@ -74,24 +73,18 @@ const ApplicationTable = ({
   const endIndex = Math.min(startIndex + itemsPerPage, applications.length);
   const currentApplications = applications.slice(startIndex, endIndex);
 
-  console.log('Applications with lock info:', applications.map(app => ({ 
-    id: app.applicationId,
-    vehicleType: app.vehicleType,
-    status: app.status,
-    lockInfo: app.lockInfo,
-    submissionDate: app.submissionDate
-  })));
+  if (applications.length > 0) {
+    console.log(`Processing ${applications.length} applications`);
+  }
 
   if (ageDiscountSettings?.isEnabled) {
-    // Just log once that age discount is enabled
-    console.log('Age discount is enabled with settings:', ageDiscountSettings);
+    console.log(`Age discount enabled: ${ageDiscountSettings.discountPercentage}% after ${ageDiscountSettings.daysThreshold} days`);
   }
 
   const handlePageChange = (pageNumber: number) => {
     setCurrentPage(pageNumber);
     selectAll(false);
     
-    // Scroll to the top of the table
     if (tableRef.current) {
       tableRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }

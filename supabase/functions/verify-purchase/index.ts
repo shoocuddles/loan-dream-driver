@@ -128,6 +128,7 @@ serve(async (req) => {
       
       // Record the downloads in the database
       const timestamp = new Date().toISOString();
+      let allSuccessful = true;
       
       for (const appId of applicationIds) {
         // Check if already downloaded
@@ -139,22 +140,77 @@ serve(async (req) => {
           .maybeSingle();
         
         if (!existingDownload) {
-          await supabase
+          const { error: downloadError } = await supabase
             .from('application_downloads')
             .insert({
               application_id: appId,
               dealer_id: dealerId,
               downloaded_at: timestamp,
               payment_session_id: sessionId,
-              amount_paid: session.metadata?.unit_price || 0
+              payment_id: sessionId,
+              payment_amount: session.metadata?.unit_price || 0
             });
+            
+          if (downloadError) {
+            console.error(`Error recording download for application ${appId}:`, downloadError);
+            allSuccessful = false;
+          }
+          
+          // Create 24-hour lock for the application
+          const lockExpiry = new Date();
+          lockExpiry.setHours(lockExpiry.getHours() + 24);
+          
+          // Remove any existing locks from other dealers
+          const { data: existingLocks } = await supabase
+            .from('application_locks')
+            .select('*')
+            .eq('application_id', appId)
+            .gt('expires_at', timestamp);
+            
+          if (existingLocks && existingLocks.length > 0) {
+            for (const lock of existingLocks) {
+              if (lock.dealer_id !== dealerId) {
+                await supabase
+                  .from('application_locks')
+                  .update({ expires_at: timestamp })
+                  .eq('id', lock.id);
+              }
+            }
+          }
+          
+          // Create a new lock unless the dealer already has one
+          const { data: dealerLock } = await supabase
+            .from('application_locks')
+            .select('*')
+            .eq('application_id', appId)
+            .eq('dealer_id', dealerId)
+            .gt('expires_at', timestamp)
+            .maybeSingle();
+            
+          if (!dealerLock) {
+            const { error: lockError } = await supabase
+              .from('application_locks')
+              .insert({
+                application_id: appId,
+                dealer_id: dealerId,
+                lock_type: 'purchase_lock',
+                expires_at: lockExpiry.toISOString(),
+                is_paid: true,
+                payment_id: sessionId,
+                payment_amount: 0
+              });
+              
+            if (lockError) {
+              console.error(`Error creating lock for application ${appId}:`, lockError);
+            }
+          }
         }
       }
       
       return new Response(
         JSON.stringify({ 
-          success: true,
-          message: "Downloads recorded successfully"
+          success: allSuccessful,
+          message: allSuccessful ? "Downloads recorded successfully" : "Some downloads could not be recorded"
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

@@ -198,6 +198,8 @@ const DealerDashboard = () => {
     
     try {
       const downloadedData = await fetchDownloadedApplications();
+      console.log('Downloaded applications data:', downloadedData);
+      
       const downloadedAppsList = Array.isArray(downloadedData) ? downloadedData : [];
       setDownloadedApps(downloadedAppsList);
       
@@ -208,12 +210,12 @@ const DealerDashboard = () => {
       console.log('Loaded applications with lock info:', appsData.map(app => ({
         id: app.applicationId,
         lockInfo: app.lockInfo,
-        isDownloaded: purchasedAppIds.includes(app.applicationId)
+        isDownloaded: app.isDownloaded
       })));
       
       const updatedApps = appsData.map(app => ({
         ...app,
-        isDownloaded: purchasedAppIds.includes(app.applicationId)
+        isDownloaded: app.isDownloaded || purchasedAppIds.includes(app.applicationId)
       }));
       
       const hiddenAppIds = hiddenApplications.map(app => app.applicationId);

@@ -94,8 +94,18 @@ export const fetchDownloadedApplications = async (): Promise<DownloadedApplicati
       p_dealer_id: userId.user.id
     });
     
-    if (error) throw error;
-    return data || [];
+    if (error) {
+      console.error('Error fetching downloaded applications:', error);
+      throw error;
+    }
+    
+    if (!data || !Array.isArray(data)) {
+      console.error('Invalid data format returned from get_dealer_downloads:', data);
+      return [];
+    }
+    
+    console.log(`Retrieved ${data.length} downloaded applications from database`);
+    return data;
   } catch (error: any) {
     console.error('❌ Error fetching downloaded applications:', error.message);
     toast.error('Failed to load your purchased applications');
@@ -122,10 +132,12 @@ export const recordDownload = async (applicationId: string, paymentId?: string, 
       p_payment_amount: paymentAmount
     });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error recording download:', error);
+      throw error;
+    }
     
-    // Note: The automatic 24-hour lock is now applied in DealerDashboard.tsx
-    // after successful purchase confirmation
+    console.log('Record download result:', data);
     
     return data?.success || false;
   } catch (error: any) {
@@ -152,7 +164,11 @@ export const isApplicationDownloaded = async (applicationId: string): Promise<bo
       p_dealer_id: userId.user.id
     });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error checking download status:', error);
+      throw error;
+    }
+    
     return !!data;
   } catch (error: any) {
     console.error('❌ Error checking download status:', error.message);

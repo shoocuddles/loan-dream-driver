@@ -81,20 +81,16 @@ serve(async (req) => {
 });
 
 async function handleSuccessfulPayment(session, supabase) {
-  const dealerId = session.metadata.dealer_id;
-  const applicationIds = session.metadata.application_ids.split(',');
-  const unitPrice = parseFloat(session.metadata.unit_price);
+  const dealerId = session.metadata?.dealer_id;
+  const applicationIdsString = session.metadata?.application_ids;
   
-  // Get system settings for lock duration
-  const { data: settings } = await supabase
-    .from('system_settings')
-    .select('*')
-    .single();
+  if (!dealerId || !applicationIdsString) {
+    console.error("Missing dealer_id or application_ids in session metadata");
+    return;
+  }
   
-  // Default lock time is 1 hour if not configured
-  const lockHours = settings?.temporary_lock_minutes 
-    ? settings.temporary_lock_minutes / 60 
-    : 1;
+  const applicationIds = applicationIdsString.split(',');
+  const unitPrice = parseFloat(session.metadata?.unit_price || "0");
   
   console.log(`Processing payment for dealer ${dealerId}, applications: ${applicationIds.join(', ')}`);
   
@@ -104,40 +100,71 @@ async function handleSuccessfulPayment(session, supabase) {
       console.log(`Processing application ${appId}`);
       
       // Record the download immediately to ensure this dealer has permanent access
-      const { data: downloadData, error: downloadError } = await supabase
+      const { data: existingDownload } = await supabase
         .from('application_downloads')
-        .insert({
-          application_id: appId,
-          dealer_id: dealerId,
-          payment_id: session.id,
-          payment_amount: unitPrice
-        })
-        .select()
-        .single();
+        .select('id')
+        .eq('application_id', appId)
+        .eq('dealer_id', dealerId)
+        .maybeSingle();
       
-      if (downloadError) {
-        console.error(`Error recording download for ${appId}:`, downloadError);
-        continue;
+      if (!existingDownload) {
+        const { data: downloadData, error: downloadError } = await supabase
+          .from('application_downloads')
+          .insert({
+            application_id: appId,
+            dealer_id: dealerId,
+            payment_id: session.id,
+            payment_amount: unitPrice
+          })
+          .select()
+          .single();
+        
+        if (downloadError) {
+          console.error(`Error recording download for ${appId}:`, downloadError);
+          continue;
+        }
+        
+        console.log(`Successfully recorded download: ${downloadData.id}`);
+      } else {
+        console.log(`Application ${appId} already downloaded by dealer ${dealerId}, skipping`);
       }
       
-      console.log(`Successfully recorded download: ${downloadData.id}`);
-      
-      // Apply automatic lock (default 24 hours)
+      // Apply automatic lock (24 hours for purchased applications)
       const lockExpiry = new Date();
-      lockExpiry.setHours(lockExpiry.getHours() + 24); // Always use 24 hours for temp locks after purchase
+      lockExpiry.setHours(lockExpiry.getHours() + 24);
       
-      // Check for any existing active locks by this dealer
+      // Check for any existing active locks for this application
       const { data: existingLocks } = await supabase
+        .from('application_locks')
+        .select('*')
+        .eq('application_id', appId)
+        .gt('expires_at', new Date().toISOString())
+        .order('expires_at', { ascending: false });
+      
+      // Remove any existing locks by other dealers (this application is now purchased)
+      if (existingLocks && existingLocks.length > 0) {
+        for (const lock of existingLocks) {
+          if (lock.dealer_id !== dealerId) {
+            console.log(`Removing existing lock by dealer ${lock.dealer_id} on application ${appId}`);
+            await supabase
+              .from('application_locks')
+              .update({ expires_at: new Date().toISOString() })
+              .eq('id', lock.id);
+          }
+        }
+      }
+      
+      // Check specifically for existing lock by this dealer
+      const { data: existingDealerLocks } = await supabase
         .from('application_locks')
         .select('*')
         .eq('application_id', appId)
         .eq('dealer_id', dealerId)
         .gt('expires_at', new Date().toISOString())
-        .order('expires_at', { ascending: false })
         .limit(1);
       
       // If there's already an active lock by this dealer, don't create a new one
-      if (existingLocks && existingLocks.length > 0) {
+      if (existingDealerLocks && existingDealerLocks.length > 0) {
         console.log(`Dealer already has an active lock on application ${appId}, skipping lock creation`);
         continue;
       }

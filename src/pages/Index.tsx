@@ -1,3 +1,4 @@
+
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
@@ -31,7 +32,7 @@ const Index = () => {
       
       {/* Add padding-top to account for fixed header */}
       <main className="flex-grow pt-[72px]">
-        {/* Hero Section - Updated with SUV image and zoom effect */}
+        {/* Hero Section - Updated with SUV image, zoom effect, and bottom-justified positioning */}
         <section 
           className="bg-cover bg-center h-[600px] flex flex-col justify-center items-center text-white relative overflow-hidden"
         >
@@ -39,7 +40,7 @@ const Index = () => {
             className="absolute inset-0 animate-hero-zoom"
             style={{ 
               backgroundImage: "url('https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80')",
-              backgroundPosition: "center",
+              backgroundPosition: "center bottom", // Changed to position the image at the bottom
               backgroundSize: "cover"
             }}
           ></div>

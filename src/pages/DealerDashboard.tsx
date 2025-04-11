@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useAuth } from '@/hooks/use-auth';
@@ -196,7 +195,7 @@ const DealerDashboard = () => {
     setIsLoadingDownloaded(true);
     
     try {
-      const downloadedData = await fetchDownloadedApplications();
+      const downloadedData = await fetchDownloadedApplications(user?.id || '');
       console.log('Downloaded applications data:', downloadedData);
       
       const downloadedAppsList = Array.isArray(downloadedData) ? downloadedData : [];
@@ -205,7 +204,7 @@ const DealerDashboard = () => {
       const purchasedAppIds = downloadedAppsList.map(app => app.applicationId);
       console.log('Downloaded application IDs:', purchasedAppIds);
       
-      const appsData = await fetchAvailableApplications();
+      const appsData = await fetchAvailableApplications(user?.id || '');
       console.log('Loaded applications with lock info:', appsData.map(app => ({
         id: app.applicationId,
         lockInfo: app.lockInfo,

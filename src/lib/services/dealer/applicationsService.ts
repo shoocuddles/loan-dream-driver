@@ -10,6 +10,11 @@ export const fetchDownloadedApplications = async (dealerId: string): Promise<Dow
   try {
     console.log('🔍 Fetching downloaded applications for dealer');
     
+    if (!dealerId) {
+      console.error('Error: dealerId is required');
+      return [];
+    }
+    
     const { data, error } = await supabase.rpc('get_dealer_downloads', {
       p_dealer_id: dealerId
     });
@@ -39,6 +44,12 @@ export const fetchDownloadedApplications = async (dealerId: string): Promise<Dow
 export const fetchAvailableApplications = async (dealerId: string): Promise<ApplicationItem[]> => {
   try {
     console.log('🔍 Fetching available applications for dealer');
+    
+    if (!dealerId) {
+      console.error('Error: dealerId is required');
+      return [];
+    }
+    
     const applications = await fetchApplications(dealerId);
     console.log(`Retrieved ${applications.length} available applications`);
     return applications;

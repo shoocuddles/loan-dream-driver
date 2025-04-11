@@ -260,10 +260,8 @@ const DealerDashboard = () => {
   const handleBulkDownload = async () => {
     if (!user || selectedApplications.length === 0) return;
 
-    const notDownloaded = Array.isArray(downloadedApps) ? 
-      selectedApplications.filter(id => !downloadedApps.some(app => app.applicationId === id)) :
-      selectedApplications;
-
+    const notDownloaded = getUnpurchasedApplications();
+    
     if (notDownloaded.length > 0) {
       setPendingAction({
         type: 'download',

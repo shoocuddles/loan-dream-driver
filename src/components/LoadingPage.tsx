@@ -32,9 +32,9 @@ const LoadingPage = ({ onLoadComplete }: LoadingPageProps) => {
       <div className="w-full max-w-md animate-fade-in flex flex-col items-center">
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 mb-6 shadow-2xl border border-white/20">
           <img 
-            src="/logo.png" 
+            src="/lovable-uploads/06403d44-3c3b-4d15-9e8d-a397fdfb1c97.png" 
             alt="Ontario Loans Logo" 
-            className="h-28 w-auto animate-pulse duration-1000"
+            className="h-28 w-auto invert animate-pulse duration-1000"
           />
         </div>
         

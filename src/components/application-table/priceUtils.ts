@@ -25,11 +25,11 @@ export const getPrice = (application: ApplicationItem, ageDiscountSettings?: Age
   application.isAgeDiscounted = false;
   
   // Calculate age-based discount if enabled
-  if (ageSettings?.isEnabled && basePrice) {
+  if (ageDiscountSettings?.isEnabled && basePrice) {
     const leadAge = calculateLeadAge(application.submissionDate);
     
-    if (leadAge >= ageSettings.daysThreshold) {
-      const discountMultiplier = (100 - ageSettings.discountPercentage) / 100;
+    if (leadAge >= ageDiscountSettings.daysThreshold) {
+      const discountMultiplier = (100 - ageDiscountSettings.discountPercentage) / 100;
       const ageDiscountedPrice = basePrice * discountMultiplier;
       
       // Mark the application as age-discounted for UI highlighting
@@ -62,8 +62,8 @@ export const getPriceValue = (application: ApplicationItem, ageDiscountSettings?
   if (ageDiscountSettings?.isEnabled) {
     const leadAge = calculateLeadAge(application.submissionDate);
     
-    if (leadAge >= ageSettings.daysThreshold) {
-      const discountMultiplier = (100 - ageSettings.discountPercentage) / 100;
+    if (leadAge >= ageDiscountSettings.daysThreshold) {
+      const discountMultiplier = (100 - ageDiscountSettings.discountPercentage) / 100;
       return basePrice * discountMultiplier;
     }
   }

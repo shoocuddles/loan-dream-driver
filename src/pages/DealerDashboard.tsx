@@ -176,7 +176,7 @@ const DealerDashboard = () => {
                   const locksProcessed = await processLocksAfterPayment(
                     applicationIds, 
                     pendingLockType, 
-                    result.data?.paymentId || sessionId, 
+                    result.data?.paymentId || sessionId || 'unknown', 
                     result.data?.amount || 0
                   );
                   

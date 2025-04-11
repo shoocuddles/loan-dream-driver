@@ -52,7 +52,7 @@ export const LockStatusBadge = ({ lockInfo }: LockStatusBadgeProps) => {
   const expiresAt = new Date(lockInfo.expiresAt);
   if (expiresAt < new Date()) return null;
   
-  // Change "about" to "for" to match the requested format
+  // Changed "Locked about" to "Locked for" to match requested format
   const timeLeft = formatDistanceToNow(expiresAt);
   
   return (

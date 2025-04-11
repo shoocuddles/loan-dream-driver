@@ -160,6 +160,9 @@ export const createCheckoutSession = async (
   try {
     console.log('🛒 Creating checkout session for applications:', params.applicationIds);
     
+    // Add logging for the full request
+    console.log('🔍 Full checkout session request parameters:', JSON.stringify(params, null, 2));
+    
     const { data, error } = await supabase.functions.invoke('create-checkout-session', {
       body: params
     });

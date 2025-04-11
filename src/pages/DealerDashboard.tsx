@@ -256,6 +256,9 @@ const DealerDashboard = () => {
 
     try {
       if (pendingAction.type === 'download') {
+        // Display loading state
+        toast.loading("Creating checkout session...");
+        
         // Create Stripe checkout session for application purchase
         const response = await createCheckoutSession({
           applicationIds: pendingAction.applicationIds,
@@ -280,6 +283,7 @@ const DealerDashboard = () => {
         if (response.data?.url) {
           // Redirect to Stripe checkout
           console.log('Redirecting to checkout URL:', response.data.url);
+          toast.success("Checkout session created. Redirecting to payment page...");
           window.location.href = response.data.url;
           return;
         } else {
@@ -288,6 +292,7 @@ const DealerDashboard = () => {
       } else if (pendingAction.type === 'lock' && pendingAction.lockType) {
         // Handle lock extension payment - currently using a simplified approach
         // In a production environment, you'd want to create a Stripe checkout for this too
+        toast.loading(`Locking ${pendingAction.applicationIds.length} application(s)...`);
         
         for (const appId of pendingAction.applicationIds) {
           await lockApplication(appId, pendingAction.lockType);
@@ -298,8 +303,11 @@ const DealerDashboard = () => {
       }
     } catch (error: any) {
       console.error("Error processing payment:", error);
-      toast.error(`Failed to process payment: ${error.message || "Unknown error"}`);
+      toast.error(`Failed to process payment: ${error.message || "Unknown error"}`, {
+        description: "Please check the console for more details and try again later."
+      });
     } finally {
+      toast.dismiss(); // Clear any loading toasts
       setShowPaymentDialog(false);
       setPendingAction(null);
       setIsProcessingPayment(false);

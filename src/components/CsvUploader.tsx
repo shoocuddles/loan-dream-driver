@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -28,12 +29,14 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
   };
 
   const downloadTemplate = () => {
+    const currentDate = new Date().toISOString();
+    
     const headers = [
       'id', 'fullname', 'phonenumber', 'email', 'streetaddress', 'city', 
       'province', 'postalcode', 'vehicletype', 'requiredfeatures', 
       'unwantedcolors', 'preferredmakemodel', 'hasexistingloan', 'currentpayment', 
       'amountowed', 'currentvehicle', 'mileage', 'employmentstatus', 'monthlyincome', 
-      'additionalnotes', 'status'
+      'additionalnotes', 'status', 'iscomplete', 'created_at', 'updated_at'
     ].join(',');
 
     const sampleRow = [
@@ -57,7 +60,10 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
       'Employed', 
       '$5500', 
       'Looking for family vehicle', 
-      'submitted'
+      'submitted',
+      'true', // Always set iscomplete to true
+      currentDate, // Current date for created_at
+      currentDate  // Current date for updated_at
     ].join(',');
 
     const csvContent = `${headers}\n${sampleRow}`;
@@ -87,6 +93,7 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
     const lines = csv.split('\n');
     const headers = lines[0].split(',').map(h => h.trim());
     const result = [];
+    const currentDate = new Date().toISOString();
 
     for (let i = 1; i < lines.length; i++) {
       if (!lines[i].trim()) continue; // Skip empty lines
@@ -96,12 +103,23 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
       
       headers.forEach((header, index) => {
         let value = values[index]?.trim() ?? '';
-        
         entry[header] = value;
       });
       
       if (entry.id === '') {
         delete entry.id;
+      }
+
+      // Always set iscomplete to true string
+      entry.iscomplete = 'true';
+      
+      // Set created_at and updated_at if not provided
+      if (!entry.created_at || entry.created_at === '') {
+        entry.created_at = currentDate;
+      }
+      
+      if (!entry.updated_at || entry.updated_at === '') {
+        entry.updated_at = currentDate;
       }
       
       result.push(entry);
@@ -183,6 +201,7 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
             />
             <p className="text-sm text-gray-500">
               File should be in CSV format with columns matching the application table fields.
+              The "iscomplete" field will automatically be set to "true".
             </p>
           </div>
 

@@ -40,7 +40,7 @@ const Index = () => {
             className="absolute inset-0 animate-hero-zoom"
             style={{ 
               backgroundImage: "url('https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80')",
-              backgroundPosition: "center bottom", // Changed to position the image at the bottom
+              backgroundPosition: "center bottom -30px", // Adjusted to move the bottom of the image down by 30px
               backgroundSize: "cover"
             }}
           ></div>

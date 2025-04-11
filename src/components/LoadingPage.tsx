@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Progress } from "@/components/ui/progress";
 
@@ -12,17 +11,17 @@ const LoadingPage = ({ onLoadComplete }: LoadingPageProps) => {
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress(prev => {
-        const newProgress = prev + 5;
+        const newProgress = prev + 4;
         if (newProgress >= 100) {
           clearInterval(interval);
           setTimeout(() => {
             onLoadComplete();
-          }, 500); // Small delay after reaching 100%
+          }, 500);
           return 100;
         }
         return newProgress;
       });
-    }, 250); // Updates every 250ms to complete in ~5 seconds
+    }, 250);
     
     return () => clearInterval(interval);
   }, [onLoadComplete]);

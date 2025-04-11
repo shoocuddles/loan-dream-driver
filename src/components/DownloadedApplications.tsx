@@ -1,4 +1,3 @@
-
 import { useState, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -263,8 +262,9 @@ const DownloadedApplications = ({
                         <DownloadOptions 
                           applicationIds={[application.applicationId]}
                           isProcessing={false}
-                          variant="ghost"
+                          variant="success"
                           size="icon"
+                          showIcon={true}
                         />
                       </div>
                     </TableCell>

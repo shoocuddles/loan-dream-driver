@@ -86,8 +86,14 @@ const DownloadOptions = ({
           disabled={isProcessing || isDownloading || disabled || applicationIds.length === 0}
           className={cn("text-white", className)}
         >
-          {showIcon && <Download className={label ? "mr-2 h-4 w-4" : "h-4 w-4"} />}
-          {label && label}
+          {size === 'icon' ? (
+            <Download className="h-4 w-4" />
+          ) : (
+            <>
+              {showIcon && <Download className={label ? "mr-2 h-4 w-4" : "h-4 w-4"} />}
+              {label && label}
+            </>
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">

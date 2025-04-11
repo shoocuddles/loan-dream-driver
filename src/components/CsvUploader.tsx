@@ -50,7 +50,7 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
       'Leather Seats, Backup Camera', 
       'Red, Yellow', 
       'Honda CR-V', 
-      'true', 
+      'true', // Changed from boolean to string
       '$350/month', 
       '$15000', 
       '2018 Toyota Corolla', 
@@ -98,8 +98,9 @@ const CsvUploader = ({ onSuccess }: CsvUploaderProps) => {
       headers.forEach((header, index) => {
         let value = values[index]?.trim() ?? '';
         
-        // Handle boolean conversion
+        // Handle boolean conversion for hasexistingloan and iscomplete
         if (header === 'hasexistingloan' || header === 'iscomplete') {
+          // Convert string 'true'/'false' to actual boolean
           value = value.toLowerCase() === 'true';
         }
         

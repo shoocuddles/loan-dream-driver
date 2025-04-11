@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useAuth } from '@/hooks/use-auth';
@@ -86,7 +85,6 @@ const DealerDashboard = () => {
 
   const { user } = useAuth();
   
-  // Load hidden applications from local storage on component mount
   useEffect(() => {
     if (user) {
       const storedHiddenApps = localStorage.getItem(`hidden-apps-${user.id}`);
@@ -101,7 +99,6 @@ const DealerDashboard = () => {
     }
   }, [user]);
 
-  // Save hidden applications to local storage whenever they change
   useEffect(() => {
     if (user && hiddenApplications.length > 0) {
       localStorage.setItem(`hidden-apps-${user.id}`, JSON.stringify(hiddenApplications));
@@ -186,16 +183,13 @@ const DealerDashboard = () => {
     setIsLoadingDownloaded(true);
     
     try {
-      // First load downloaded applications to check against available ones
       const downloadedData = await fetchDownloadedApplications();
       const downloadedAppsList = Array.isArray(downloadedData) ? downloadedData : [];
       setDownloadedApps(downloadedAppsList);
       
-      // Extract the application IDs that this dealer has already purchased
       const purchasedAppIds = downloadedAppsList.map(app => app.applicationId);
       console.log('Downloaded application IDs:', purchasedAppIds);
       
-      // Then load available applications
       const appsData = await fetchAvailableApplications();
       console.log('Loaded applications with lock info:', appsData.map(app => ({
         id: app.applicationId,
@@ -203,13 +197,11 @@ const DealerDashboard = () => {
         isDownloaded: purchasedAppIds.includes(app.applicationId)
       })));
       
-      // Update the isDownloaded flag for all applications based on what was already downloaded
       const updatedApps = appsData.map(app => ({
         ...app,
         isDownloaded: purchasedAppIds.includes(app.applicationId)
       }));
       
-      // Filter out hidden applications from visible ones
       const hiddenAppIds = hiddenApplications.map(app => app.applicationId);
       const visibleApps = updatedApps.filter(app => !hiddenAppIds.includes(app.applicationId));
       
@@ -312,21 +304,17 @@ const DealerDashboard = () => {
     try {
       setProcessingId(applicationId);
       
-      // Check if the application has already been downloaded
       const isDownloaded = Array.isArray(downloadedApps) && downloadedApps.some(app => app.applicationId === applicationId);
       
       if (isDownloaded) {
         console.log('This application has already been purchased, showing it for free');
         toast.success("Application is already purchased and available for viewing");
         
-        // Navigate to downloaded applications tab or show the application details
-        // You can choose to implement this differently based on your UX preference
         const downloadedApp = downloadedApps.find(app => app.applicationId === applicationId);
         if (downloadedApp) {
           handleViewDetails(downloadedApp);
         }
       } else {
-        // Not downloaded yet, proceed with payment
         setPendingAction({
           type: 'download',
           applicationIds: [applicationId]
@@ -345,13 +333,10 @@ const DealerDashboard = () => {
     const appToHide = applications.find(app => app.applicationId === applicationId);
     if (!appToHide) return;
     
-    // Add to hidden applications
     setHiddenApplications(prev => [...prev, appToHide]);
     
-    // Remove from visible applications
     setApplications(prev => prev.filter(app => app.applicationId !== applicationId));
     
-    // Remove from selected if it was selected
     setSelectedApplications(prev => prev.filter(id => id !== applicationId));
     
     toast.success("Application hidden successfully");
@@ -361,10 +346,8 @@ const DealerDashboard = () => {
     const appToUnhide = hiddenApplications.find(app => app.applicationId === applicationId);
     if (!appToUnhide) return;
     
-    // Add back to visible applications
     setApplications(prev => [...prev, appToUnhide]);
     
-    // Remove from hidden applications
     setHiddenApplications(prev => prev.filter(app => app.applicationId !== applicationId));
     
     toast.success("Application unhidden successfully");
@@ -425,9 +408,33 @@ const DealerDashboard = () => {
       if (pendingAction.type === 'download') {
         toast.loading("Creating checkout session...");
         
+        const applicationsWithPrices = pendingAction.applicationIds.map(appId => {
+          const app = applications.find(a => a.applicationId === appId) || 
+                     hiddenApplications.find(a => a.applicationId === appId);
+          
+          if (!app) return { id: appId, price: 0, isAgeDiscounted: false };
+          
+          const priceValue = app.isAgeDiscounted ? 
+            getPrice(app, ageDiscountSettings).replace('$', '') : 
+            (app.lockInfo?.isLocked && !app.lockInfo?.isOwnLock) ? 
+              app.discountedPrice?.toString() : 
+              app.standardPrice?.toString();
+          
+          return { 
+            id: appId, 
+            price: parseFloat(priceValue || '0'),
+            isAgeDiscounted: app.isAgeDiscounted || false
+          };
+        });
+        
+        console.log('Sending applications with prices to checkout:', applicationsWithPrices);
+        
         const response = await createCheckoutSession({
           applicationIds: pendingAction.applicationIds,
-          priceType: 'standard'
+          priceType: 'standard',
+          ageDiscounts: applicationsWithPrices
+            .filter(app => app.isAgeDiscounted)
+            .map(app => ({ id: app.id, discount: ageDiscountSettings?.discountPercentage || 0 }))
         });
         
         if (response.error) {
@@ -501,7 +508,6 @@ const DealerDashboard = () => {
       return [];
     }
     
-    // Filter out applications that have already been downloaded
     return selectedApplications.filter(id => 
       !downloadedApps.some(app => app.applicationId === id)
     );
@@ -512,12 +518,11 @@ const DealerDashboard = () => {
     
     let total = 0;
     appIds.forEach(id => {
-      const app = applications.find(a => a.applicationId === id);
+      const app = applications.find(a => a.applicationId === id) || 
+                 hiddenApplications.find(a => a.applicationId === id);
       if (app) {
-        const isDiscounted = app.lockInfo?.isLocked && !app.lockInfo?.isOwnLock;
-        total += isDiscounted 
-          ? (app.discountedPrice || 5.99) 
-          : (app.standardPrice || 10.99);
+        const priceValue = getPriceValue(app, ageDiscountSettings);
+        total += priceValue;
       }
     });
     

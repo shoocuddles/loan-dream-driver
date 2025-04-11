@@ -31,10 +31,16 @@ export interface StripePrice {
   active: boolean;
 }
 
+export interface AgeDiscountInfo {
+  id: string;
+  discount: number;
+}
+
 export interface StripeCheckoutParams {
   applicationIds: string[];
   priceType: 'standard' | 'discounted';
   couponId?: string;
+  ageDiscounts?: AgeDiscountInfo[];
 }
 
 export interface CheckoutSessionResponse {

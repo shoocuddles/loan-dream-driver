@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ApplicationItem, LockType } from '@/lib/types/dealer-dashboard';
@@ -66,13 +65,11 @@ const ApplicationTable = ({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
   
-  // Calculate pagination info
   const totalPages = Math.ceil(applications.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = Math.min(startIndex + itemsPerPage, applications.length);
   const currentApplications = applications.slice(startIndex, endIndex);
 
-  // Debug log for applications data
   console.log('Applications with lock info:', applications.map(app => ({ 
     id: app.applicationId,
     vehicleType: app.vehicleType,
@@ -87,7 +84,6 @@ const ApplicationTable = ({
 
   const handlePageChange = (pageNumber: number) => {
     setCurrentPage(pageNumber);
-    // Reset selection when changing pages
     selectAll(false);
   };
 
@@ -146,7 +142,6 @@ const ApplicationTable = ({
       accessorKey: 'price',
       header: 'Price',
       cell: ({ row }) => {
-        // Process the application to determine if it should be age discounted
         const price = getPrice(row.original, ageDiscountSettings);
         return (
           <div className={`font-medium text-right ${row.original.isAgeDiscounted ? 'text-green-600' : ''}`}>
@@ -190,7 +185,6 @@ const ApplicationTable = ({
             </>
           ) : (
             <>
-              {/* Order changed: Hide button first, then View Details */}
               {onHideApplication && (
                 <Button
                   variant="ghost"
@@ -258,21 +252,18 @@ const ApplicationTable = ({
                 />
               </PaginationItem>
               
-              {/* First page */}
               {currentPage > 2 && (
                 <PaginationItem>
                   <PaginationLink onClick={() => handlePageChange(1)}>1</PaginationLink>
                 </PaginationItem>
               )}
               
-              {/* Ellipsis if needed */}
               {currentPage > 3 && (
                 <PaginationItem>
                   <span className="flex h-9 w-9 items-center justify-center">...</span>
                 </PaginationItem>
               )}
               
-              {/* Previous page if not first */}
               {currentPage > 1 && (
                 <PaginationItem>
                   <PaginationLink onClick={() => handlePageChange(currentPage - 1)}>
@@ -281,14 +272,12 @@ const ApplicationTable = ({
                 </PaginationItem>
               )}
               
-              {/* Current page */}
               <PaginationItem>
                 <PaginationLink isActive onClick={() => handlePageChange(currentPage)}>
                   {currentPage}
                 </PaginationLink>
               </PaginationItem>
               
-              {/* Next page if not last */}
               {currentPage < totalPages && (
                 <PaginationItem>
                   <PaginationLink onClick={() => handlePageChange(currentPage + 1)}>
@@ -297,14 +286,12 @@ const ApplicationTable = ({
                 </PaginationItem>
               )}
               
-              {/* Ellipsis if needed */}
               {currentPage < totalPages - 2 && (
                 <PaginationItem>
                   <span className="flex h-9 w-9 items-center justify-center">...</span>
                 </PaginationItem>
               )}
               
-              {/* Last page if not current or adjacent */}
               {currentPage < totalPages - 1 && (
                 <PaginationItem>
                   <PaginationLink onClick={() => handlePageChange(totalPages)}>

@@ -34,9 +34,9 @@ serve(async (req) => {
     console.log("Processing checkout session request");
     
     // Get request data
-    const { applicationIds, priceType, couponId } = await req.json();
+    const { applicationIds, priceType, couponId, ageDiscounts } = await req.json();
     
-    console.log("Request data:", { applicationIds, priceType, couponId });
+    console.log("Request data:", { applicationIds, priceType, couponId, ageDiscounts });
     
     if (!applicationIds || !applicationIds.length || !priceType) {
       return new Response(
@@ -129,7 +129,7 @@ serve(async (req) => {
     // Get application info for each application
     const { data: applications, error: appError } = await supabase
       .from('applications')
-      .select('id, fullname, email, city')
+      .select('id, fullname, email, city, submission_date')
       .in('id', applicationIds);
     
     if (appError || !applications || applications.length === 0) {
@@ -267,22 +267,6 @@ serve(async (req) => {
         }
       }
       
-      // Calculate total price
-      let unitPrice = priceType === 'discounted' ? settings.discounted_price : settings.standard_price;
-      let totalAmount = Math.round(unitPrice * applicationsToCharge.length * 100); // Convert to cents for Stripe
-      
-      // Enforce minimum price for Stripe (50 cents)
-      const originalUnitPrice = unitPrice;
-      const originalTotalAmount = totalAmount;
-      
-      if (totalAmount < MINIMUM_STRIPE_AMOUNT) {
-        totalAmount = MINIMUM_STRIPE_AMOUNT;
-        unitPrice = MINIMUM_STRIPE_AMOUNT / applicationsToCharge.length / 100;
-        console.log(`Adjusting price from ${originalTotalAmount} cents to minimum ${MINIMUM_STRIPE_AMOUNT} cents required by Stripe`);
-      }
-      
-      console.log("Calculated price:", { unitPrice, totalAmount });
-      
       // Create line items with detailed descriptions for each application
       const lineItems = applicationsToCharge.map(app => {
         // Get last 6 characters of the application ID
@@ -290,19 +274,37 @@ serve(async (req) => {
         // Format the name to show first name and last initial
         const formattedName = formatName(app.fullname);
         
+        // Check if this application has an age discount
+        const ageDiscount = ageDiscounts?.find(d => d.id === app.id);
+        
+        // Calculate the price based on discounts
+        let unitPrice = priceType === 'discounted' ? settings.discounted_price : settings.standard_price;
+        
+        // Apply age discount if applicable
+        if (ageDiscount) {
+          const ageDiscountMultiplier = (100 - ageDiscount.discount) / 100;
+          unitPrice = unitPrice * ageDiscountMultiplier;
+          console.log(`Applied age discount (${ageDiscount.discount}%) to ${app.id}. New price: ${unitPrice}`);
+        }
+        
+        // Convert to cents for Stripe
+        const stripePriceInCents = Math.round(unitPrice * 100);
+        
         return {
           price_data: {
             currency: 'cad',
             product_data: {
               name: `Lead purchase ${formattedName} - ${appIdShort}`,
-              description: `Application from ${app.city || 'Unknown location'}`
+              description: `Application from ${app.city || 'Unknown location'}${ageDiscount ? ` (${ageDiscount.discount}% age discount)` : ''}`
             },
-            unit_amount: Math.max(Math.round(unitPrice * 100), MINIMUM_STRIPE_AMOUNT / applicationsToCharge.length), // Convert to cents, ensure minimum per item
+            unit_amount: Math.max(stripePriceInCents, MINIMUM_STRIPE_AMOUNT / applicationsToCharge.length), // Ensure minimum per item
             tax_behavior: 'exclusive',
           },
           quantity: 1,
         };
       });
+      
+      console.log("Line items:", lineItems);
       
       // Create a checkout session
       const sessionParams = {
@@ -317,9 +319,7 @@ serve(async (req) => {
           price_type: priceType,
           application_count: applicationsToCharge.length.toString(),
           application_ids: applicationsToCharge.map(app => app.id).join(','),
-          unit_price: unitPrice.toString(),
-          original_unit_price: originalUnitPrice.toString(),  // Store original price for reference
-          adjusted_for_minimum: (originalTotalAmount < MINIMUM_STRIPE_AMOUNT).toString() // Flag if price was adjusted
+          has_age_discounts: ageDiscounts && ageDiscounts.length > 0 ? 'true' : 'false'
         }
       };
       

@@ -4,17 +4,19 @@ import { Button } from "@/components/ui/button";
 
 const Header = () => {
   return (
-    <header className="bg-ontario-blue text-white py-4">
-      <div className="container mx-auto flex justify-between items-center">
+    <header className="bg-ontario-blue text-white py-4 shadow-md">
+      <div className="container mx-auto flex justify-between items-center px-4 md:px-0">
         <Link to="/" className="flex items-center gap-2">
-          <img src="/logo.png" alt="Ontario Loans Logo" className="h-10 w-auto" />
-          <span className="text-2xl font-bold">Ontario Loans</span>
+          <div className="bg-white rounded-full p-1.5 shadow-lg">
+            <img src="/logo.png" alt="Ontario Loans Logo" className="h-8 w-auto" />
+          </div>
+          <span className="text-2xl font-bold tracking-tight">Ontario Loans</span>
         </Link>
         <div className="flex gap-4">
-          <Button asChild variant="outline" className="text-white bg-transparent border-white hover:bg-white/10">
+          <Button asChild variant="outline" className="text-white bg-transparent border-white hover:bg-white/10 hover:scale-105 transition-all">
             <Link to="/apply">Apply Now</Link>
           </Button>
-          <Button asChild variant="ghost" className="text-white hover:bg-white/10">
+          <Button asChild variant="ghost" className="text-white hover:bg-white/10 hover:scale-105 transition-all">
             <Link to="/dealers" className="text-sm">Dealers</Link>
           </Button>
         </div>

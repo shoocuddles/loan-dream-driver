@@ -1,3 +1,4 @@
+
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
@@ -9,7 +10,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { useState, useEffect } from "react";
-import { Zap, Database, DollarSign, ChevronDown } from "lucide-react";
+import { Zap, Database, DollarSign, ChevronDown, Check } from "lucide-react";
 
 const Index = () => {
   const [hoveredFeature, setHoveredFeature] = useState<string | null>(null);
@@ -112,6 +113,158 @@ const Index = () => {
                 </div>
                 <h3 className="text-2xl font-semibold mb-4 text-ontario-blue">Flexible Options</h3>
                 <p className="text-gray-600 leading-relaxed">Solutions for all credit types with competitive rates and flexible terms. We tailor financing to fit your unique financial situation.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Benefits Banner - NEW Section */}
+        <section className="bg-ontario-blue py-6">
+          <div className="container mx-auto px-4">
+            <div className="flex flex-wrap md:flex-nowrap justify-center md:justify-between items-center gap-8">
+              {/* Hassle-Free */}
+              <div 
+                className="flex items-center gap-4 benefit-item"
+                onMouseEnter={() => setHoveredFeature('hassle-free')}
+                onMouseLeave={() => setHoveredFeature(null)}
+              >
+                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center flex-shrink-0">
+                  <Check 
+                    className="h-8 w-8 check-icon transition-colors" 
+                    color={hoveredFeature === 'hassle-free' ? '#22c55e' : '#003366'}
+                  />
+                </div>
+                <div className="text-white">
+                  <h3 className="font-bold text-lg">Hassle-Free</h3>
+                  <p className="text-sm text-white/80">Apply Online</p>
+                </div>
+              </div>
+
+              {/* Low Rates */}
+              <div 
+                className="flex items-center gap-4 benefit-item"
+                onMouseEnter={() => setHoveredFeature('low-rates')}
+                onMouseLeave={() => setHoveredFeature(null)}
+              >
+                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center flex-shrink-0">
+                  <Check 
+                    className="h-8 w-8 check-icon transition-colors" 
+                    color={hoveredFeature === 'low-rates' ? '#22c55e' : '#003366'}
+                  />
+                </div>
+                <div className="text-white">
+                  <h3 className="font-bold text-lg">Low Rates</h3>
+                  <p className="text-sm text-white/80">Starting at Prime Rate</p>
+                </div>
+              </div>
+
+              {/* Quick Approval */}
+              <div 
+                className="flex items-center gap-4 benefit-item"
+                onMouseEnter={() => setHoveredFeature('quick-approval')}
+                onMouseLeave={() => setHoveredFeature(null)}
+              >
+                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center flex-shrink-0">
+                  <Check 
+                    className="h-8 w-8 check-icon transition-colors" 
+                    color={hoveredFeature === 'quick-approval' ? '#22c55e' : '#003366'}
+                  />
+                </div>
+                <div className="text-white">
+                  <h3 className="font-bold text-lg">Quick Approval</h3>
+                  <p className="text-sm text-white/80">1 - 2 days</p>
+                </div>
+              </div>
+
+              {/* Online Funding */}
+              <div 
+                className="flex items-center gap-4 benefit-item"
+                onMouseEnter={() => setHoveredFeature('online-funding')}
+                onMouseLeave={() => setHoveredFeature(null)}
+              >
+                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center flex-shrink-0">
+                  <Check 
+                    className="h-8 w-8 check-icon transition-colors" 
+                    color={hoveredFeature === 'online-funding' ? '#22c55e' : '#003366'}
+                  />
+                </div>
+                <div className="text-white">
+                  <h3 className="font-bold text-lg">Online Funding</h3>
+                  <p className="text-sm text-white/80">Easy process</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Our Inventory Section - NEW */}
+        <section className="py-16 bg-white">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-center text-ontario-blue mb-2">Our Inventory</h2>
+            <p className="text-center text-lg text-gray-600 mb-12 max-w-2xl mx-auto">We have access to hundreds of vehicles to get what you want!</p>
+
+            <div className="grid md:grid-cols-3 gap-8">
+              {/* Cars & Trucks */}
+              <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+                <div className="relative h-64">
+                  <img 
+                    src="/lovable-uploads/993edf0d-ba20-4df4-aa0e-f771ca907405.png" 
+                    alt="Cars and Trucks" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-0 left-0 bg-ontario-blue text-white py-2 px-4 font-bold">
+                    Cars & Trucks
+                  </div>
+                </div>
+                <div className="p-6">
+                  <p className="text-gray-600 mb-4">We have a wide selection of cars and trucks available to meet your needs</p>
+                  <Link to="/apply" className="text-ontario-blue font-bold flex items-center gap-2 hover:underline">
+                    Apply Now
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                  </Link>
+                </div>
+              </div>
+
+              {/* SUVs & Vans */}
+              <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+                <div className="relative h-64">
+                  <img 
+                    src="/lovable-uploads/ecbb9704-2a41-43f9-aaef-3fb1aff73de6.png" 
+                    alt="SUVs and Vans" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-0 left-0 bg-ontario-blue text-white py-2 px-4 font-bold">
+                    SUVs & Vans
+                  </div>
+                </div>
+                <div className="p-6">
+                  <p className="text-gray-600 mb-4">We have minivans and SUVs to keep your family safe and comfortable</p>
+                  <Link to="/apply" className="text-ontario-blue font-bold flex items-center gap-2 hover:underline">
+                    Apply Now
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Fleet Vehicles */}
+              <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+                <div className="relative h-64">
+                  <img 
+                    src="/lovable-uploads/21a8348c-fe26-40bc-bc75-304640b6c467.png" 
+                    alt="Fleet Vehicles" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-0 left-0 bg-ontario-blue text-white py-2 px-4 font-bold">
+                    Fleet Vehicles
+                  </div>
+                </div>
+                <div className="p-6">
+                  <p className="text-gray-600 mb-4">We have a selection of fleet vehicles as well - let us know what you need</p>
+                  <Link to="/apply" className="text-ontario-blue font-bold flex items-center gap-2 hover:underline">
+                    Apply Now
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

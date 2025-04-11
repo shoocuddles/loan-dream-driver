@@ -140,30 +140,50 @@ serve(async (req) => {
       
       for (const appId of applicationIds) {
         try {
-          // Record purchase in dealer_purchases table
-          const { data: purchaseData, error: purchaseError } = await supabase.rpc(
-            'record_dealer_purchase',
-            {
-              p_dealer_id: dealerId,
-              p_application_id: appId,
-              p_payment_id: sessionId,
-              p_payment_amount: unitPrice,
-              p_stripe_session_id: sessionId,
-              p_stripe_customer_id: session.customer,
-              p_discount_applied: discountApplied,
-              p_discount_type: discountType,
-              p_discount_amount: discountAmount,
-              p_ip_address: req.headers.get('x-forwarded-for') || null
-            }
-          );
+          // Check if application is already purchased
+          const { data: existingPurchase, error: checkError } = await supabase
+            .from('dealer_purchases')
+            .select('id')
+            .eq('dealer_id', dealerId)
+            .eq('application_id', appId)
+            .eq('is_active', true)
+            .maybeSingle();
           
-          if (purchaseError) {
-            console.error(`Error recording purchase for application ${appId}:`, purchaseError);
-            allSuccessful = false;
-            continue;
+          if (checkError) {
+            console.error(`Error checking existing purchase for application ${appId}:`, checkError);
           }
           
-          console.log(`Purchase recorded for application ${appId}:`, purchaseData?.is_new ? 'New purchase' : 'Already purchased');
+          // Only create a new purchase if one doesn't exist
+          if (!existingPurchase) {
+            // Record purchase in dealer_purchases table
+            const { data: purchaseData, error: purchaseError } = await supabase
+              .from('dealer_purchases')
+              .insert({
+                dealer_id: dealerId,
+                application_id: appId,
+                payment_id: sessionId,
+                payment_amount: unitPrice,
+                stripe_session_id: sessionId,
+                stripe_customer_id: session.customer,
+                discount_applied: discountApplied,
+                discount_type: discountType,
+                discount_amount: discountAmount,
+                purchase_date: timestamp,
+                is_active: true
+              })
+              .select()
+              .single();
+            
+            if (purchaseError) {
+              console.error(`Error recording purchase for application ${appId}:`, purchaseError);
+              allSuccessful = false;
+              continue;
+            }
+            
+            console.log(`New purchase recorded for application ${appId}`);
+          } else {
+            console.log(`Application ${appId} already purchased by dealer ${dealerId}`);
+          }
           
           // Create 24-hour lock for the application
           const lockExpiry = new Date();

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useAuth } from '@/hooks/use-auth';
@@ -15,9 +14,9 @@ import ApplicationDetails from '@/components/ApplicationDetails';
 import DealerInvoices from '@/components/DealerInvoices';
 import { useSearchParams } from 'react-router-dom';
 import { 
-  fetchDealerApplications as fetchAvailableApplications,
-  fetchDealerDownloads as fetchDownloadedApplications,
-} from '@/lib/services';
+  fetchApplications as fetchAvailableApplications,
+  getDownloadedApplications as fetchDownloadedApplications,
+} from '@/lib/dealerDashboardService';
 import {
   lockApplication,
   unlockApplication,
@@ -94,26 +93,6 @@ const DealerDashboard = () => {
 
   const { user } = useAuth();
   
-  useEffect(() => {
-    if (user) {
-      const storedHiddenApps = localStorage.getItem(`hidden-apps-${user.id}`);
-      if (storedHiddenApps) {
-        try {
-          const parsedHiddenApps = JSON.parse(storedHiddenApps);
-          setHiddenApplications(parsedHiddenApps);
-        } catch (error) {
-          console.error("Error parsing hidden applications from localStorage:", error);
-        }
-      }
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (user && hiddenApplications.length > 0) {
-      localStorage.setItem(`hidden-apps-${user.id}`, JSON.stringify(hiddenApplications));
-    }
-  }, [hiddenApplications, user]);
-
   useEffect(() => {
     if (user) {
       loadData();
@@ -217,6 +196,8 @@ const DealerDashboard = () => {
     setIsLoadingDownloaded(true);
     
     try {
+      await loadPurchasedApplicationIds();
+      
       const downloadedData = await fetchDownloadedApplications(user?.id || '');
       console.log('Downloaded applications data:', downloadedData);
       
@@ -232,8 +213,6 @@ const DealerDashboard = () => {
         lockInfo: app.lockInfo,
         isDownloaded: app.isDownloaded
       })));
-      
-      await loadPurchasedApplicationIds();
       
       const filteredApps = appsData.filter(app => 
         !purchasedApplicationIds.includes(app.applicationId)

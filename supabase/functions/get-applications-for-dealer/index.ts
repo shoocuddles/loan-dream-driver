@@ -34,6 +34,8 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
     
+    console.log(`Fetching applications for dealer ${dealerId}`);
+    
     // Get applications for dealer
     const { data, error } = await supabase.rpc('get_applications_for_dealer', {
       p_dealer_id: dealerId
@@ -73,7 +75,7 @@ serve(async (req) => {
     }
     
     const purchasedIds = purchasedData.map(item => item.application_id);
-    console.log(`Filtered out ${purchasedIds.length} purchased applications`);
+    console.log(`Filtering out ${purchasedIds.length} purchased applications`);
     
     // Filter out purchased applications
     const filteredData = data.filter(app => !purchasedIds.includes(app.applicationId));

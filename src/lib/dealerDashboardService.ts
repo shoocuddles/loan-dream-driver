@@ -202,6 +202,8 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
       return [];
     }
     
+    console.log(`Retrieved ${data.length} purchased applications from database`);
+    
     // Fetch full application details for each purchased application
     const applicationIds = data.map((purchase: any) => purchase.applicationId);
     

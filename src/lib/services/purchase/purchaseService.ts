@@ -133,6 +133,8 @@ export const recordPurchaseDownload = async (applicationId: string, dealerId: st
  */
 export const getPurchasedApplicationIds = async (dealerId: string): Promise<string[]> => {
   try {
+    console.log(`Fetching purchased application IDs for dealer ${dealerId}`);
+    
     const { data, error } = await supabase
       .from('dealer_purchases')
       .select('application_id')
@@ -144,7 +146,9 @@ export const getPurchasedApplicationIds = async (dealerId: string): Promise<stri
       throw error;
     }
     
-    return (data || []).map(item => item.application_id);
+    const ids = (data || []).map(item => item.application_id);
+    console.log(`Loaded ${ids.length} purchased application IDs`);
+    return ids;
   } catch (error: any) {
     console.error('❌ Error fetching purchased application IDs:', error.message);
     return [];

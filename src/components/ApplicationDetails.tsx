@@ -1,9 +1,10 @@
+
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ApplicationItem, DownloadedApplication } from '@/lib/types/dealer-dashboard';
 import { format } from 'date-fns';
-import { Lock, Unlock } from 'lucide-react';
+import { Lock, Unlock, Download } from 'lucide-react';
 import DownloadOptions from './application-table/DownloadOptions';
 
 interface ApplicationDetailsProps {
@@ -34,20 +35,17 @@ const ApplicationDetails = ({
   const handleDownload = async () => {
     if (!application || !onDownload) return;
     await onDownload(application.applicationId);
-    // Don't close the dialog here anymore
   };
 
   const handleLock = async (lockType: string) => {
     if (!application || !onLock) return;
     await onLock(application.applicationId, lockType);
     setShowLockOptions(false);
-    onClose();
   };
 
   const handleUnlock = async () => {
     if (!application || !onUnlock) return;
     await onUnlock(application.applicationId);
-    onClose();
   };
 
   const isApplicationItem = (app: any): app is ApplicationItem => {
@@ -71,7 +69,7 @@ const ApplicationDetails = ({
     if (!isDownloaded) {
       return (
         <div className="p-4 bg-gray-50 border rounded-md">
-          <p className="text-center">Contact information will be available after download</p>
+          <p className="text-center">Contact information will be available after purchase</p>
         </div>
       );
     }
@@ -138,7 +136,7 @@ const ApplicationDetails = ({
                   {showLockOptions && (
                     <div className="absolute right-0 mt-1 bg-white shadow-lg rounded-md border border-gray-200 z-10 w-64 py-1">
                       <div className="px-4 py-2 bg-blue-50 text-xs text-blue-700 border-b border-blue-100">
-                        Lock this application to avoid other dealers being able to view. 24-hr lockout period automatic for every download.
+                        Lock this application to avoid other dealers being able to view. 24-hr lockout period automatic for every purchase.
                       </div>
                       <button
                         className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
@@ -187,7 +185,7 @@ const ApplicationDetails = ({
         <DialogHeader>
           <DialogTitle>Application Details</DialogTitle>
           <DialogDescription>
-            {isDownloaded ? 'You have access to all application details.' : 'Download to view contact information.'}
+            {isDownloaded ? 'You have access to all application details.' : 'Purchase to view contact information.'}
           </DialogDescription>
         </DialogHeader>
         

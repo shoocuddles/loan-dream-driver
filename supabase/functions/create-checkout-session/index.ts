@@ -15,20 +15,20 @@ serve(async (req) => {
   }
 
   try {
-    // Get request params
-    const { applicationId, priceType, couponId } = await req.json();
+    // Get request data
+    const { applicationIds, priceType, couponId } = await req.json();
     
-    if (!applicationId || !priceType) {
+    if (!applicationIds || !applicationIds.length || !priceType) {
       return new Response(
-        JSON.stringify({ error: "Missing required parameters" }),
+        JSON.stringify({ 
+          error: { 
+            message: "Missing required parameters",
+            details: "Application IDs and price type are required"
+          }
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
-    
-    // Initialize Stripe with the provided key
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
-      apiVersion: "2023-10-16",
-    });
     
     // Initialize Supabase client
     const supabase = createClient(
@@ -36,82 +36,243 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     );
     
-    // Fetch the appropriate price ID for the requested price type
-    const { data: priceMapping, error: priceError } = await supabase
-      .from('stripe_price_mappings')
-      .select('price_id, amount')
-      .eq('type', priceType)
-      .single();
-      
-    if (priceError || !priceMapping) {
-      console.error("Error fetching price mapping:", priceError);
+    // Get the authentication header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: "Price not found" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+        JSON.stringify({ 
+          error: { 
+            message: "Missing authorization header",
+            details: "You must be authenticated to purchase applications"
+          }
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
       );
     }
     
-    // Get application details for metadata
-    const { data: application, error: appError } = await supabase
-      .from('applications')
-      .select('fullname, email, city, vehicletype')
-      .eq('id', applicationId)
-      .single();
-      
-    if (appError) {
-      console.error("Error fetching application:", appError);
-      return new Response(
-        JSON.stringify({ error: "Application not found" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
-      );
-    }
-    
-    // Create checkout session parameters
-    const sessionParams = {
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: priceMapping.price_id,
-          quantity: 1,
-        },
-      ],
-      mode: 'payment',
-      success_url: `${req.headers.get("origin") || ""}/dealers?success=true&session_id={CHECKOUT_SESSION_ID}&application_id=${applicationId}`,
-      cancel_url: `${req.headers.get("origin") || ""}/dealers?canceled=true`,
-      metadata: {
-        applicationId: applicationId,
-        priceType: priceType,
-        applicantName: application.fullname,
-        applicantCity: application.city,
-        vehicleType: application.vehicletype
-      },
-    };
-    
-    // Add coupon if provided
-    if (couponId) {
-      sessionParams.discounts = [
-        {
-          coupon: couponId,
-        },
-      ];
-    }
-    
-    // Create the checkout session
-    const session = await stripe.checkout.sessions.create(sessionParams);
-    
-    console.log("Created checkout session:", session.id);
-    
-    return new Response(
-      JSON.stringify({
-        sessionId: session.id,
-        url: session.url,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    // Get user from the token
+    const { data: { user }, error: userError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
     );
+    
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ 
+          error: { 
+            message: "Invalid authentication token",
+            details: userError?.message || "Authentication failed"
+          }
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
+      );
+    }
+    
+    // Get dealer info
+    const { data: dealer, error: dealerError } = await supabase
+      .from('dealers')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    
+    if (dealerError || !dealer) {
+      return new Response(
+        JSON.stringify({ 
+          error: { 
+            message: "Dealer not found",
+            details: dealerError?.message || "Your dealer account could not be found"
+          }
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+      );
+    }
+    
+    // Get application info for each application
+    const { data: applications, error: appError } = await supabase
+      .from('applications')
+      .select('id, fullname, email, city')
+      .in('id', applicationIds);
+    
+    if (appError || !applications || applications.length === 0) {
+      console.error("Error fetching applications:", appError);
+      return new Response(
+        JSON.stringify({ 
+          error: { 
+            message: "Applications not found",
+            details: appError?.message || "The requested applications could not be found"
+          }
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+      );
+    }
+    
+    // Get system settings for pricing
+    const { data: settings, error: settingsError } = await supabase
+      .from('system_settings')
+      .select('*')
+      .single();
+    
+    if (settingsError || !settings) {
+      return new Response(
+        JSON.stringify({ 
+          error: { 
+            message: "System settings not found",
+            details: settingsError?.message || "Could not retrieve pricing information"
+          }
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+    
+    // Check which applications are already downloaded
+    const { data: downloadedApps, error: downloadError } = await supabase
+      .from('application_downloads')
+      .select('application_id')
+      .eq('dealer_id', dealer.id)
+      .in('application_id', applicationIds);
+    
+    const downloadedIds = downloadedApps ? downloadedApps.map(d => d.application_id) : [];
+    const applicationsToCharge = applications.filter(app => !downloadedIds.includes(app.id));
+    
+    if (applicationsToCharge.length === 0) {
+      // All applications already purchased
+      return new Response(
+        JSON.stringify({
+          message: "All selected applications have already been purchased",
+          alreadyPurchased: true
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    // Initialize Stripe
+    const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeSecretKey) {
+      console.error("Stripe secret key not configured");
+      return new Response(
+        JSON.stringify({ 
+          error: { 
+            message: "Stripe configuration error",
+            details: "Stripe secret key is not configured in the environment"
+          }
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+    
+    const stripe = new Stripe(stripeSecretKey, {
+      apiVersion: "2023-10-16",
+    });
+    
+    // Check or create Stripe customer
+    let customerId = dealer.stripe_customer_id;
+    
+    if (!customerId) {
+      try {
+        // Create a new customer
+        const customer = await stripe.customers.create({
+          email: user.email,
+          name: dealer.name,
+          metadata: {
+            dealer_id: dealer.id,
+            company: dealer.company
+          }
+        });
+        
+        customerId = customer.id;
+        
+        // Save customer ID back to dealer record
+        await supabase
+          .from('dealers')
+          .update({ stripe_customer_id: customerId })
+          .eq('id', dealer.id);
+      } catch (stripeError) {
+        console.error("Error creating Stripe customer:", stripeError);
+        return new Response(
+          JSON.stringify({ 
+            error: { 
+              message: "Failed to create customer",
+              details: stripeError.message || "Error creating Stripe customer record"
+            }
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
+    }
+    
+    // Calculate total price
+    const unitPrice = priceType === 'discounted' ? settings.discounted_price : settings.standard_price;
+    const totalAmount = Math.round(unitPrice * applicationsToCharge.length * 100); // Convert to cents for Stripe
+    
+    try {
+      // Create a checkout session
+      const sessionParams = {
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `Application Purchase${applicationsToCharge.length > 1 ? ' (Multiple)' : ''}`,
+                description: `${applicationsToCharge.length} Application${applicationsToCharge.length > 1 ? 's' : ''}`
+              },
+              unit_amount: totalAmount / applicationsToCharge.length,
+              tax_behavior: 'exclusive',
+            },
+            quantity: applicationsToCharge.length,
+          },
+        ],
+        mode: 'payment',
+        success_url: `${req.headers.get("origin")}/dealer-dashboard?payment_success=true`,
+        cancel_url: `${req.headers.get("origin")}/dealer-dashboard?payment_cancelled=true`,
+        metadata: {
+          dealer_id: dealer.id,
+          price_type: priceType,
+          application_count: applicationsToCharge.length.toString(),
+          application_ids: applicationsToCharge.map(app => app.id).join(','),
+          unit_price: unitPrice.toString()
+        }
+      };
+      
+      // Add coupon if provided
+      if (couponId) {
+        sessionParams.discounts = [
+          {
+            coupon: couponId
+          }
+        ];
+      }
+      
+      const session = await stripe.checkout.sessions.create(sessionParams);
+      
+      return new Response(
+        JSON.stringify({ 
+          sessionId: session.id,
+          url: session.url
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (stripeError) {
+      console.error("Error creating checkout session:", stripeError);
+      return new Response(
+        JSON.stringify({ 
+          error: { 
+            message: "Stripe error",
+            details: stripeError.message || "Error creating Stripe checkout session" 
+          }
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
   } catch (error) {
     console.error("Error creating checkout session:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: { 
+          message: error.message || "Unknown error",
+          details: "An unexpected error occurred while processing the request."
+        }
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }

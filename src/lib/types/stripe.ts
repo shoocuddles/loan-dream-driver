@@ -32,7 +32,7 @@ export interface StripePrice {
 }
 
 export interface StripeCheckoutParams {
-  applicationId: string;
+  applicationIds: string[];
   priceType: 'standard' | 'discounted';
   couponId?: string;
 }
@@ -57,5 +57,11 @@ export interface StripeAccountInfo {
 export interface StripeError {
   message: string;
   code?: string;
-  details?: string; // Add the details property
+  details?: string;
+}
+
+export interface PurchaseResult {
+  success: boolean;
+  message?: string;
+  alreadyPurchased?: boolean;
 }

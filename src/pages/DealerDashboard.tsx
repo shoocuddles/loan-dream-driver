@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useAuth } from '@/hooks/use-auth';
@@ -13,6 +12,7 @@ import DealerProfile from '@/components/DealerProfile';
 import PaymentSettings from '@/components/PaymentSettings';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import ApplicationDetails from '@/components/ApplicationDetails';
+import { useSearchParams } from 'react-router-dom';
 import { 
   fetchAvailableApplications,
   fetchDownloadedApplications,
@@ -21,6 +21,10 @@ import {
   recordDownload,
   fetchLockoutPeriods,
 } from '@/lib/services';
+import {
+  createCheckoutSession,
+  completePurchase
+} from '@/lib/services/stripe/stripeService';
 
 const generateApplicationPDF = (application: { 
   id: string; 
@@ -48,6 +52,7 @@ const DealerDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDownloaded, setIsLoadingDownloaded] = useState(true);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     type: 'download' | 'lock';
     applicationIds: string[];
@@ -60,6 +65,10 @@ const DealerDashboard = () => {
     { id: 2, name: '1 Week', type: '1week', fee: 9.99 },
     { id: 3, name: 'Permanent', type: 'permanent', fee: 29.99 }
   ]);
+  
+  const [searchParams] = useSearchParams();
+  const paymentSuccess = searchParams.get('payment_success') === 'true';
+  const paymentCancelled = searchParams.get('payment_cancelled') === 'true';
 
   const { user } = useAuth();
 
@@ -69,6 +78,14 @@ const DealerDashboard = () => {
       loadLockOptions();
     }
   }, [user]);
+  
+  useEffect(() => {
+    if (paymentSuccess) {
+      toast.success("Payment processed successfully. Your applications are now available.");
+    } else if (paymentCancelled) {
+      toast.info("Payment was cancelled. You can try again when you're ready.");
+    }
+  }, [paymentSuccess, paymentCancelled]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -184,7 +201,7 @@ const DealerDashboard = () => {
     try {
       setProcessingId(applicationId);
       
-      // Ensure downloadedApps is an array before using some()
+      // Check if application has already been purchased
       const isDownloaded = Array.isArray(downloadedApps) && downloadedApps.some(app => app.applicationId === applicationId);
       
       if (!isDownloaded) {
@@ -196,15 +213,7 @@ const DealerDashboard = () => {
         return;
       }
       
-      const application = applications.find(app => app.applicationId === applicationId) || 
-                        (Array.isArray(downloadedApps) ? downloadedApps.find(app => app.applicationId === applicationId) : undefined);
-      
-      if (!application) {
-        toast.error("Application not found");
-        return;
-      }
-      
-      toast.success("Application ready for download");
+      toast.success("Application is available for viewing");
     } catch (error: any) {
       console.error("Error downloading application:", error);
       toast.error("An error occurred while downloading the application.");
@@ -216,7 +225,7 @@ const DealerDashboard = () => {
   const handleBulkDownload = async () => {
     if (!user || selectedApplications.length === 0) return;
 
-    // Ensure downloadedApps is an array before using some()
+    // Find applications that haven't been downloaded yet
     const notDownloaded = Array.isArray(downloadedApps) ? 
       selectedApplications.filter(id => !downloadedApps.some(app => app.applicationId === id)) :
       selectedApplications;
@@ -224,11 +233,11 @@ const DealerDashboard = () => {
     if (notDownloaded.length > 0) {
       setPendingAction({
         type: 'download',
-        applicationIds: selectedApplications
+        applicationIds: notDownloaded
       });
       setShowPaymentDialog(true);
     } else {
-      toast.success(`${selectedApplications.length} applications ready for download`);
+      toast.success(`All selected applications are already purchased and available for download`);
     }
   };
 
@@ -245,53 +254,52 @@ const DealerDashboard = () => {
 
   const handleProcessPayment = async () => {
     if (!pendingAction) return;
+    setIsProcessingPayment(true);
 
     try {
-      setShowPaymentDialog(false);
-      
       if (pendingAction.type === 'download') {
-        toast.success("Payment processed successfully");
+        // Create Stripe checkout session for application purchase
+        const response = await createCheckoutSession({
+          applicationIds: pendingAction.applicationIds,
+          priceType: 'standard' // You could determine this based on locked status
+        });
         
-        console.log('Processing purchase for applications:', pendingAction.applicationIds);
-        
-        for (const appId of pendingAction.applicationIds) {
-          try {
-            const downloadSuccess = await recordDownload(appId);
-            if (!downloadSuccess) {
-              console.error(`Failed to record download for application ${appId}`);
-              continue;
-            }
-            
-            const lockResult = await lockApplication(appId, '24hours');
-            if (!lockResult) {
-              console.error(`Failed to apply 24-hour lock for application ${appId}`);
-            }
-          } catch (err) {
-            console.error(`Error processing application ${appId}:`, err);
+        if (response.error) {
+          if (response.error.message.includes('already purchased')) {
+            // Handle case where applications were already purchased
+            toast.success("All selected applications have already been purchased");
+            await loadData();
+            setShowPaymentDialog(false);
+            setPendingAction(null);
+            return;
           }
+          
+          throw new Error(response.error.message);
         }
         
-        toast.success(`${pendingAction.applicationIds.length} application(s) purchased`);
-        
-        setSelectedApplications([]);
-        await loadData();
+        if (response.data?.url) {
+          // Redirect to Stripe checkout
+          window.location.href = response.data.url;
+          return;
+        }
       } else if (pendingAction.type === 'lock' && pendingAction.lockType) {
-        toast.success("Payment processed successfully");
+        // Handle lock extension payment - currently using a simplified approach
+        // In a production environment, you'd want to create a Stripe checkout for this too
         
         for (const appId of pendingAction.applicationIds) {
           await lockApplication(appId, pendingAction.lockType);
         }
         
         toast.success(`${pendingAction.applicationIds.length} application(s) locked`);
-        
-        setSelectedApplications([]);
         await loadData();
       }
     } catch (error) {
       console.error("Error processing payment:", error);
-      toast.error("Failed to process payment");
+      toast.error("Failed to process payment: " + (error.message || "Unknown error"));
     } finally {
+      setShowPaymentDialog(false);
       setPendingAction(null);
+      setIsProcessingPayment(false);
     }
   };
 
@@ -320,13 +328,15 @@ const DealerDashboard = () => {
     let total = 0;
     
     if (pendingAction.type === 'download') {
-      for (const appId of pendingAction.applicationIds) {
+      // Get apps that need to be purchased
+      const appsToPurchase = pendingAction.applicationIds.filter(id => 
+        !downloadedApps.some(app => app.applicationId === id)
+      );
+      
+      // Calculate price based on app count and whether they were locked
+      for (const appId of appsToPurchase) {
         const app = applications.find(a => a.applicationId === appId);
         if (!app) continue;
-        
-        if (downloadedApps.some(d => d.applicationId === appId)) {
-          continue;
-        }
         
         const wasLocked = app.lockInfo?.isLocked && !app.lockInfo?.isOwnLock;
         total += wasLocked ? (app.discountedPrice || 5.99) : (app.standardPrice || 10.99);
@@ -421,14 +431,26 @@ const DealerDashboard = () => {
                     variant="outline" 
                     className="flex-1"
                     onClick={() => setShowPaymentDialog(false)}
+                    disabled={isProcessingPayment}
                   >
                     Cancel
                   </Button>
                   <Button 
                     className="flex-1 bg-ontario-blue hover:bg-ontario-blue/90"
                     onClick={handleProcessPayment}
+                    disabled={isProcessingPayment}
                   >
-                    Process Payment
+                    {isProcessingPayment ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Processing...
+                      </>
+                    ) : (
+                      "Proceed to Payment"
+                    )}
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500 text-center">

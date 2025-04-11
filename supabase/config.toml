@@ -1,38 +1,16 @@
 
+# This file is used to configure the Supabase CLI.
+
 project_id = "kgtfpuvksmqyaraijoal"
-
-[functions.get-account-info]
-verify_jwt = true
-
-[functions.get-account-info.secrets]
-STRIPE_SECRET_KEY = "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"
-
-[functions.list-coupons]
-verify_jwt = true
-
-[functions.list-coupons.secrets]
-STRIPE_SECRET_KEY = "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"
 
 [functions.create-checkout-session]
 verify_jwt = true
 
-[functions.create-checkout-session.secrets]
-STRIPE_SECRET_KEY = "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"
+[functions.stripe-webhook]
+verify_jwt = false
 
-[functions.create-coupon]
+[functions.get-account-info]
 verify_jwt = true
 
-[functions.create-coupon.secrets]
-STRIPE_SECRET_KEY = "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"
-
-[functions.get-prices]
+[functions.list-coupons]
 verify_jwt = true
-
-[functions.get-prices.secrets]
-STRIPE_SECRET_KEY = "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"
-
-[functions.sync-prices]
-verify_jwt = true
-
-[functions.sync-prices.secrets]
-STRIPE_SECRET_KEY = "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"

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { StripePrice, StripeCoupon, CreateCouponParams, StripeCheckoutParams, CheckoutSessionResponse, StripeError } from '@/lib/types/stripe';
 
@@ -152,13 +151,13 @@ export const getStripeAccountInfo = async (): Promise<StripeResponse<StripeAccou
 };
 
 /**
- * Creates a checkout session for the application download purchase
+ * Creates a checkout session for application purchases
  */
 export const createCheckoutSession = async (
   params: StripeCheckoutParams
 ): Promise<StripeResponse<CheckoutSessionResponse>> => {
   try {
-    console.log('🛒 Creating checkout session:', params);
+    console.log('🛒 Creating checkout session for applications:', params.applicationIds);
     
     const { data, error } = await supabase.functions.invoke('create-checkout-session', {
       body: params
@@ -170,6 +169,33 @@ export const createCheckoutSession = async (
     return { data };
   } catch (error: any) {
     console.error('❌ Error creating checkout session:', error.message);
+    return { 
+      error: { 
+        message: error.message, 
+        code: error.code,
+        details: error.details || error.message
+      } 
+    };
+  }
+};
+
+/**
+ * Completes the purchase process and records application downloads
+ */
+export const completePurchase = async (sessionId: string): Promise<StripeResponse<{ success: boolean }>> => {
+  try {
+    console.log('🔍 Verifying purchase with session ID:', sessionId);
+    
+    const { data, error } = await supabase.functions.invoke('verify-purchase', {
+      body: { sessionId }
+    });
+    
+    if (error) throw error;
+    
+    console.log('✅ Purchase verification complete:', data);
+    return { data };
+  } catch (error: any) {
+    console.error('❌ Error verifying purchase:', error.message);
     return { 
       error: { 
         message: error.message, 

@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
@@ -31,11 +30,11 @@ const Index = () => {
       <Header />
       
       <main className="flex-grow">
-        {/* Hero Section */}
+        {/* Hero Section - Updated with SUV image */}
         <section 
           className="bg-cover bg-center h-[600px] flex flex-col justify-center items-center text-white relative overflow-hidden"
           style={{ 
-            backgroundImage: "url('https://images.unsplash.com/photo-1541348263662-e068662d82af?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80')",
+            backgroundImage: "url('https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80')",
             backgroundPosition: "center"
           }}
         >
@@ -65,7 +64,7 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Features */}
+        {/* Features - remain the same, green icon hover effect already implemented */}
         <section className="py-24 bg-gradient-to-b from-ontario-gray to-white">
           <div className="container mx-auto px-4">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-ontario-blue">Why Choose Ontario Loans?</h2>

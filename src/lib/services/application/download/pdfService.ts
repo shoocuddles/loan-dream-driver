@@ -1,3 +1,4 @@
+
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
@@ -43,51 +44,51 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
         {
           title: 'Contact Details',
           fields: [
-            { label: 'Full Name', dbField: 'fullname' },
+            { label: 'Full Name', dbField: 'fullName' },
             { label: 'City', dbField: 'city' },
-            { label: 'Address', dbField: 'streetaddress' },
+            { label: 'Address', dbField: 'address' },
             { label: 'Province', dbField: 'province' },
-            { label: 'Postal Code', dbField: 'postalcode' },
+            { label: 'Postal Code', dbField: 'postalCode' },
             { label: 'Email', dbField: 'email' },
-            { label: 'Phone Number', dbField: 'phonenumber' },
+            { label: 'Phone Number', dbField: 'phoneNumber' },
             { label: 'Download Id', dbField: 'downloadId' }
           ]
         },
         {
           title: 'Vehicle Wanted',
           fields: [
-            { label: 'Vehicle Type', dbField: 'vehicletype' },
-            { label: 'Unwanted Colors', dbField: 'unwantedcolors' },
-            { label: 'Required Features', dbField: 'requiredfeatures' },
-            { label: 'Preferred Make/Model', dbField: 'preferredmakemodel' }
+            { label: 'Vehicle Type', dbField: 'vehicleType' },
+            { label: 'Unwanted Colors', dbField: 'unwantedColors' },
+            { label: 'Required Features', dbField: 'requiredFeatures' },
+            { label: 'Preferred Make/Model', dbField: 'preferredMakeModel' }
           ]
         },
         {
           title: 'Existing Loan',
           fields: [
-            { label: 'Has Existing Loan', dbField: 'hasexistingloan' },
-            { label: 'Current Vehicle', dbField: 'currentvehicle' },
-            { label: 'Current Payment', dbField: 'currentpayment' },
-            { label: 'Amount Owed', dbField: 'amountowed' },
+            { label: 'Has Existing Loan', dbField: 'hasExistingLoan' },
+            { label: 'Current Vehicle', dbField: 'currentVehicle' },
+            { label: 'Current Payment', dbField: 'currentPayment' },
+            { label: 'Amount Owed', dbField: 'amountOwed' },
             { label: 'Mileage', dbField: 'mileage' }
           ]
         },
         {
           title: 'Employment Details',
           fields: [
-            { label: 'Employment Status', dbField: 'employmentstatus' },
-            { label: 'Monthly Income', dbField: 'monthlyincome' },
-            { label: 'Employer Name', dbField: 'employer_name' },
-            { label: 'Job Title', dbField: 'job_title' },
-            { label: 'Employment Duration', dbField: 'employment_duration' },
-            { label: 'Additional Notes', dbField: 'additionalnotes' }
+            { label: 'Employment Status', dbField: 'employmentStatus' },
+            { label: 'Monthly Income', dbField: 'monthlyIncome' },
+            { label: 'Employer Name', dbField: 'employerName' },
+            { label: 'Job Title', dbField: 'jobTitle' },
+            { label: 'Employment Duration', dbField: 'employmentDuration' },
+            { label: 'Additional Notes', dbField: 'additionalNotes' }
           ]
         },
         {
           title: 'Other Details',
           fields: [
             { label: 'Download Date', dbField: 'downloadDate' },
-            { label: 'Application Id', dbField: 'id' },
+            { label: 'Application Id', dbField: 'applicationId' },
             { label: 'Submission Date', dbField: 'created_at' }
           ]
         }
@@ -108,17 +109,8 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
         
         // Create rows for this category
         const rows = category.fields.map(field => {
-          // Now we can directly access fields from our enhanced SQL function response
-          // The field names match exactly what's in the database
-          let value = application[field.dbField];
-          
-          // Also check for camelCase variants for backward compatibility
-          if (value === undefined) {
-            const camelCaseField = toCamelCase(field.dbField);
-            if (application[camelCaseField] !== undefined) {
-              value = application[camelCaseField];
-            }
-          }
+          // Get the field value, handling both camelCase and snake_case names
+          let value = getFieldValue(application, field.dbField);
           
           // Format boolean values
           if (typeof value === 'boolean') {
@@ -204,72 +196,61 @@ export const downloadAsPDF = async (applicationIds: string[]): Promise<void> => 
   }
 };
 
-// Helper function to convert snake_case to camelCase
-const toCamelCase = (str: string): string => {
-  return str.replace(/_([a-z])/g, (_, char) => char.toUpperCase());
-};
-
-// Helper function to extract field value from application
-const extractFieldValueFromApplication = (application: ApplicationData, fieldName: string): any => {
-  console.log(`Looking for field "${fieldName}" in application`);
+// Helper function to get field value from application with different casing patterns
+const getFieldValue = (application: ApplicationData, fieldName: string): any => {
+  console.log(`Looking for field "${fieldName}" in application object`);
   
-  // Direct match first
+  // Direct field match (exact match)
   if (fieldName in application) {
     return application[fieldName];
   }
   
-  // Try various casing patterns
-  const camelCaseField = toCamelCase(fieldName);
-  if (camelCaseField in application) {
-    return application[camelCaseField];
+  // Handle camelCase and snake_case variations
+  const camelCaseName = toCamelCase(fieldName);
+  if (camelCaseName in application) {
+    return application[camelCaseName];
   }
   
-  const snakeCaseField = toSnakeCase(fieldName);
-  if (snakeCaseField in application) {
-    return application[snakeCaseField];
+  const snakeCaseName = toSnakeCase(fieldName);
+  if (snakeCaseName in application) {
+    return application[snakeCaseName];
   }
   
-  // Handle special cases
-  if (fieldName === 'downloadId' && 'download_id' in application) {
-    return application.download_id;
+  // Special cases for common field name variations
+  if (fieldName === 'fullName' && 'fullname' in application) {
+    return application.fullname;
+  }
+  if (fieldName === 'address' && 'streetaddress' in application) {
+    return application.streetaddress;
+  }
+  if (fieldName === 'addressStreet' && 'streetaddress' in application) {
+    return application.streetaddress;
+  }
+  if (fieldName === 'phoneNumber' && 'phonenumber' in application) {
+    return application.phonenumber;
+  }
+  if (fieldName === 'postalCode' && 'postalcode' in application) {
+    return application.postalcode;
   }
   
-  if (fieldName === 'downloadDate') {
-    return application.downloadDate || application.downloaded_at || application.download_date;
-  }
-  
-  // For application ID, check multiple possible fields
-  if (fieldName === 'id') {
-    return application.id || application.applicationId || application.application_id;
-  }
-  
-  // Try normalized search (lowercase, no spaces)
-  const normalizedField = fieldName.toLowerCase().replace(/[_\s]/g, '');
+  // Case-insensitive search as a last resort
+  const lowerFieldName = fieldName.toLowerCase();
   for (const key in application) {
-    const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
-    if (normalizedKey === normalizedField || 
-        normalizedKey.includes(normalizedField) || 
-        normalizedField.includes(normalizedKey)) {
+    if (key.toLowerCase() === lowerFieldName) {
       return application[key];
     }
   }
   
-  // Log the keys we have in the application for this field
-  const relevantKeys = Object.keys(application).filter(k => 
-    k.toLowerCase().includes(fieldName.toLowerCase()) || 
-    fieldName.toLowerCase().includes(k.toLowerCase())
-  );
-  
-  if (relevantKeys.length > 0) {
-    console.log(`Potential matches for "${fieldName}":`, relevantKeys);
-  } else {
-    console.log(`No matches found for "${fieldName}" in application`);
-  }
-  
+  console.warn(`Could not find value for field "${fieldName}" in application`);
   return null;
 };
 
-// Convert snake_case to camelCase
+// Helper: Convert snake_case to camelCase
+const toCamelCase = (str: string): string => {
+  return str.replace(/_([a-z])/g, (_, char) => char.toUpperCase());
+};
+
+// Helper: Convert camelCase to snake_case
 const toSnakeCase = (str: string): string => {
   return str.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
 };

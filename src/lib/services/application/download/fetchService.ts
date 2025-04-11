@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Application } from '@/lib/types/supabase';
@@ -55,6 +56,7 @@ export const fetchFullApplicationDetails = async (applicationIds: string[]): Pro
       }
       else if (downloadedApps) {
         console.log('✅ Retrieved data from downloads RPC');
+        console.log('📄 Downloaded apps raw data:', downloadedApps);
         
         // The response is now directly a JSON array, no need to parse
         const downloads = Array.isArray(downloadedApps) ? downloadedApps : [downloadedApps];

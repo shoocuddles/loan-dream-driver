@@ -410,7 +410,7 @@ const DealerDashboard = () => {
     }
   };
 
-  const handleHideApplication = (applicationId: string) => {
+  const handleHideApplication = async (applicationId: string): Promise<void> => {
     const appToHide = applications.find(app => app.applicationId === applicationId);
     if (!appToHide) return;
     
@@ -423,7 +423,7 @@ const DealerDashboard = () => {
     toast.success("Application hidden successfully");
   };
 
-  const handleUnhideApplication = (applicationId: string) => {
+  const handleUnhideApplication = async (applicationId: string): Promise<void> => {
     const appToUnhide = hiddenApplications.find(app => app.applicationId === applicationId);
     if (!appToUnhide) return;
     
@@ -434,8 +434,8 @@ const DealerDashboard = () => {
     toast.success("Application unhidden successfully");
   };
 
-  const handlePurchase = (applicationId: string) => {
-    handleDownload(applicationId);
+  const handlePurchase = async (applicationId: string): Promise<void> => {
+    await handleDownload(applicationId);
   };
 
   const handleBulkPurchase = async () => {

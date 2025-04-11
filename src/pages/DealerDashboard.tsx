@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useAuth } from '@/hooks/use-auth';
@@ -415,15 +414,12 @@ const DealerDashboard = () => {
           
           if (!app) return { id: appId, price: 0, isAgeDiscounted: false };
           
-          const priceValue = app.isAgeDiscounted ? 
-            getPrice(app, ageDiscountSettings).replace('$', '') : 
-            (app.lockInfo?.isLocked && !app.lockInfo?.isOwnLock) ? 
-              app.discountedPrice?.toString() : 
-              app.standardPrice?.toString();
+          // Calculate the price properly based on all discount conditions
+          const priceValue = getPriceValue(app, ageDiscountSettings);
           
           return { 
             id: appId, 
-            price: parseFloat(priceValue || '0'),
+            price: priceValue,
             isAgeDiscounted: app.isAgeDiscounted || false
           };
         });
@@ -652,7 +648,11 @@ const DealerDashboard = () => {
                 <div className="border-t border-b py-3">
                   <div className="flex justify-between font-medium">
                     <span>Total:</span>
-                    <span>${calculateTotalPurchaseCost(getUnpurchasedApplications()).toFixed(2)}</span>
+                    {pendingAction?.type === 'download' ? (
+                      <span>${calculateTotalPurchaseCost(pendingAction.applicationIds).toFixed(2)}</span>
+                    ) : (
+                      <span>$0.00</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-3">

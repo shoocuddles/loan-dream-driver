@@ -269,24 +269,30 @@ serve(async (req) => {
       
       console.log("Calculated price:", { unitPrice, totalAmount });
       
+      // Create line items with detailed descriptions for each application
+      const lineItems = applicationsToCharge.map(app => {
+        // Get last 6 characters of the application ID
+        const appIdShort = app.id.substring(app.id.length - 6);
+        
+        return {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Lead purchase ${app.fullname || 'Applicant'} - ${appIdShort}`,
+              description: `Application from ${app.city || 'Unknown location'}`
+            },
+            unit_amount: Math.max(Math.round(unitPrice * 100), MINIMUM_STRIPE_AMOUNT / applicationsToCharge.length), // Convert to cents, ensure minimum per item
+            tax_behavior: 'exclusive',
+          },
+          quantity: 1,
+        };
+      });
+      
       // Create a checkout session
       const sessionParams = {
         customer: customerId,
         payment_method_types: ['card'],
-        line_items: [
-          {
-            price_data: {
-              currency: 'usd',
-              product_data: {
-                name: `Application Purchase${applicationsToCharge.length > 1 ? ' (Multiple)' : ''}`,
-                description: `${applicationsToCharge.length} Application${applicationsToCharge.length > 1 ? 's' : ''}`
-              },
-              unit_amount: Math.max(Math.round(unitPrice * 100), MINIMUM_STRIPE_AMOUNT / applicationsToCharge.length), // Convert to cents, ensure minimum per item
-              tax_behavior: 'exclusive',
-            },
-            quantity: applicationsToCharge.length,
-          },
-        ],
+        line_items: lineItems,
         mode: 'payment',
         success_url: `${req.headers.get("origin") || 'https://loan-dream-driver.lovable.app'}/dealer-dashboard?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${req.headers.get("origin") || 'https://loan-dream-driver.lovable.app'}/dealer-dashboard?payment_cancelled=true`,

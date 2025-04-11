@@ -62,7 +62,7 @@ const ApplicationFormStep1 = ({ formData, updateFormData, nextStep }: Applicatio
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6" autoComplete="on">
       <h2 className="text-2xl font-bold text-center text-ontario-blue mb-6">Personal Information</h2>
       
       <div className="space-y-4">
@@ -70,6 +70,8 @@ const ApplicationFormStep1 = ({ formData, updateFormData, nextStep }: Applicatio
           <Label htmlFor="fullName">Full Name</Label>
           <Input
             id="fullName"
+            name="name"
+            autoComplete="name"
             value={formData.fullName}
             onChange={(e) => updateFormData({ fullName: e.target.value })}
             className={errors.fullName ? "border-red-500" : ""}
@@ -81,6 +83,9 @@ const ApplicationFormStep1 = ({ formData, updateFormData, nextStep }: Applicatio
           <Label htmlFor="phoneNumber">Phone Number</Label>
           <Input
             id="phoneNumber"
+            name="tel"
+            autoComplete="tel"
+            type="tel"
             value={formData.phoneNumber}
             onChange={(e) => updateFormData({ phoneNumber: e.target.value })}
             placeholder="(xxx) xxx-xxxx"
@@ -93,7 +98,9 @@ const ApplicationFormStep1 = ({ formData, updateFormData, nextStep }: Applicatio
           <Label htmlFor="email">Email Address</Label>
           <Input
             id="email"
+            name="email"
             type="email"
+            autoComplete="email"
             value={formData.email}
             onChange={(e) => updateFormData({ email: e.target.value })}
             className={errors.email ? "border-red-500" : ""}
@@ -105,6 +112,8 @@ const ApplicationFormStep1 = ({ formData, updateFormData, nextStep }: Applicatio
           <Label htmlFor="streetAddress">Street Address</Label>
           <Input
             id="streetAddress"
+            name="address-line1"
+            autoComplete="street-address"
             value={formData.streetAddress}
             onChange={(e) => updateFormData({ streetAddress: e.target.value })}
             className={errors.streetAddress ? "border-red-500" : ""}
@@ -117,6 +126,8 @@ const ApplicationFormStep1 = ({ formData, updateFormData, nextStep }: Applicatio
             <Label htmlFor="city">City</Label>
             <Input
               id="city"
+              name="city"
+              autoComplete="address-level2"
               value={formData.city}
               onChange={(e) => updateFormData({ city: e.target.value })}
               className={errors.city ? "border-red-500" : ""}
@@ -130,7 +141,7 @@ const ApplicationFormStep1 = ({ formData, updateFormData, nextStep }: Applicatio
               value={formData.province} 
               onValueChange={(value: 'Ontario' | 'Quebec') => updateFormData({ province: value })}
             >
-              <SelectTrigger className={errors.province ? "border-red-500" : ""}>
+              <SelectTrigger id="province" className={errors.province ? "border-red-500" : ""}>
                 <SelectValue placeholder="Select a province" />
               </SelectTrigger>
               <SelectContent>
@@ -146,6 +157,8 @@ const ApplicationFormStep1 = ({ formData, updateFormData, nextStep }: Applicatio
           <Label htmlFor="postalCode">Postal Code</Label>
           <Input
             id="postalCode"
+            name="postal-code"
+            autoComplete="postal-code"
             value={formData.postalCode}
             onChange={(e) => updateFormData({ postalCode: e.target.value })}
             placeholder="A1A 1A1"

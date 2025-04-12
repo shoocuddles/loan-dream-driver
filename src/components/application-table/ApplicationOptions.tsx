@@ -7,22 +7,18 @@ interface ApplicationOptionsProps {
   hideOlderThan90Days: boolean;
   hideLockedApplications: boolean;
   hidePurchasedApplications: boolean;
-  autoRefresh: boolean;
   onToggleHideOlderThan90Days: (checked: boolean) => void;
   onToggleHideLockedApplications: (checked: boolean) => void;
   onToggleHidePurchasedApplications: (checked: boolean) => void;
-  onToggleAutoRefresh: (checked: boolean) => void;
 }
 
 const ApplicationOptions = ({
   hideOlderThan90Days,
   hideLockedApplications,
   hidePurchasedApplications,
-  autoRefresh,
   onToggleHideOlderThan90Days,
   onToggleHideLockedApplications,
-  onToggleHidePurchasedApplications,
-  onToggleAutoRefresh
+  onToggleHidePurchasedApplications
 }: ApplicationOptionsProps) => {
   return (
     <div className="bg-gray-50 p-4 rounded-md border mb-4">
@@ -51,14 +47,6 @@ const ApplicationOptions = ({
             onCheckedChange={onToggleHidePurchasedApplications} 
           />
           <Label htmlFor="hidePurchasedApplications">Hide previously purchased applications</Label>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Checkbox 
-            id="autoRefresh" 
-            checked={autoRefresh} 
-            onCheckedChange={onToggleAutoRefresh} 
-          />
-          <Label htmlFor="autoRefresh">Auto-refresh page every 60 seconds</Label>
         </div>
       </div>
     </div>

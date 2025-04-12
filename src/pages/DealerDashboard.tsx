@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -16,13 +15,29 @@ import ApplicationDetails from '@/components/ApplicationDetails';
 import DealerInvoices from '@/components/DealerInvoices';
 import { useSearchParams } from 'react-router-dom';
 import { differenceInDays, parseISO } from 'date-fns';
+import { 
+  fetchApplications as fetchAvailableApplications,
+  getDownloadedApplications as fetchDownloadedApplications,
+} from '@/lib/dealerDashboardService';
+import {
+  lockApplication,
+  unlockApplication,
+  fetchLockoutPeriods,
+} from '@/lib/services/lock/lockService';
+import {
+  createCheckoutSession,
+  completePurchase
+} from '@/lib/services/stripe/stripeService';
+import { 
+  fetchSystemSettings
+} from '@/lib/services/settings/settingsService';
+import {
+  getPurchasedApplicationIds
+} from '@/lib/services/purchase/purchaseService';
+import { AgeDiscountSettings, getPrice, getPriceValue } from '@/components/application-table/priceUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, EyeOff } from 'lucide-react';
-import { AgeDiscountSettings } from '@/components/application-table/priceUtils';
-import { lockApplication } from '@/lib/services/lock/lockService';
+import { EyeOff, Eye } from 'lucide-react';
 
-// Mock functions for the missing functions
-// In a real implementation, these would be imported from appropriate service files
 const generateApplicationPDF = (application: { 
   id: string; 
   fullName: string; 
@@ -64,32 +79,6 @@ const processLocksAfterPayment = async (
   return locksProcessed;
 };
 
-// Mock functions for the missing service functions
-const fetchDownloadedApplications = async (userId: string): Promise<DownloadedApplication[]> => {
-  console.log('Fetching downloaded applications for user:', userId);
-  return [];
-};
-
-const fetchAvailableApplications = async (userId: string): Promise<ApplicationItem[]> => {
-  console.log('Fetching available applications for user:', userId);
-  return [];
-};
-
-const getPurchasedApplicationIds = async (userId: string): Promise<string[]> => {
-  console.log('Fetching purchased application IDs for user:', userId);
-  return [];
-};
-
-const fetchSystemSettings = async (): Promise<SystemSettings | null> => {
-  console.log('Fetching system settings');
-  return null;
-};
-
-const completePurchase = async (sessionId: string): Promise<{error?: any, data?: any}> => {
-  console.log('Completing purchase for session:', sessionId);
-  return { data: {} };
-};
-
 const DealerDashboard = () => {
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [downloadedApps, setDownloadedApps] = useState<DownloadedApplication[]>([]);
@@ -123,10 +112,8 @@ const DealerDashboard = () => {
   const [hideOlderThan90Days, setHideOlderThan90Days] = useState<boolean>(true);
   const [hideLockedApplications, setHideLockedApplications] = useState<boolean>(false);
   const [hidePurchasedApplications, setHidePurchasedApplications] = useState<boolean>(true);
-  const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
   
   const selectionBeforePayment = useRef<string[]>([]);
-  const autoRefreshTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const [searchParams, setSearchParams] = useSearchParams();
   const paymentSuccess = searchParams.get('payment_success') === 'true';
@@ -135,81 +122,6 @@ const DealerDashboard = () => {
 
   const { user } = useAuth();
   
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setIsLoadingDownloaded(true);
-    
-    try {
-      await loadPurchasedApplicationIds();
-      
-      const downloadedData = await fetchDownloadedApplications(user?.id || '');
-      console.log('Downloaded applications data:', downloadedData && Array.isArray(downloadedData) ? downloadedData.length : 0);
-      
-      const downloadedAppsList = Array.isArray(downloadedData) ? downloadedData : [];
-      setDownloadedApps(downloadedAppsList);
-      
-      if (downloadedAppsList.length > 0) {
-        console.log('Sample downloaded application:', {
-          id: downloadedAppsList[0].id,
-          applicationId: downloadedAppsList[0].applicationId,
-          fullName: downloadedAppsList[0].fullName,
-          email: downloadedAppsList[0].email,
-          downloadDate: downloadedAppsList[0].downloadDate
-        });
-      }
-      
-      const downloadedAppIds = downloadedAppsList.map(app => app.applicationId);
-      console.log('Downloaded application IDs:', downloadedAppIds.length);
-      
-      const appsData = await fetchAvailableApplications(user?.id || '');
-      console.log('Loaded applications with lock info:', appsData.map(app => ({
-        id: app.applicationId,
-        lockInfo: app.lockInfo,
-        isDownloaded: app.isDownloaded,
-        isPurchased: app.isPurchased
-      })));
-      
-      let filteredApps = appsData.filter(app => {
-        if (hidePurchasedApplications && (app.isPurchased || purchasedApplicationIds.includes(app.applicationId) || downloadedAppIds.includes(app.applicationId))) {
-          return false;
-        }
-        
-        if (hideLockedApplications && app.lockInfo?.isLocked && !app.lockInfo?.isOwnLock) {
-          return false;
-        }
-        
-        if (hideOlderThan90Days && app.submissionDate) {
-          const submissionDate = parseISO(app.submissionDate);
-          const ageDays = differenceInDays(new Date(), submissionDate);
-          if (ageDays > 90) {
-            return false;
-          }
-        }
-        
-        return true;
-      });
-      
-      filteredApps.sort((a, b) => {
-        const dateA = a.submissionDate ? new Date(a.submissionDate).getTime() : 0;
-        const dateB = b.submissionDate ? new Date(b.submissionDate).getTime() : 0;
-        return dateB - dateA;
-      });
-      
-      const hiddenAppIds = hiddenApplications.map(app => app.applicationId);
-      const visibleApps = filteredApps.filter(app => !hiddenAppIds.includes(app.applicationId));
-      
-      setApplications(visibleApps);
-      
-    } catch (error) {
-      console.error("Error loading data:", error);
-      toast.error("Failed to load data. Please try again.");
-      setDownloadedApps([]);
-    } finally {
-      setIsLoading(false);
-      setIsLoadingDownloaded(false);
-    }
-  }, [user?.id, hideOlderThan90Days, hideLockedApplications, hidePurchasedApplications, hiddenApplications, purchasedApplicationIds]);
-
   useEffect(() => {
     if (user) {
       loadData();
@@ -217,28 +129,8 @@ const DealerDashboard = () => {
       loadSystemSettings();
       loadPurchasedApplicationIds();
     }
-  }, [user, loadData]);
-
-  useEffect(() => {
-    if (autoRefreshTimerRef.current) {
-      clearInterval(autoRefreshTimerRef.current);
-      autoRefreshTimerRef.current = null;
-    }
-    
-    if (autoRefresh && user) {
-      autoRefreshTimerRef.current = setInterval(() => {
-        console.log('Auto-refreshing applications data...');
-        loadData();
-      }, 60000);
-    }
-    
-    return () => {
-      if (autoRefreshTimerRef.current) {
-        clearInterval(autoRefreshTimerRef.current);
-      }
-    };
-  }, [autoRefresh, user, loadData]);
-
+  }, [user]);
+  
   const loadPurchasedApplicationIds = async () => {
     if (!user?.id) return;
     
@@ -249,11 +141,6 @@ const DealerDashboard = () => {
     } catch (error) {
       console.error("Error loading purchased application IDs:", error);
     }
-  };
-
-  const loadLockOptions = async () => {
-    // Mock implementation - in a real app, this would fetch from API
-    console.log('Loading lock options');
   };
   
   const loadSystemSettings = async () => {
@@ -367,32 +254,100 @@ const DealerDashboard = () => {
     }
   }, [paymentSuccess, paymentCancelled, sessionId]);
 
-  // Required functions for the table to work
-  const toggleApplicationSelection = (id: string) => {
-    setSelectedApplications(prev => 
-      prev.includes(id) ? prev.filter(appId => appId !== id) : [...prev, id]
-    );
-  };
-
-  const handleSelectAll = (select: boolean) => {
-    if (select) {
-      const allIds = applications.map(app => app.applicationId);
-      setSelectedApplications(allIds);
-    } else {
-      setSelectedApplications([]);
+  const loadData = async () => {
+    setIsLoading(true);
+    setIsLoadingDownloaded(true);
+    
+    try {
+      await loadPurchasedApplicationIds();
+      
+      const downloadedData = await fetchDownloadedApplications(user?.id || '');
+      console.log('Downloaded applications data:', downloadedData && Array.isArray(downloadedData) ? downloadedData.length : 0);
+      
+      const downloadedAppsList = Array.isArray(downloadedData) ? downloadedData : [];
+      setDownloadedApps(downloadedAppsList);
+      
+      if (downloadedAppsList.length > 0) {
+        console.log('Sample downloaded application:', {
+          id: downloadedAppsList[0].id,
+          applicationId: downloadedAppsList[0].applicationId,
+          fullName: downloadedAppsList[0].fullName,
+          email: downloadedAppsList[0].email,
+          downloadDate: downloadedAppsList[0].downloadDate
+        });
+      }
+      
+      const downloadedAppIds = downloadedAppsList.map(app => app.applicationId);
+      console.log('Downloaded application IDs:', downloadedAppIds.length);
+      
+      const appsData = await fetchAvailableApplications(user?.id || '');
+      console.log('Loaded applications with lock info:', appsData.map(app => ({
+        id: app.applicationId,
+        lockInfo: app.lockInfo,
+        isDownloaded: app.isDownloaded,
+        isPurchased: app.isPurchased
+      })));
+      
+      let filteredApps = appsData.filter(app => {
+        if (hidePurchasedApplications && (app.isPurchased || purchasedApplicationIds.includes(app.applicationId) || downloadedAppIds.includes(app.applicationId))) {
+          return false;
+        }
+        
+        if (hideLockedApplications && app.lockInfo?.isLocked && !app.lockInfo?.isOwnLock) {
+          return false;
+        }
+        
+        if (hideOlderThan90Days && app.submissionDate) {
+          const submissionDate = parseISO(app.submissionDate);
+          const ageDays = differenceInDays(new Date(), submissionDate);
+          if (ageDays > 90) {
+            return false;
+          }
+        }
+        
+        return true;
+      });
+      
+      filteredApps.sort((a, b) => {
+        const dateA = a.submissionDate ? new Date(a.submissionDate).getTime() : 0;
+        const dateB = b.submissionDate ? new Date(b.submissionDate).getTime() : 0;
+        return dateB - dateA;
+      });
+      
+      const hiddenAppIds = hiddenApplications.map(app => app.applicationId);
+      const visibleApps = filteredApps.filter(app => !hiddenAppIds.includes(app.applicationId));
+      
+      setApplications(visibleApps);
+      
+    } catch (error) {
+      console.error("Error loading data:", error);
+      toast.error("Failed to load data. Please try again.");
+      setDownloadedApps([]);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingDownloaded(false);
     }
   };
 
-  const handleLockApplication = async (applicationId: string, lockType: LockType) => {
-    console.log(`Locking application ${applicationId} with type: ${lockType}`);
-  };
-
-  const handleUnlockApplication = async (applicationId: string) => {
-    console.log(`Unlocking application ${applicationId}`);
-  };
-
-  const handleDownload = async (applicationId: string) => {
-    console.log(`Downloading application ${applicationId}`);
+  const loadLockOptions = async () => {
+    try {
+      const periods = await fetchLockoutPeriods();
+      
+      if (periods.length > 0) {
+        setLockOptions(periods.map(period => ({
+          id: period.id,
+          name: period.name,
+          type: period.name === '24 Hours' 
+            ? '24hours' 
+            : period.name === '1 Week' 
+              ? '1week' 
+              : 'permanent',
+          fee: period.fee
+        })));
+      }
+    } catch (error) {
+      console.error("Error loading lock options:", error);
+    }
   };
 
   const handleViewDetails = (application: ApplicationItem | DownloadedApplication) => {
@@ -400,92 +355,333 @@ const DealerDashboard = () => {
     setShowDetails(true);
   };
 
-  const handleHideApplication = async (applicationId: string) => {
-    console.log(`Hiding application ${applicationId}`);
+  const handleLockApplication = async (applicationId: string, lockType: LockType) => {
+    if (!user) return;
+
+    try {
+      setProcessingId(applicationId);
+      
+      if (lockType !== 'temporary') {
+        setPendingAction({
+          type: 'lock',
+          applicationIds: [applicationId],
+          lockType
+        });
+        setShowPaymentDialog(true);
+        return;
+      }
+
+      const success = await lockApplication(applicationId, lockType);
+
+      if (success) {
+        toast.success(`Application temporarily locked for 2 minutes`);
+        loadData();
+      } else {
+        toast.error("Failed to lock application. Please try again.");
+      }
+    } catch (error: any) {
+      console.error("Error locking application:", error);
+      toast.error("An error occurred while locking the application.");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleUnlockApplication = async (applicationId: string) => {
+    try {
+      setProcessingId(applicationId);
+      const success = await unlockApplication(applicationId);
+
+      if (success) {
+        toast.success("Application unlocked successfully");
+        loadData();
+      } else {
+        toast.error("Failed to unlock application. Please try again.");
+      }
+    } catch (error: any) {
+      console.error("Error unlocking application:", error);
+      toast.error("An error occurred while unlocking the application.");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDownload = async (applicationId: string) => {
+    if (!user) return;
+
+    try {
+      setProcessingId(applicationId);
+      
+      const isPurchased = purchasedApplicationIds.includes(applicationId);
+      const isDownloaded = Array.isArray(downloadedApps) && downloadedApps.some(app => app.applicationId === applicationId);
+      
+      if (isPurchased || isDownloaded) {
+        console.log('This application has already been purchased, showing it for free');
+        toast.success("Application is already purchased and available for viewing");
+        
+        const downloadedApp = downloadedApps.find(app => app.applicationId === applicationId);
+        if (downloadedApp) {
+          handleViewDetails(downloadedApp);
+        }
+      } else {
+        setPendingAction({
+          type: 'download',
+          applicationIds: [applicationId]
+        });
+        setShowPaymentDialog(true);
+      }
+    } catch (error: any) {
+      console.error("Error handling application download:", error);
+      toast.error("An error occurred while processing the application.");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleHideApplication = async (applicationId: string): Promise<void> => {
     const appToHide = applications.find(app => app.applicationId === applicationId);
-    if (appToHide) {
-      setHiddenApplications(prev => [...prev, appToHide]);
-      setApplications(prev => prev.filter(app => app.applicationId !== applicationId));
-    }
+    if (!appToHide) return;
+    
+    setHiddenApplications(prev => [...prev, appToHide]);
+    
+    setApplications(prev => prev.filter(app => app.applicationId !== applicationId));
+    
+    setSelectedApplications(prev => prev.filter(id => id !== applicationId));
+    
+    toast.success("Application hidden successfully");
   };
 
-  const handleUnhideApplication = async (applicationId: string) => {
-    console.log(`Unhiding application ${applicationId}`);
+  const handleUnhideApplication = async (applicationId: string): Promise<void> => {
     const appToUnhide = hiddenApplications.find(app => app.applicationId === applicationId);
-    if (appToUnhide) {
-      setApplications(prev => [...prev, appToUnhide]);
-      setHiddenApplications(prev => prev.filter(app => app.applicationId !== applicationId));
-    }
+    if (!appToUnhide) return;
+    
+    setApplications(prev => [...prev, appToUnhide]);
+    
+    setHiddenApplications(prev => prev.filter(app => app.applicationId !== applicationId));
+    
+    toast.success("Application unhidden successfully");
   };
 
-  const handlePurchase = async (applicationId: string) => {
-    console.log(`Purchasing application ${applicationId}`);
+  const handleBulkHide = async (): Promise<void> => {
+    if (selectedApplications.length === 0) return;
+
+    const appsToHide = applications.filter(app => selectedApplications.includes(app.applicationId));
+    
+    setHiddenApplications(prev => [...prev, ...appsToHide]);
+    
+    setApplications(prev => prev.filter(app => !selectedApplications.includes(app.applicationId)));
+    
+    setSelectedApplications([]);
+    
+    toast.success(`${appsToHide.length} application(s) hidden successfully`);
   };
 
-  // Bulk action handlers
-  const handleBulkDownload = async () => {
-    console.log(`Bulk downloading ${selectedApplications.length} applications`);
-  };
-
-  const handleBulkLock = async (lockType: LockType) => {
-    console.log(`Bulk locking ${selectedApplications.length} applications with type: ${lockType}`);
+  const handlePurchase = async (applicationId: string): Promise<void> => {
+    await handleDownload(applicationId);
   };
 
   const handleBulkPurchase = async () => {
-    console.log(`Bulk purchasing ${selectedApplications.length} applications`);
+    if (!user || selectedApplications.length === 0) return;
+    
+    const unpurchasedApps = getUnpurchasedApplications();
+    
+    if (unpurchasedApps.length > 0) {
+      selectionBeforePayment.current = [...selectedApplications];
+      
+      setPendingAction({
+        type: 'download',
+        applicationIds: unpurchasedApps
+      });
+      setShowPaymentDialog(true);
+    } else {
+      toast.success("All selected applications are already purchased");
+    }
   };
 
-  const handleBulkHide = async () => {
-    console.log(`Bulk hiding ${selectedApplications.length} applications`);
-    const appsToHide = applications.filter(app => selectedApplications.includes(app.applicationId));
-    if (appsToHide.length > 0) {
-      setHiddenApplications(prev => [...prev, ...appsToHide]);
-      setApplications(prev => prev.filter(app => !selectedApplications.includes(app.applicationId)));
+  const handleBulkDownload = async () => {
+    if (!user || selectedApplications.length === 0) return;
+
+    const notDownloaded = getUnpurchasedApplications();
+    
+    if (notDownloaded.length > 0) {
+      selectionBeforePayment.current = [...selectedApplications];
+      
+      setPendingAction({
+        type: 'download',
+        applicationIds: notDownloaded
+      });
+      setShowPaymentDialog(true);
+    } else {
+      toast.success(`All selected applications are already purchased and available for download`);
+    }
+  };
+
+  const handleBulkLock = async (lockType: LockType) => {
+    if (!user || selectedApplications.length === 0) return;
+
+    setPendingAction({
+      type: 'lock',
+      applicationIds: selectedApplications,
+      lockType
+    });
+    setShowPaymentDialog(true);
+  };
+
+  const handleProcessPayment = async () => {
+    if (!pendingAction) return;
+    setIsProcessingPayment(true);
+
+    try {
+      if (pendingAction.type === 'download') {
+        toast.loading("Creating checkout session...");
+        
+        const applicationsWithPrices = pendingAction.applicationIds.map(appId => {
+          const app = applications.find(a => a.applicationId === appId) || 
+                     hiddenApplications.find(a => a.applicationId === appId);
+          
+          if (!app) return { id: appId, price: 0, isAgeDiscounted: false };
+          
+          const priceValue = getPriceValue(app, ageDiscountSettings);
+          
+          return { 
+            id: appId, 
+            price: priceValue,
+            isAgeDiscounted: app.isAgeDiscounted || false
+          };
+        });
+        
+        console.log('Sending applications with prices to checkout:', applicationsWithPrices);
+        
+        const response = await createCheckoutSession({
+          applicationIds: pendingAction.applicationIds,
+          priceType: 'standard',
+          ageDiscounts: applicationsWithPrices
+            .filter(app => app.isAgeDiscounted)
+            .map(app => ({ id: app.id, discount: ageDiscountSettings?.discountPercentage || 0 }))
+        });
+        
+        if (response.error) {
+          console.error('Error response from checkout session:', response.error);
+          
+          if (response.error.message && response.error.message.includes('already purchased')) {
+            toast.success("All selected applications have already been purchased");
+            await loadData();
+            setShowPaymentDialog(false);
+            setPendingAction(null);
+            return;
+          }
+          
+          throw new Error(response.error.message);
+        }
+        
+        if (response.data?.url) {
+          toast.success("Checkout session created. Redirecting to payment page...");
+          
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          window.location.href = response.data.url;
+          return;
+        } else {
+          throw new Error('No checkout URL returned from Stripe');
+        }
+      } else if (pendingAction.type === 'lock' && pendingAction.lockType) {
+        toast.loading(`Locking ${pendingAction.applicationIds.length} application(s)...`);
+        
+        for (const appId of pendingAction.applicationIds) {
+          await lockApplication(appId, pendingAction.lockType);
+        }
+        
+        toast.success(`${pendingAction.applicationIds.length} application(s) locked`);
+        await loadData();
+      }
+    } catch (error: any) {
+      console.error("Error processing payment:", error);
+      toast.error(`Failed to process payment: ${error.message || "Unknown error"}`, {
+        description: "Please check the console for more details and try again later."
+      });
+    } finally {
+      toast.dismiss();
+      setShowPaymentDialog(false);
+      setPendingAction(null);
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const toggleApplicationSelection = (applicationId: string) => {
+    setSelectedApplications(prev => 
+      prev.includes(applicationId)
+        ? prev.filter(id => id !== applicationId)
+        : [...prev, applicationId]
+    );
+  };
+
+  const handleSelectAll = (select: boolean) => {
+    if (select) {
+      const selectableApps = applications
+        .filter(app => !app.lockInfo?.isLocked || app.lockInfo?.isOwnLock)
+        .map(app => app.applicationId);
+      setSelectedApplications(selectableApps);
+    } else {
       setSelectedApplications([]);
     }
   };
 
-  // Helper functions
   const getUnpurchasedApplications = () => {
-    return selectedApplications.filter(id => !purchasedApplicationIds.includes(id));
+    if (!Array.isArray(selectedApplications)) {
+      return [];
+    }
+    
+    return selectedApplications.filter(id => 
+      !purchasedApplicationIds.includes(id)
+    );
   };
-
-  const calculateTotalPurchaseCost = (applicationIds: string[]) => {
-    return applicationIds.length * 10.99;
+  
+  const calculateTotalPurchaseCost = (appIds: string[]) => {
+    if (!appIds.length) return 0;
+    
+    let total = 0;
+    appIds.forEach(id => {
+      const app = applications.find(a => a.applicationId === id) || 
+                 hiddenApplications.find(a => a.applicationId === id);
+      if (app) {
+        const priceValue = getPriceValue(app, ageDiscountSettings);
+        total += priceValue;
+      }
+    });
+    
+    return total;
   };
-
+  
   const areAllSelectedDownloaded = () => {
-    return selectedApplications.every(id => purchasedApplicationIds.includes(id));
-  };
-
-  const handleProcessPayment = async () => {
-    console.log('Processing payment');
-    setIsProcessingPayment(true);
-    setTimeout(() => {
-      setIsProcessingPayment(false);
-      setShowPaymentDialog(false);
-    }, 2000);
+    if (!Array.isArray(selectedApplications) || selectedApplications.length === 0) {
+      return false;
+    }
+    
+    return selectedApplications.every(id => 
+      purchasedApplicationIds.includes(id)
+    );
   };
 
   const handleToggleHideOlderThan90Days = (checked: boolean) => {
     setHideOlderThan90Days(checked);
-    setTimeout(loadData, 0);
+    loadData();
   };
 
   const handleToggleHideLockedApplications = (checked: boolean) => {
     setHideLockedApplications(checked);
-    setTimeout(loadData, 0);
+    loadData();
   };
 
   const handleToggleHidePurchasedApplications = (checked: boolean) => {
     setHidePurchasedApplications(checked);
-    setTimeout(loadData, 0);
+    loadData();
   };
-  
-  const handleToggleAutoRefresh = (checked: boolean) => {
-    setAutoRefresh(checked);
-    setTimeout(loadData, 0);
-  };
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [hideOlderThan90Days, hideLockedApplications, hidePurchasedApplications]);
 
   return (
     <DealerDashboardLayout
@@ -513,11 +709,9 @@ const DealerDashboard = () => {
                     hideOlderThan90Days={hideOlderThan90Days}
                     hideLockedApplications={hideLockedApplications}
                     hidePurchasedApplications={hidePurchasedApplications}
-                    autoRefresh={autoRefresh}
                     onToggleHideOlderThan90Days={handleToggleHideOlderThan90Days}
                     onToggleHideLockedApplications={handleToggleHideLockedApplications}
                     onToggleHidePurchasedApplications={handleToggleHidePurchasedApplications}
-                    onToggleAutoRefresh={handleToggleAutoRefresh}
                   />
                   <ApplicationTable
                     applications={applications}
@@ -597,10 +791,10 @@ const DealerDashboard = () => {
           </Card>
           
           <ApplicationDetails
-            application={detailsApplication}
+            application={detailsApplication as ApplicationItem}
             isOpen={showDetails}
             onClose={() => setShowDetails(false)}
-            isDownloaded={detailsApplication ? purchasedApplicationIds.includes(detailsApplication.applicationId) : false}
+            isDownloaded={purchasedApplicationIds.includes(detailsApplication?.applicationId || '')}
             onDownload={handleDownload}
             onLock={handleLockApplication}
             onUnlock={handleUnlockApplication}

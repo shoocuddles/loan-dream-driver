@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Download, ExternalLink } from "lucide-react";
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
-import { supabase } from '@/integrations/supabase/client';
+import { getDealerInvoices } from '@/lib/dealerDashboardService';
 
 interface Invoice {
   id: string;
@@ -35,22 +35,13 @@ const DealerInvoices = () => {
       setIsLoading(true);
       console.log('Fetching invoices for dealer');
       
-      // Call Supabase function to get invoices
-      const { data, error } = await supabase.functions.invoke('get-dealer-invoices', {
-        body: {}
-      });
+      const invoicesData = await getDealerInvoices();
       
-      if (error) {
-        console.error('Error fetching invoices:', error);
-        toast.error('Failed to load invoices');
-        return;
-      }
-      
-      if (Array.isArray(data?.invoices)) {
-        console.log(`Fetched ${data.invoices.length} invoices`);
-        setInvoices(data.invoices);
+      if (Array.isArray(invoicesData)) {
+        console.log(`Fetched ${invoicesData.length} invoices`);
+        setInvoices(invoicesData);
       } else {
-        console.error('Invalid response format for invoices:', data);
+        console.error('Invalid response format for invoices:', invoicesData);
         setInvoices([]);
       }
     } catch (error) {

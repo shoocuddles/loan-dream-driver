@@ -45,7 +45,7 @@ serve(async (req) => {
     // Get dealer's email from user_profiles
     const { data: dealer, error: dealerError } = await supabase
       .from('user_profiles')
-      .select('email')
+      .select('email, stripe_customer_id')
       .eq('id', user.id)
       .single();
     
@@ -63,35 +63,39 @@ serve(async (req) => {
       httpClient: Stripe.createFetchHttpClient(),
     });
     
-    // Find customer by email since stripe_customer_id isn't available
-    const customers = await stripe.customers.list({ 
-      email: dealer.email,
-      limit: 1 
-    });
+    // Check if we already have a saved Stripe customer ID
+    let customerId = dealer.stripe_customer_id;
     
-    let customerId = null;
-    if (customers.data.length > 0) {
-      customerId = customers.data[0].id;
+    if (!customerId) {
+      // Find customer by email
+      const customers = await stripe.customers.list({ 
+        email: dealer.email,
+        limit: 1 
+      });
       
-      // Update the user_profiles table with stripe_customer_id for future use
-      try {
-        await supabase.rpc('add_stripe_customer_id_if_missing', { 
-          p_user_id: user.id, 
-          p_customer_id: customerId 
-        });
-      } catch (updateError) {
-        // Continue even if update fails - the RPC might not exist yet
-        console.log("Note: Could not update stripe_customer_id in user_profiles. This is expected if the column doesn't exist yet.");
+      if (customers.data.length > 0) {
+        customerId = customers.data[0].id;
+        
+        // Update the user_profiles table with stripe_customer_id for future use
+        try {
+          await supabase.rpc('add_stripe_customer_id_if_missing', { 
+            p_user_id: user.id, 
+            p_customer_id: customerId 
+          });
+        } catch (updateError) {
+          // Continue even if update fails
+          console.log("Could not update stripe_customer_id in user_profiles:", updateError);
+        }
+      } else {
+        // No Stripe customer found for this email
+        return new Response(
+          JSON.stringify({ 
+            invoices: [],
+            message: "No Stripe customer found with this email address"
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-    } else {
-      // No Stripe customer found for this email
-      return new Response(
-        JSON.stringify({ 
-          invoices: [],
-          message: "No Stripe customer found with this email address"
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
     
     if (!customerId) {
@@ -104,7 +108,17 @@ serve(async (req) => {
       );
     }
     
-    // Fetch invoices for the customer
+    // Also get invoices from our database - these are the ones we've permanently stored
+    const { data: savedInvoices, error: savedInvoicesError } = await supabase
+      .from('dealer_invoices')
+      .select('*')
+      .eq('dealer_id', user.id);
+    
+    if (savedInvoicesError) {
+      console.error("Error fetching saved invoices:", savedInvoicesError);
+    }
+    
+    // Fetch invoices from Stripe
     const invoices = await stripe.invoices.list({
       customer: customerId,
       limit: 50,
@@ -141,7 +155,8 @@ serve(async (req) => {
           }
         }
         
-        return {
+        // Create the invoice object
+        const invoiceObject = {
           id: invoice.id,
           number: invoice.number,
           created: invoice.created,
@@ -152,6 +167,11 @@ serve(async (req) => {
           hosted_invoice_url: invoice.hosted_invoice_url,
           application_ids: applicationIds.length > 0 ? applicationIds : undefined
         };
+        
+        // Store the invoice permanently in our database
+        await storeInvoiceInDatabase(supabase, user.id, invoiceObject);
+        
+        return invoiceObject;
       })
     );
     
@@ -168,6 +188,7 @@ serve(async (req) => {
           applicationIds = charge.metadata.application_ids.split(',');
         }
         
+        // Create the charge object as an invoice-like structure
         return {
           id: charge.id,
           number: null, // Charges don't have invoice numbers
@@ -182,8 +203,32 @@ serve(async (req) => {
       });
     
     // Combine invoice and charge data, sort by created date (newest first)
-    const combinedData = [...invoiceData, ...chargeData]
-      .sort((a, b) => b.created - a.created);
+    let combinedData = [...invoiceData, ...chargeData];
+    
+    // Add saved invoices from our database if they're not already in the list
+    if (savedInvoices && Array.isArray(savedInvoices)) {
+      const savedInvoicesFormatted = savedInvoices.map(si => ({
+        id: si.stripe_invoice_id,
+        number: si.invoice_number,
+        created: si.created_at ? new Date(si.created_at).getTime() / 1000 : 0,
+        status: si.status || 'paid',
+        total: si.amount || 0,
+        currency: si.currency || 'cad',
+        invoice_pdf: si.invoice_pdf_url,
+        hosted_invoice_url: si.hosted_invoice_url,
+        application_ids: si.application_ids ? si.application_ids.split(',') : undefined
+      }));
+      
+      // Add saved invoices that aren't already in the list
+      savedInvoicesFormatted.forEach(savedInvoice => {
+        if (!combinedData.some(invoice => invoice.id === savedInvoice.id)) {
+          combinedData.push(savedInvoice);
+        }
+      });
+    }
+    
+    // Sort by created date (newest first)
+    combinedData = combinedData.sort((a, b) => b.created - a.created);
     
     return new Response(
       JSON.stringify({ 
@@ -200,3 +245,32 @@ serve(async (req) => {
     );
   }
 });
+
+// Helper function to store invoice in database
+async function storeInvoiceInDatabase(supabase, dealerId: string, invoice: any) {
+  try {
+    const { data, error } = await supabase
+      .from('dealer_invoices')
+      .upsert({
+        dealer_id: dealerId,
+        stripe_invoice_id: invoice.id,
+        invoice_number: invoice.number,
+        amount: invoice.total,
+        currency: invoice.currency,
+        status: invoice.status,
+        invoice_pdf_url: invoice.invoice_pdf,
+        hosted_invoice_url: invoice.hosted_invoice_url,
+        application_ids: invoice.application_ids ? invoice.application_ids.join(',') : null,
+        created_at: new Date(invoice.created * 1000).toISOString(),
+      }, { onConflict: 'stripe_invoice_id' })
+      .select();
+      
+    if (error) {
+      console.error("Error storing invoice in database:", error);
+    } else {
+      console.log("Successfully stored/updated invoice:", invoice.id);
+    }
+  } catch (error) {
+    console.error("Exception storing invoice in database:", error);
+  }
+}

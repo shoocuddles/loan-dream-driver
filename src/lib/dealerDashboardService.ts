@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationItem, LockType, LockInfo, DownloadedApplication, DealerPurchase } from '@/lib/types/dealer-dashboard';
 import { formatDistanceToNow, parseISO, differenceInDays } from 'date-fns';
@@ -410,4 +411,65 @@ export const recordPurchase = async (
     console.error("Error recording purchase:", error);
     return false;
   }
+};
+
+export const getDealerInvoices = async (): Promise<any[]> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('get-dealer-invoices', {
+      body: {}
+    });
+    
+    if (error) {
+      console.error('Error fetching invoices:', error);
+      throw new Error('Failed to load invoices');
+    }
+    
+    // Store invoices locally for persistent access
+    if (Array.isArray(data?.invoices)) {
+      try {
+        const currentInvoices = JSON.parse(localStorage.getItem('dealerInvoices') || '[]');
+        const mergedInvoices = mergeAndDeduplicateInvoices(currentInvoices, data.invoices);
+        localStorage.setItem('dealerInvoices', JSON.stringify(mergedInvoices));
+        
+        console.log(`Retrieved ${data.invoices.length} invoices, merged with ${currentInvoices.length} local invoices.`);
+        return mergedInvoices;
+      } catch (e) {
+        console.warn('Could not save invoices to local storage:', e);
+        return data.invoices;
+      }
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error in getDealerInvoices:', error);
+    
+    // If the API fails, try to get invoices from local storage
+    try {
+      const localInvoices = JSON.parse(localStorage.getItem('dealerInvoices') || '[]');
+      console.log('Returning invoices from local storage:', localInvoices.length);
+      return localInvoices;
+    } catch (e) {
+      console.error('Could not retrieve local invoices:', e);
+      return [];
+    }
+  }
+};
+
+// Helper function to merge and deduplicate invoices
+const mergeAndDeduplicateInvoices = (existingInvoices: any[], newInvoices: any[]): any[] => {
+  const invoicesMap = new Map();
+  
+  // Add existing invoices to map
+  existingInvoices.forEach(invoice => {
+    invoicesMap.set(invoice.id, invoice);
+  });
+  
+  // Add or update with new invoices
+  newInvoices.forEach(invoice => {
+    invoicesMap.set(invoice.id, invoice);
+  });
+  
+  // Convert map back to array and sort by created date (newest first)
+  return Array.from(invoicesMap.values())
+    .sort((a, b) => b.created - a.created);
 };

@@ -1,3 +1,4 @@
+
 import { ApplicationForm } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -78,6 +79,41 @@ export const recoverOfflineSubmission = async (): Promise<boolean> => {
     console.error('❌ Error recovering offline submission:', error);
     return false;
   }
+};
+
+/**
+ * Schedules a draft application to be automatically submitted after 10 minutes
+ */
+const scheduleAutoSubmission = (applicationId: string) => {
+  console.log(`🕒 Scheduling auto-submission for draft application ${applicationId} in 10 minutes`);
+  
+  setTimeout(async () => {
+    try {
+      console.log(`⏰ Time's up for draft application ${applicationId} - auto-submitting now`);
+      
+      // Update application status and set as complete
+      const { data, error } = await supabase
+        .from('applications')
+        .update({
+          status: 'submitted',
+          iscomplete: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', applicationId)
+        .eq('status', 'draft') // Only update if it's still a draft
+        .select();
+      
+      if (error) {
+        console.error('❌ Error auto-submitting application:', error);
+      } else if (data && data.length > 0) {
+        console.log('✅ Successfully auto-submitted application:', applicationId);
+      } else {
+        console.log('⚠️ Application was not auto-submitted - it may have been manually submitted already');
+      }
+    } catch (err) {
+      console.error('❌ Error in auto-submission process:', err);
+    }
+  }, 10 * 60 * 1000); // 10 minutes in milliseconds
 };
 
 /**
@@ -229,6 +265,11 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           if (result) {
             console.log('✅ Created new application in Supabase with ID:', result.id);
             toast.success(isDraft ? "Draft saved" : "Application submitted successfully!");
+            
+            // If this is a draft, schedule it for auto-submission in 10 minutes
+            if (isDraft && result.id) {
+              scheduleAutoSubmission(result.id);
+            }
           } else {
             console.error('❌ No result received after successful insert');
             usingDirectApi = true;
@@ -270,6 +311,11 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
           // Insert using direct API
           result = await directInsertApplication(apiData);
           result = Array.isArray(result) ? result[0] : result; 
+          
+          // If this is a draft and was successfully inserted, schedule it for auto-submission in 10 minutes
+          if (isDraft && result && result.id) {
+            scheduleAutoSubmission(result.id);
+          }
         }
         
         if (result) {

@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Stripe } from "https://esm.sh/stripe@14.20.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -590,6 +591,28 @@ async function handleLockExtensionPayment(req, lockType, lockFee, applicationDet
       if (lockType === '24hours') lockPeriodName = "24 Hours";
       if (lockType === '1week') lockPeriodName = "1 Week";
       if (lockType === 'permanent') lockPeriodName = "Permanent";
+      
+      // If no application details were provided, attempt to fetch them
+      if (!applicationDetails || applicationDetails.length === 0) {
+        console.warn("No application details provided for lock extension");
+        const { data: applicationData, error: appError } = await supabase
+          .from('applications')
+          .select('id, fullname')
+          .in('id', JSON.parse(req.body).applicationIds || []);
+        
+        if (!appError && applicationData && applicationData.length > 0) {
+          applicationDetails = applicationData.map(app => ({
+            id: app.id,
+            fullName: app.fullname
+          }));
+        } else {
+          // Default to using the application IDs with placeholder names
+          applicationDetails = (JSON.parse(req.body).applicationIds || []).map(id => ({
+            id,
+            fullName: 'Applicant'
+          }));
+        }
+      }
       
       // Create line items for each application lock extension
       const lineItems = applicationDetails.map(app => {

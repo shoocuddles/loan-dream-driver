@@ -1,3 +1,4 @@
+
 import { LockType, LockInfo, LockoutPeriod } from '@/lib/types/dealer-dashboard';
 import { supabase, rpcCall } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -192,6 +193,28 @@ export const createLockExtensionCheckout = async (
   try {
     console.log(`Creating checkout for extending locks on ${applicationIds.length} applications`);
     
+    // Check that application details are provided
+    if (!applicationDetails || applicationDetails.length === 0) {
+      console.log('Need to fetch application details as they were not provided');
+      // If no details provided, we need to fetch basic application info
+      const { data, error } = await supabase
+        .from('applications')
+        .select('id, fullname')
+        .in('id', applicationIds);
+        
+      if (error) {
+        console.error('Error fetching application details:', error);
+        return { error: 'Failed to fetch application details' };
+      }
+      
+      applicationDetails = data.map(app => ({
+        id: app.id,
+        fullName: app.fullname
+      }));
+    }
+    
+    console.log(`Application details for checkout:`, applicationDetails);
+    
     // Get lock period details
     const lockPeriods = await fetchLockoutPeriods();
     
@@ -213,7 +236,7 @@ export const createLockExtensionCheckout = async (
     
     // Create checkout session
     const response = await createCheckoutSession({
-      applicationIds: [], // No actual applications being purchased
+      applicationIds, 
       priceType: 'standard',
       lockType: lockType,
       lockFee: selectedPeriod.fee,

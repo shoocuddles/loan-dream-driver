@@ -96,7 +96,7 @@ const BulkActionsBar = ({
           </Button>
 
           {/* Add Hide button */}
-          {selectedCount > 0 && (
+          {selectedCount > 0 && onBulkHide && (
             <Button
               size="sm"
               variant="outline"

@@ -1,3 +1,4 @@
+
 import { useState, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -7,9 +8,8 @@ import { Search, Lock } from 'lucide-react';
 import { DownloadedApplication, LockType } from '@/lib/types/dealer-dashboard';
 import DownloadOptions from './application-table/DownloadOptions';
 import BulkActionsBar from './BulkActionsBar';
-import { lockApplication } from '@/lib/services/lock/lockService';
+import { createLockExtensionCheckout } from '@/lib/services/lock/lockService';
 import { toast } from 'sonner';
-import { createCheckoutSession } from '@/lib/services/stripe/stripeService';
 import { LockStatusBadge } from './application-table/StatusBadge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -99,27 +99,29 @@ const DownloadedApplications = ({
           lockFee = 4.99;
       }
       
-      const totalAmount = lockFee * selectedApplications.length;
-      
-      const { data: checkoutData, error } = await createCheckoutSession({
-        applicationIds: selectedApplications,
-        priceType: 'standard',
-        lockType: lockType,
-        lockFee: lockFee,
-        isLockPayment: true
+      // Get application details for all selected applications
+      const appDetails = selectedApplications.map(appId => {
+        const app = filteredApplications.find(a => a.applicationId === appId);
+        return {
+          id: appId,
+          fullName: app?.fullName || 'Applicant'
+        };
       });
       
+      const { error, url } = await createLockExtensionCheckout(
+        selectedApplications,
+        lockType,
+        appDetails
+      );
+      
       if (error) {
-        toast.error(`Payment setup failed: ${error.message}`);
+        toast.error(`Payment setup failed: ${error}`);
         setIsProcessingPayment(false);
         return;
       }
       
-      if (checkoutData?.url) {
-        sessionStorage.setItem('pendingLockApplications', JSON.stringify(selectedApplications));
-        sessionStorage.setItem('pendingLockType', lockType);
-        
-        window.location.href = checkoutData.url;
+      if (url) {
+        window.location.href = url;
       } else {
         toast.error('Could not create payment session');
         setIsProcessingPayment(false);

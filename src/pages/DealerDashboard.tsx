@@ -705,6 +705,12 @@ const DealerDashboard = () => {
     setAutoRefreshEnabled(checked);
   };
 
+  const handleManualRefresh = () => {
+    console.log("Manual refresh triggered");
+    loadData();
+    toast.success("Applications refreshed");
+  };
+
   useEffect(() => {
     if (user) {
       loadData();
@@ -742,6 +748,7 @@ const DealerDashboard = () => {
                     onToggleHideLockedApplications={handleToggleHideLockedApplications}
                     onToggleHidePurchasedApplications={handleToggleHidePurchasedApplications}
                     onToggleAutoRefresh={handleToggleAutoRefresh}
+                    onManualRefresh={handleManualRefresh}
                   />
                   <ApplicationTable
                     applications={applications}

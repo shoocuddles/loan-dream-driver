@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -223,8 +222,8 @@ const DealerProfile = () => {
             </form>
           </div>
           
-          {/* Vertical Separator for desktop view */}
-          <div className="hidden md:block md:absolute md:left-1/2 md:top-[88px] md:bottom-6 md:-ml-px">
+          {/* Vertical Separator for desktop view - Modified to not extend through header */}
+          <div className="hidden md:block md:absolute md:left-1/2 md:top-[124px] md:bottom-6 md:-ml-px">
             <Separator orientation="vertical" className="bg-gray-200" />
           </div>
           

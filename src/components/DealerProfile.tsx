@@ -26,6 +26,7 @@ const DealerProfile = () => {
   });
 
   const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
@@ -101,11 +102,27 @@ const DealerProfile = () => {
       return;
     }
 
+    if (!passwordData.currentPassword) {
+      toast.error("Current password is required");
+      return;
+    }
+
     setIsChangingPassword(true);
     try {
+      // First verify the current password
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: passwordData.currentPassword
+      });
+
+      if (error) {
+        throw new Error("Current password is incorrect");
+      }
+
+      // Then update to the new password
       await updateUserPassword(passwordData.newPassword);
       toast.success('Password updated successfully');
-      setPasswordData({ newPassword: '', confirmPassword: '' });
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error: any) {
       console.error('Error updating password:', error);
       toast.error(`Failed to update password: ${error.message}`);
@@ -200,6 +217,19 @@ const DealerProfile = () => {
           <h3 className="font-medium text-lg mb-4">Change Password</h3>
           <form onSubmit={handlePasswordSubmit} className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <Input
+                id="currentPassword"
+                name="currentPassword"
+                type="password"
+                value={passwordData.currentPassword}
+                onChange={handlePasswordChange}
+                placeholder="Enter current password"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
               <Label htmlFor="newPassword">New Password</Label>
               <Input
                 id="newPassword"
@@ -208,6 +238,7 @@ const DealerProfile = () => {
                 value={passwordData.newPassword}
                 onChange={handlePasswordChange}
                 placeholder="Enter new password"
+                required
               />
             </div>
 
@@ -220,6 +251,7 @@ const DealerProfile = () => {
                 value={passwordData.confirmPassword}
                 onChange={handlePasswordChange}
                 placeholder="Confirm new password"
+                required
               />
             </div>
 

@@ -23,7 +23,7 @@ const DealerHeader = ({ user, onSignOut }: DealerHeaderProps) => {
         />
       </div>
       
-      <div className="w-full flex justify-between items-center px-6 md:px-8">
+      <div className="container mx-auto px-4 md:px-6 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-ontario-blue">Dealer Dashboard</h1>
           <p className="text-gray-600">Welcome, {profile?.full_name || "Dealer"}</p>

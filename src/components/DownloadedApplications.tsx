@@ -27,7 +27,7 @@ const DownloadedApplications = ({
 }: DownloadedApplicationsProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedApplications, setSelectedApplications] = useState<string[]>([]);
-  const [isProcessingAction, setIsProcessingAction] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   
   const filteredApplications = applications.filter(app => 
@@ -81,7 +81,7 @@ const DownloadedApplications = ({
 
   const handleBulkLock = async (lockType: LockType) => {
     try {
-      setIsProcessingAction(true);
+      setIsProcessingPayment(true);
       console.log(`Initiating payment for locking ${selectedApplications.length} applications with lock type: ${lockType}`);
       
       let lockFee = 0;
@@ -111,7 +111,7 @@ const DownloadedApplications = ({
       
       if (error) {
         toast.error(`Payment setup failed: ${error.message}`);
-        setIsProcessingAction(false);
+        setIsProcessingPayment(false);
         return;
       }
       
@@ -122,12 +122,12 @@ const DownloadedApplications = ({
         window.location.href = checkoutData.url;
       } else {
         toast.error('Could not create payment session');
-        setIsProcessingAction(false);
+        setIsProcessingPayment(false);
       }
     } catch (error) {
       toast.error('Error setting up lock payment');
       console.error('Error during bulk lock payment:', error);
-      setIsProcessingAction(false);
+      setIsProcessingPayment(false);
     }
   };
 
@@ -170,14 +170,14 @@ const DownloadedApplications = ({
                 <TableHead>Downloaded</TableHead>
                 <TableHead>
                   <TooltipProvider>
-                    <Tooltip>
+                    <Tooltip delayDuration={300}>
                       <TooltipTrigger asChild>
                         <div className="flex items-center cursor-help">
                           Lock Status <Lock className="ml-1 h-3.5 w-3.5 text-gray-500" />
                         </div>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
-                        <p>Applications can be locked to prevent other dealers from purchasing them. When locked, only you can see the customer's complete information.</p>
+                        <p>When an application is locked, other dealers cannot purchase it. Locks can be temporary or permanent.</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -233,26 +233,7 @@ const DownloadedApplications = ({
                     <TableCell>{application.vehicleType || 'N/A'}</TableCell>
                     <TableCell>{safeFormatDate(application.downloadDate || application.purchaseDate)}</TableCell>
                     <TableCell>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="cursor-help">
-                              <LockStatusBadge lockInfo={application.lockInfo} />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            {application.lockInfo?.isLocked ? (
-                              application.lockInfo.isOwnLock ? (
-                                <p>You have locked this application to prevent other dealers from accessing it.</p>
-                              ) : (
-                                <p>This application is currently locked by another dealer and will be unavailable for purchase until the lock expires.</p>
-                              )
-                            ) : (
-                              <p>This application is not currently locked. You can lock it to prevent other dealers from purchasing it.</p>
-                            )}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <LockStatusBadge lockInfo={application.lockInfo} />
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-2">
@@ -277,7 +258,7 @@ const DownloadedApplications = ({
           onBulkDownload={handleBulkDownload}
           onBulkLock={handleBulkLock}
           onClearSelection={() => setSelectedApplications([])}
-          isProcessing={isProcessingAction}
+          isProcessing={isProcessingPayment}
           selectedApplicationIds={selectedApplications}
           unpurchasedCount={0}
           totalPurchaseCost={0}

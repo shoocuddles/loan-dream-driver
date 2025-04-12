@@ -8,11 +8,13 @@ import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { updateUserPassword } from '@/lib/auth';
 
 const DealerProfile = () => {
   const { user, profile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [formData, setFormData] = useState<{
     full_name: string;
     phone: string;
@@ -21,6 +23,11 @@ const DealerProfile = () => {
     full_name: '',
     phone: '',
     company_name: ''
+  });
+
+  const [passwordData, setPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: ''
   });
 
   useEffect(() => {
@@ -36,6 +43,13 @@ const DealerProfile = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPasswordData({
+      ...passwordData,
       [e.target.name]: e.target.value
     });
   };
@@ -70,6 +84,33 @@ const DealerProfile = () => {
       toast.error(`Failed to update profile: ${error.message}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate passwords
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("Passwords don't match");
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters long");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await updateUserPassword(passwordData.newPassword);
+      toast.success('Password updated successfully');
+      setPasswordData({ newPassword: '', confirmPassword: '' });
+    } catch (error: any) {
+      console.error('Error updating password:', error);
+      toast.error(`Failed to update password: ${error.message}`);
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -154,6 +195,50 @@ const DealerProfile = () => {
             )}
           </Button>
         </form>
+
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <h3 className="font-medium text-lg mb-4">Change Password</h3>
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input
+                id="newPassword"
+                name="newPassword"
+                type="password"
+                value={passwordData.newPassword}
+                onChange={handlePasswordChange}
+                placeholder="Enter new password"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={handlePasswordChange}
+                placeholder="Confirm new password"
+              />
+            </div>
+
+            <Button 
+              type="submit" 
+              variant="outline"
+              className="w-full border-ontario-blue text-ontario-blue hover:bg-ontario-blue/10"
+              disabled={isChangingPassword}
+            >
+              {isChangingPassword ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating Password...
+                </>
+              ) : (
+                'Update Password'
+              )}
+            </Button>
+          </form>
+        </div>
       </CardContent>
     </Card>
   );

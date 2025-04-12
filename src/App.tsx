@@ -20,6 +20,7 @@ import DealerDashboard from "./pages/DealerDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import PasswordReset from "./pages/PasswordReset";
 
 const queryClient = new QueryClient();
 
@@ -32,8 +33,8 @@ const AppRoutes = () => (
     <Route path="/dealers" element={<Dealers />} />
     <Route path="/forgot-password" element={<ForgotPassword />} />
     <Route path="/reset-password" element={<ResetPassword />} />
-    {/* Add additional route for PasswordReset that redirects to reset-password */}
-    <Route path="/PasswordReset" element={<Navigate to="/reset-password" replace />} />
+    {/* New route for the password reset after email link */}
+    <Route path="/PasswordReset" element={<PasswordReset />} />
     <Route 
       path="/dealer-dashboard" 
       element={
@@ -60,10 +61,10 @@ const App = () => {
   // Only show loading screen on first visit
   useEffect(() => {
     const hasVisited = sessionStorage.getItem("hasVisitedBefore");
-    const isResetPasswordRoute = window.location.pathname.includes("/reset-password") || 
-                                 window.location.pathname.includes("/PasswordReset");
+    const isPasswordResetRoute = window.location.pathname.includes("/reset-password") || 
+                                window.location.pathname.includes("/PasswordReset");
     
-    if (hasVisited || isResetPasswordRoute) {
+    if (hasVisited || isPasswordResetRoute) {
       setIsLoading(false);
     } else {
       sessionStorage.setItem("hasVisitedBefore", "true");

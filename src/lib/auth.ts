@@ -64,6 +64,20 @@ export async function updateUserPassword(newPassword: string) {
   return true;
 }
 
+export async function resetPasswordWithToken(token: string, newPassword: string) {
+  const { error } = await supabase.auth.verifyOtp({
+    token,
+    type: 'recovery',
+    newPassword
+  });
+  
+  if (error) {
+    throw error;
+  }
+  
+  return true;
+}
+
 export async function isUserAdmin(userId: string): Promise<boolean> {
   const profile = await getUserProfile(userId);
   return profile?.role === 'admin';

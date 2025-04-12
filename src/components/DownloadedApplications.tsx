@@ -1,4 +1,3 @@
-
 import { useState, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,7 @@ import { lockApplication } from '@/lib/services/lock/lockService';
 import { toast } from 'sonner';
 import { createCheckoutSession } from '@/lib/services/stripe/stripeService';
 import { LockStatusBadge } from './application-table/StatusBadge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface DownloadedApplicationsProps {
   applications: DownloadedApplication[];
@@ -79,14 +79,11 @@ const DownloadedApplications = ({
     // The download functionality is handled by the DownloadOptions component
   };
 
-  // Handle bulk lock for purchased applications with Stripe payment
   const handleBulkLock = async (lockType: LockType) => {
     try {
       setIsProcessingAction(true);
       console.log(`Initiating payment for locking ${selectedApplications.length} applications with lock type: ${lockType}`);
       
-      // Get the fee amount for this lock type from lockoutPeriods
-      // This would typically come from your database via an API call
       let lockFee = 0;
       switch(lockType) {
         case '24hours':
@@ -104,7 +101,6 @@ const DownloadedApplications = ({
       
       const totalAmount = lockFee * selectedApplications.length;
       
-      // Create Stripe checkout session for lock payment
       const { data: checkoutData, error } = await createCheckoutSession({
         applicationIds: selectedApplications,
         priceType: 'standard',
@@ -119,13 +115,10 @@ const DownloadedApplications = ({
         return;
       }
       
-      // Redirect to Stripe checkout
       if (checkoutData?.url) {
-        // Store selected applications and lock type in session storage
         sessionStorage.setItem('pendingLockApplications', JSON.stringify(selectedApplications));
         sessionStorage.setItem('pendingLockType', lockType);
         
-        // Redirect to Stripe
         window.location.href = checkoutData.url;
       } else {
         toast.error('Could not create payment session');
@@ -175,7 +168,20 @@ const DownloadedApplications = ({
                 <TableHead>Address</TableHead>
                 <TableHead>Vehicle Type</TableHead>
                 <TableHead>Downloaded</TableHead>
-                <TableHead>Lock Status</TableHead>
+                <TableHead>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center cursor-help">
+                          Lock Status <Lock className="ml-1 h-3.5 w-3.5 text-gray-500" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Applications can be locked to prevent other dealers from purchasing them. When locked, only you can see the customer's complete information.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -227,7 +233,26 @@ const DownloadedApplications = ({
                     <TableCell>{application.vehicleType || 'N/A'}</TableCell>
                     <TableCell>{safeFormatDate(application.downloadDate || application.purchaseDate)}</TableCell>
                     <TableCell>
-                      <LockStatusBadge lockInfo={application.lockInfo} />
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help">
+                              <LockStatusBadge lockInfo={application.lockInfo} />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            {application.lockInfo?.isLocked ? (
+                              application.lockInfo.isOwnLock ? (
+                                <p>You have locked this application to prevent other dealers from accessing it.</p>
+                              ) : (
+                                <p>This application is currently locked by another dealer and will be unavailable for purchase until the lock expires.</p>
+                              )
+                            ) : (
+                              <p>This application is not currently locked. You can lock it to prevent other dealers from purchasing it.</p>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-2">
@@ -247,7 +272,6 @@ const DownloadedApplications = ({
           </Table>
         </div>
         
-        {/* Add BulkActionsBar for purchased applications */}
         <BulkActionsBar
           selectedCount={selectedApplications.length}
           onBulkDownload={handleBulkDownload}
@@ -255,10 +279,10 @@ const DownloadedApplications = ({
           onClearSelection={() => setSelectedApplications([])}
           isProcessing={isProcessingAction}
           selectedApplicationIds={selectedApplications}
-          unpurchasedCount={0} // All applications here are purchased
-          totalPurchaseCost={0} // No cost for already purchased applications
-          onPurchaseSelected={() => Promise.resolve()} // Not applicable
-          allDownloaded={true} // All applications are already purchased/downloaded
+          unpurchasedCount={0}
+          totalPurchaseCost={0}
+          onPurchaseSelected={() => Promise.resolve()}
+          allDownloaded={true}
         />
       </CardContent>
     </Card>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useAuth } from '@/hooks/use-auth';
@@ -16,27 +15,6 @@ import ApplicationDetails from '@/components/ApplicationDetails';
 import DealerInvoices from '@/components/DealerInvoices';
 import { useSearchParams } from 'react-router-dom';
 import { differenceInDays, parseISO } from 'date-fns';
-import { 
-  lockApplication as lockApp, 
-  unlockApplication, 
-  downloadApplication,
-  getDownloadedApplications,
-  fetchApplications,
-  isApplicationPurchased,
-  recordPurchase
-} from '@/lib/dealerDashboardService';
-import { AgeDiscountSettings } from '@/components/application-table/priceUtils';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, EyeOff } from 'lucide-react';
-
-interface DealerPurchaseResult {
-  success: boolean;
-  data?: {
-    paymentId: string;
-    amount: number;
-  };
-  error?: string;
-}
 
 const generateApplicationPDF = (application: { 
   id: string; 
@@ -77,13 +55,6 @@ const processLocksAfterPayment = async (
   
   console.log(`Successfully locked ${locksProcessed} applications after payment ${paymentId} for $${amount}`);
   return locksProcessed;
-};
-
-// Helper function to lock applications
-const lockApplication = async (appId: string, lockType: LockType): Promise<boolean> => {
-  // Implementation would depend on your specific requirements
-  const userId = localStorage.getItem('userId') || '';
-  return await lockApp(appId, userId, lockType);
 };
 
 const DealerDashboard = () => {
@@ -138,7 +109,7 @@ const DealerDashboard = () => {
     try {
       await loadPurchasedApplicationIds();
       
-      const downloadedData = await getDownloadedApplications(user?.id || '');
+      const downloadedData = await fetchDownloadedApplications(user?.id || '');
       console.log('Downloaded applications data:', downloadedData && Array.isArray(downloadedData) ? downloadedData.length : 0);
       
       const downloadedAppsList = Array.isArray(downloadedData) ? downloadedData : [];
@@ -209,7 +180,7 @@ const DealerDashboard = () => {
   useEffect(() => {
     if (user) {
       loadData();
-      // We'll implement these functions later
+      loadLockOptions();
       loadSystemSettings();
       loadPurchasedApplicationIds();
     }
@@ -247,12 +218,6 @@ const DealerDashboard = () => {
     }
   };
   
-  // Helper function to fetch purchased application IDs
-  const getPurchasedApplicationIds = async (userId: string): Promise<string[]> => {
-    // For now, return an empty array; later connect to actual data
-    return [];
-  };
-  
   const loadSystemSettings = async () => {
     try {
       const settings = await fetchSystemSettings();
@@ -267,25 +232,6 @@ const DealerDashboard = () => {
     } catch (error) {
       console.error("Error loading system settings:", error);
     }
-  };
-
-  // Helper function to fetch system settings
-  const fetchSystemSettings = async (): Promise<SystemSettings | null> => {
-    // For now, return a mock settings object
-    return {
-      standardPrice: 19.99,
-      discountedPrice: 14.99,
-      temporaryLockMinutes: 5,
-      ageDiscountEnabled: true,
-      ageDiscountThreshold: 30,
-      ageDiscountPercentage: 25
-    };
-  };
-  
-  // Helper function to fetch available applications
-  const fetchAvailableApplications = async (userId: string): Promise<ApplicationItem[]> => {
-    // Implementation would depend on your specific data structure
-    return await fetchApplications(userId);
   };
   
   useEffect(() => {
@@ -383,286 +329,16 @@ const DealerDashboard = () => {
     }
   }, [paymentSuccess, paymentCancelled, sessionId]);
 
-  // Helper function to complete purchase
-  const completePurchase = async (sessionId: string): Promise<DealerPurchaseResult> => {
-    // Mock implementation
-    return {
-      success: true,
-      data: {
-        paymentId: `payment_${Date.now()}`,
-        amount: 19.99
-      }
-    };
-  };
-
-  // Define handler functions
-  const toggleApplicationSelection = (applicationId: string) => {
-    setSelectedApplications(prev => {
-      if (prev.includes(applicationId)) {
-        return prev.filter(id => id !== applicationId);
-      } else {
-        return [...prev, applicationId];
-      }
-    });
-  };
-
-  const handleSelectAll = (select: boolean) => {
-    if (select) {
-      const selectableIds = applications
-        .filter(app => !app.lockInfo?.isLocked || app.lockInfo?.isOwnLock)
-        .map(app => app.applicationId);
-      setSelectedApplications(selectableIds);
-    } else {
-      setSelectedApplications([]);
-    }
-  };
-
-  const handleLockApplication = async (applicationId: string, lockType: LockType) => {
-    if (!user?.id) return;
-    setProcessingId(applicationId);
-    try {
-      const success = await lockApp(applicationId, user.id, lockType);
-      if (success) {
-        toast.success(`Application locked successfully (${lockType})`);
-        await loadData();
-      } else {
-        toast.error("Failed to lock application");
-      }
-    } catch (error) {
-      console.error("Error locking application:", error);
-      toast.error("Error locking application");
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleUnlockApplication = async (applicationId: string) => {
-    if (!user?.id) return;
-    setProcessingId(applicationId);
-    try {
-      const success = await unlockApplication(applicationId, user.id);
-      if (success) {
-        toast.success("Application unlocked successfully");
-        await loadData();
-      } else {
-        toast.error("Failed to unlock application");
-      }
-    } catch (error) {
-      console.error("Error unlocking application:", error);
-      toast.error("Error unlocking application");
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleDownload = async (applicationId: string) => {
-    if (!user?.id) return;
-    
-    const isPurchased = await isApplicationPurchased(applicationId, user.id);
-    
-    if (!isPurchased) {
-      // Show purchase dialog or redirect to purchase flow
-      handlePurchase(applicationId);
-      return;
-    }
-    
-    setProcessingId(applicationId);
-    try {
-      const success = await downloadApplication(applicationId, user.id);
-      if (success) {
-        // Generate PDF or other download format
-        const application = applications.find(app => app.applicationId === applicationId) || 
-                           downloadedApps.find(app => app.applicationId === applicationId);
-        
-        if (application) {
-          const pdfBlob = generateApplicationPDF({
-            id: application.applicationId,
-            fullName: application.fullName,
-            created_at: application.submissionDate || new Date().toISOString(),
-            status: 'downloaded'
-          });
-          
-          // Create a download link and trigger it
-          const url = URL.createObjectURL(pdfBlob);
-          const a = document.createElement('a');
-          a.style.display = 'none';
-          a.href = url;
-          a.download = `application_${applicationId}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          
-          toast.success("Application downloaded successfully");
-          await loadData();
-        }
-      } else {
-        toast.error("Failed to download application");
-      }
-    } catch (error) {
-      console.error("Error downloading application:", error);
-      toast.error("Error downloading application");
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleViewDetails = (application: ApplicationItem) => {
-    setDetailsApplication(application);
-    setShowDetails(true);
-  };
-
-  const handleHideApplication = async (applicationId: string) => {
-    // Move application to hidden list
-    const appToHide = applications.find(app => app.applicationId === applicationId);
-    
-    if (appToHide) {
-      setHiddenApplications(prev => [...prev, appToHide]);
-      setApplications(prev => prev.filter(app => app.applicationId !== applicationId));
-      toast.success("Application hidden from view");
-    }
-  };
-
-  const handleUnhideApplication = async (applicationId: string) => {
-    // Move application back to visible list
-    const appToUnhide = hiddenApplications.find(app => app.applicationId === applicationId);
-    
-    if (appToUnhide) {
-      setApplications(prev => [...prev, appToUnhide]);
-      setHiddenApplications(prev => prev.filter(app => app.applicationId !== applicationId));
-      toast.success("Application restored to view");
-    }
-  };
-
-  const handlePurchase = async (applicationId: string) => {
-    // Implement purchase flow
-    setPendingAction({
-      type: 'download',
-      applicationIds: [applicationId]
-    });
-    setShowPaymentDialog(true);
-  };
-
-  const handleBulkDownload = async () => {
-    // Download all selected applications
-    for (const appId of selectedApplications) {
-      await handleDownload(appId);
-    }
-  };
-
-  const handleBulkLock = async (lockType: LockType) => {
-    // Lock all selected applications
-    setPendingAction({
-      type: 'lock',
-      applicationIds: selectedApplications,
-      lockType
-    });
-    setShowPaymentDialog(true);
-  };
-
-  const handleBulkHide = async () => {
-    // Hide all selected applications
-    const appsToHide = applications.filter(app => selectedApplications.includes(app.applicationId));
-    
-    if (appsToHide.length > 0) {
-      setHiddenApplications(prev => [...prev, ...appsToHide]);
-      setApplications(prev => prev.filter(app => !selectedApplications.includes(app.applicationId)));
-      setSelectedApplications([]);
-      toast.success(`${appsToHide.length} applications hidden from view`);
-    }
-  };
-
-  const getUnpurchasedApplications = () => {
-    // Get applications that haven't been purchased
-    return selectedApplications.filter(appId => {
-      const app = applications.find(a => a.applicationId === appId);
-      return app && !app.isPurchased && !purchasedApplicationIds.includes(appId);
-    });
-  };
-
-  const calculateTotalPurchaseCost = (applicationIds: string[]) => {
-    // Calculate total cost for purchasing applications
-    let total = 0;
-    for (const appId of applicationIds) {
-      const app = applications.find(a => a.applicationId === appId);
-      if (app && !app.isPurchased && !purchasedApplicationIds.includes(appId)) {
-        if (app.isAgeDiscounted) {
-          total += app.discountedPrice;
-        } else {
-          total += app.standardPrice;
-        }
-      }
-    }
-    return total;
-  };
-
-  const handleBulkPurchase = async () => {
-    // Purchase all selected applications
-    const unpurchasedIds = getUnpurchasedApplications();
-    if (unpurchasedIds.length === 0) return;
-    
-    setPendingAction({
-      type: 'download',
-      applicationIds: unpurchasedIds
-    });
-    setShowPaymentDialog(true);
-  };
-
-  const areAllSelectedDownloaded = () => {
-    // Check if all selected applications have been downloaded
-    return selectedApplications.every(appId => {
-      return purchasedApplicationIds.includes(appId) || 
-             applications.find(a => a.applicationId === appId)?.isPurchased === true;
-    });
-  };
-
-  const handleProcessPayment = async () => {
-    if (!user?.id || !pendingAction) return;
-    
-    setIsProcessingPayment(true);
-    try {
-      // Mock payment processing for now
-      // In a real implementation, this would redirect to a payment gateway
-      
-      setTimeout(() => {
-        toast.success("Payment processed successfully");
-        setIsProcessingPayment(false);
-        setShowPaymentDialog(false);
-        
-        // Record purchase in the database
-        if (pendingAction.type === 'download') {
-          for (const appId of pendingAction.applicationIds) {
-            recordPurchase(
-              user.id, 
-              appId, 
-              `payment_${Date.now()}`, 
-              19.99
-            );
-          }
-        }
-        
-        loadData();
-      }, 1500);
-      
-    } catch (error) {
-      console.error("Error processing payment:", error);
-      toast.error("Error processing payment");
-      setIsProcessingPayment(false);
-    }
-  };
-
   const handleToggleHideOlderThan90Days = (checked: boolean) => {
     setHideOlderThan90Days(checked);
-    loadData();
   };
 
   const handleToggleHideLockedApplications = (checked: boolean) => {
     setHideLockedApplications(checked);
-    loadData();
   };
 
   const handleToggleHidePurchasedApplications = (checked: boolean) => {
     setHidePurchasedApplications(checked);
-    loadData();
   };
   
   const handleToggleAutoRefresh = (checked: boolean) => {
@@ -745,8 +421,8 @@ const DealerDashboard = () => {
                       applications={hiddenApplications}
                       isLoading={false}
                       selectedApplications={[]}
-                      toggleApplicationSelection={toggleApplicationSelection}
-                      selectAll={handleSelectAll}
+                      toggleApplicationSelection={() => {}}
+                      selectAll={() => {}}
                       onLock={handleLockApplication}
                       onUnlock={handleUnlockApplication}
                       onDownload={handleDownload}

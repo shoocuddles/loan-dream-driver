@@ -21,6 +21,8 @@ const ResetPassword = () => {
   // Extract token from URL or session storage
   useEffect(() => {
     console.log("Reset password page loaded");
+    console.log("Current pathname:", location.pathname);
+    console.log("Current URL:", window.location.href);
     
     // Check URL for token in different formats
     const extractToken = () => {
@@ -48,6 +50,13 @@ const ResetPassword = () => {
           return true;
         }
         
+        // Check if we have already verified the token
+        const hasStoredToken = sessionStorage.getItem('resetPasswordToken');
+        if (hasStoredToken) {
+          console.log("Found stored token in session storage");
+          return true;
+        }
+        
         return false;
       } catch (error) {
         console.error("Failed to parse URL for token:", error);
@@ -59,11 +68,11 @@ const ResetPassword = () => {
     const hasToken = extractToken();
     console.log("Token extraction result:", hasToken ? "token found" : "no token found");
     
-    // Clean up the URL by removing the hash or query params
-    if (hasToken) {
+    // Clean up the URL by removing the hash or query params if token was found
+    if (hasToken && (window.location.hash || window.location.search)) {
       window.history.replaceState(null, '', window.location.pathname);
     }
-  }, []);
+  }, [location]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();

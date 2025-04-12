@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import LoadingPage from "@/components/LoadingPage";
@@ -32,6 +32,8 @@ const AppRoutes = () => (
     <Route path="/dealers" element={<Dealers />} />
     <Route path="/forgot-password" element={<ForgotPassword />} />
     <Route path="/reset-password" element={<ResetPassword />} />
+    {/* Add additional route for PasswordReset that redirects to reset-password */}
+    <Route path="/PasswordReset" element={<Navigate to="/reset-password" replace />} />
     <Route 
       path="/dealer-dashboard" 
       element={
@@ -58,7 +60,10 @@ const App = () => {
   // Only show loading screen on first visit
   useEffect(() => {
     const hasVisited = sessionStorage.getItem("hasVisitedBefore");
-    if (hasVisited) {
+    const isResetPasswordRoute = window.location.pathname.includes("/reset-password") || 
+                                 window.location.pathname.includes("/PasswordReset");
+    
+    if (hasVisited || isResetPasswordRoute) {
       setIsLoading(false);
     } else {
       sessionStorage.setItem("hasVisitedBefore", "true");

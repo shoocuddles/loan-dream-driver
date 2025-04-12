@@ -27,6 +27,7 @@ const ForgotPassword = () => {
       
       let resetUrl = '';
       if (isProduction) {
+        // Make sure we use the correct reset-password URL
         resetUrl = 'https://ontario-loans.com/reset-password';
       } else {
         resetUrl = `${window.location.origin}/reset-password`;

@@ -113,6 +113,7 @@ const DealerDashboard = () => {
   const [hidePurchasedApplications, setHidePurchasedApplications] = useState<boolean>(true);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState<boolean>(true);
   const autoRefreshIntervalRef = useRef<number | null>(null);
+  const selectionBeforePayment = useRef<string[]>([]);
   
   const [searchParams, setSearchParams] = useSearchParams();
   const paymentSuccess = searchParams.get('payment_success') === 'true';

@@ -110,7 +110,7 @@ const DealerDashboard = () => {
   const [purchasedApplicationIds, setPurchasedApplicationIds] = useState<string[]>([]);
   
   const [hideOlderThan90Days, setHideOlderThan90Days] = useState<boolean>(true);
-  const [hideLockedApplications, setHideLockedApplications] = useState<boolean>(true);
+  const [hideLockedApplications, setHideLockedApplications] = useState<boolean>(false);
   const [hidePurchasedApplications, setHidePurchasedApplications] = useState<boolean>(true);
   
   const selectionBeforePayment = useRef<string[]>([]);

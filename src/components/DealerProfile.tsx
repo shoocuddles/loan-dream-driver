@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -147,11 +148,16 @@ const DealerProfile = () => {
   }
 
   return (
-    <Card>
+    <Card className="relative">
       <CardHeader>
         <CardTitle>Account Settings</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="relative">
+        {/* Vertical Separator - Positioned to only appear below the header */}
+        <div className="hidden md:block absolute left-1/2 top-0 bottom-0 -ml-px">
+          <Separator orientation="vertical" className="bg-gray-200" />
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Dealer Profile Section */}
           <div className="space-y-6">
@@ -220,11 +226,6 @@ const DealerProfile = () => {
                 )}
               </Button>
             </form>
-          </div>
-          
-          {/* Vertical Separator for desktop view - Modified to not extend through header */}
-          <div className="hidden md:block md:absolute md:left-1/2 md:top-[124px] md:bottom-6 md:-ml-px">
-            <Separator orientation="vertical" className="bg-gray-200" />
           </div>
           
           {/* Horizontal Separator for mobile view */}

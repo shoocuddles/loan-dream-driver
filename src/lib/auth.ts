@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { UserProfile, Company } from "@/lib/types/auth";
 import { Database } from "@/lib/types/supabase-types";
@@ -65,16 +64,26 @@ export async function updateUserPassword(newPassword: string) {
 }
 
 export async function resetPasswordWithToken(token: string, newPassword: string) {
-  const { error } = await supabase.auth.verifyOtp({
+  const { error: verifyError } = await supabase.auth.verifyOtp({
     token,
     type: 'recovery',
-    newPassword
+  });
+  
+  if (verifyError) {
+    console.error("Error verifying token:", verifyError);
+    throw verifyError;
+  }
+  
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword
   });
   
   if (error) {
+    console.error("Error updating password:", error);
     throw error;
   }
   
+  console.log("Password reset successful");
   return true;
 }
 

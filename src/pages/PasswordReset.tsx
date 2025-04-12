@@ -112,11 +112,22 @@ const PasswordReset = () => {
         return;
       }
       
-      // Use Supabase API to verify the token and set the new password
-      const { error } = await supabase.auth.verifyOtp({
+      // First verify the token is valid
+      const { error: verifyError } = await supabase.auth.verifyOtp({
         token: resetToken,
         type: 'recovery',
-        newPassword: password
+      });
+      
+      if (verifyError) {
+        console.error("Token verification error:", verifyError);
+        toast.error(verifyError.message || "Invalid or expired reset token. Please request a new reset link.");
+        setTokenError("Invalid or expired reset token. Please request a new reset link.");
+        throw verifyError;
+      }
+      
+      // If token verification was successful, update the user's password
+      const { error } = await supabase.auth.updateUser({
+        password: password
       });
       
       if (error) {

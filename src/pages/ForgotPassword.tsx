@@ -21,9 +21,12 @@ const ForgotPassword = () => {
     try {
       setIsProcessing(true);
       
-      // Configure the redirect correctly
+      // Create the full absolute URL for reset password
+      const resetUrl = `${window.location.origin}/reset-password`;
+      console.log("Setting password reset redirect URL to:", resetUrl);
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: resetUrl,
       });
       
       if (error) {
@@ -35,8 +38,8 @@ const ForgotPassword = () => {
       setIsSubmitted(true);
       toast.success("Password reset link sent to your email");
       
-      // Log for debugging purposes - the URL that's generated
-      console.log("Reset password redirect URL:", `${window.location.origin}/reset-password`);
+      // Log for debugging purposes
+      console.log("Reset password redirect URL:", resetUrl);
     } catch (error: any) {
       console.error("Password reset error details:", error);
     } finally {

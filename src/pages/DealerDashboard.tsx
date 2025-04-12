@@ -109,6 +109,10 @@ const DealerDashboard = () => {
   const [activeApplicationTab, setActiveApplicationTab] = useState<'visible' | 'hidden'>('visible');
   const [purchasedApplicationIds, setPurchasedApplicationIds] = useState<string[]>([]);
   
+  const [hideOlderThan90Days, setHideOlderThan90Days] = useState<boolean>(true);
+  const [hideLockedApplications, setHideLockedApplications] = useState<boolean>(true);
+  const [hidePurchasedApplications, setHidePurchasedApplications] = useState<boolean>(true);
+  
   const selectionBeforePayment = useRef<string[]>([]);
   
   const [searchParams, setSearchParams] = useSearchParams();

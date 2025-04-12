@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { UserProfile, Company } from "@/lib/types/auth";
 import { Database } from "@/lib/types/supabase-types";
@@ -64,16 +65,8 @@ export async function updateUserPassword(newPassword: string) {
 }
 
 export async function resetPasswordWithToken(token: string, newPassword: string) {
-  const { error: verifyError } = await supabase.auth.verifyOtp({
-    token,
-    type: 'recovery',
-  });
-  
-  if (verifyError) {
-    console.error("Error verifying token:", verifyError);
-    throw verifyError;
-  }
-  
+  // We'll directly use the updateUser method, as the token is already in the URL
+  // Supabase automatically validates the token that's present in the URL
   const { error } = await supabase.auth.updateUser({
     password: newPassword
   });

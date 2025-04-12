@@ -1,4 +1,3 @@
-
 import { LockType, LockInfo, LockoutPeriod } from '@/lib/types/dealer-dashboard';
 import { supabase, rpcCall } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -180,6 +179,28 @@ export const processLocksAfterPayment = async (
 };
 
 /**
+ * Maps a lock period name to the correct LockType value
+ */
+export const mapLockPeriodToType = (periodName: string): LockType => {
+  // Normalize the period name by removing spaces and converting to lowercase
+  const normalizedName = periodName.toLowerCase().replace(/\s+/g, '');
+  
+  // Map to the correct LockType
+  switch (normalizedName) {
+    case '24hours':
+      return '24hours';
+    case '1week':
+      return '1week';
+    case '2weeks':
+      return '2weeks';
+    case 'permanent':
+      return 'permanent';
+    default:
+      return 'temporary';
+  }
+};
+
+/**
  * Creates a checkout session for extending locks
  */
 export const createLockExtensionCheckout = async (
@@ -222,6 +243,7 @@ export const createLockExtensionCheckout = async (
     const selectedPeriod = lockPeriods.find(period => {
       if (lockType === '24hours' && period.name === '24 Hours') return true;
       if (lockType === '1week' && period.name === '1 Week') return true;
+      if (lockType === '2weeks' && period.name === '2 Weeks') return true;
       if (lockType === 'permanent' && period.name === 'Permanent') return true;
       return false;
     });

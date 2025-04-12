@@ -31,8 +31,8 @@ export interface ApplicationItem {
   isAgeDiscounted?: boolean;
 }
 
-// Keep existing types for LockType, LockInfo, DownloadedApplication, etc.
-export type LockType = '24hours' | '1week' | 'permanent' | 'temporary';
+// Updated LockType to include 2weeks
+export type LockType = '24hours' | '1week' | '2weeks' | 'permanent' | 'temporary';
 
 export interface LockInfo {
   isLocked: boolean;

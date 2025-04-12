@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,12 +8,12 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const { toast } = useToast();
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,24 +21,24 @@ const ForgotPassword = () => {
     try {
       setIsProcessing(true);
       
+      // Configure the redirect correctly
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Password reset error:", error);
+        toast.error(error.message || "There was a problem sending the password reset email.");
+        throw error;
+      }
       
       setIsSubmitted(true);
-      toast({
-        title: "Password Reset Email Sent",
-        description: "Check your email for a link to reset your password.",
-      });
+      toast.success("Password reset link sent to your email");
+      
+      // Log for debugging purposes - the URL that's generated
+      console.log("Reset password redirect URL:", `${window.location.origin}/reset-password`);
     } catch (error: any) {
-      console.error("Password reset error:", error);
-      toast({
-        title: "Password Reset Failed",
-        description: error.message || "There was a problem sending the password reset email.",
-        variant: "destructive",
-      });
+      console.error("Password reset error details:", error);
     } finally {
       setIsProcessing(false);
     }
@@ -62,8 +61,11 @@ const ForgotPassword = () => {
             {isSubmitted ? (
               <CardContent className="text-center py-6">
                 <p className="mb-4">
-                  Password reset instructions have been sent to your email address. 
+                  Password reset instructions have been sent to <span className="font-medium">{email}</span>. 
                   Please check your inbox and follow the instructions to reset your password.
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  If you don't see the email, please check your spam folder.
                 </p>
                 <Link to="/dealers">
                   <Button className="mt-4 bg-ontario-blue hover:bg-ontario-blue/90">
@@ -82,6 +84,8 @@ const ForgotPassword = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
+                      autoComplete="email"
+                      placeholder="your@email.com"
                     />
                   </div>
                 </CardContent>

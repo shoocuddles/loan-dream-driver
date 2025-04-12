@@ -188,7 +188,7 @@ export const createLockExtensionCheckout = async (
   applicationDetails: {
     id: string;
     fullName: string;
-  }[]
+  }[] = []
 ): Promise<{url?: string, sessionId?: string, error?: string}> => {
   try {
     console.log(`Creating checkout for extending locks on ${applicationIds.length} applications`);
@@ -231,8 +231,12 @@ export const createLockExtensionCheckout = async (
     }
 
     // Store pending locks in session storage for processing after payment
-    sessionStorage.setItem('pendingLockApplications', JSON.stringify(applicationIds));
-    sessionStorage.setItem('pendingLockType', lockType);
+    try {
+      sessionStorage.setItem('pendingLockApplications', JSON.stringify(applicationIds));
+      sessionStorage.setItem('pendingLockType', lockType);
+    } catch (e) {
+      console.warn('Failed to store pending lock data in session storage:', e);
+    }
     
     // Create checkout session
     const response = await createCheckoutSession({

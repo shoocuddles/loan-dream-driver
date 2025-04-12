@@ -61,6 +61,7 @@ serve(async (req) => {
       // Lock extension payment flow
       return await handleLockExtensionPayment(
         req, 
+        applicationIds,
         lockType, 
         lockFee, 
         applicationDetails
@@ -433,8 +434,10 @@ serve(async (req) => {
   }
 });
 
-async function handleLockExtensionPayment(req, lockType, lockFee, applicationDetails) {
+async function handleLockExtensionPayment(req, applicationIds, lockType, lockFee, applicationDetails) {
   try {
+    console.log(`Processing lock extension payment for ${applicationIds.length} applications`);
+    
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -598,19 +601,23 @@ async function handleLockExtensionPayment(req, lockType, lockFee, applicationDet
         const { data: applicationData, error: appError } = await supabase
           .from('applications')
           .select('id, fullname')
-          .in('id', JSON.parse(req.body).applicationIds || []);
+          .in('id', applicationIds);
         
         if (!appError && applicationData && applicationData.length > 0) {
           applicationDetails = applicationData.map(app => ({
             id: app.id,
             fullName: app.fullname
           }));
+          
+          console.log("Retrieved application details:", applicationDetails.length);
         } else {
           // Default to using the application IDs with placeholder names
-          applicationDetails = (JSON.parse(req.body).applicationIds || []).map(id => ({
+          applicationDetails = applicationIds.map(id => ({
             id,
             fullName: 'Applicant'
           }));
+          
+          console.log("Using placeholder application details");
         }
       }
       
@@ -618,15 +625,16 @@ async function handleLockExtensionPayment(req, lockType, lockFee, applicationDet
       const lineItems = applicationDetails.map(app => {
         const appIdShort = app.id.substring(app.id.length - 6);
         const displayName = app.fullName || 'Applicant';
+        const formattedName = formatName(displayName);
         
         return {
           price_data: {
             currency: 'cad',
             product_data: {
-              name: `Extend lock period for ${displayName}`,
+              name: `Extend lock period for ${formattedName}`,
               description: `ID: ${appIdShort} | Period: ${lockPeriodName}`
             },
-            unit_amount: Math.max(Math.round(lockFee * 100), MINIMUM_STRIPE_AMOUNT),
+            unit_amount: Math.max(Math.round(lockFee * 100), MINIMUM_STRIPE_AMOUNT / applicationIds.length),
             tax_behavior: 'exclusive',
           },
           quantity: 1,
@@ -641,13 +649,13 @@ async function handleLockExtensionPayment(req, lockType, lockFee, applicationDet
         payment_method_types: ['card'],
         line_items: lineItems,
         mode: 'payment',
-        success_url: `${req.headers.get("origin") || 'https://loan-dream-driver.lovable.app'}/dealer-dashboard?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${req.headers.get("origin") || 'https://loan-dream-driver.lovable.app'}/dealer-dashboard?payment_success=true&session_id={CHECKOUT_SESSION_ID}&is_lock=true`,
         cancel_url: `${req.headers.get("origin") || 'https://loan-dream-driver.lovable.app'}/dealer-dashboard?payment_cancelled=true`,
         metadata: {
           dealer_id: dealer.id,
-          application_count: applicationDetails.length.toString(),
-          application_ids: applicationDetails.map(app => app.id).join(','),
-          is_lock_extension: 'true',
+          application_count: applicationIds.length.toString(),
+          application_ids: applicationIds.join(','),
+          is_lock_payment: 'true',
           lock_type: lockType,
           lock_fee: lockFee.toString()
         }

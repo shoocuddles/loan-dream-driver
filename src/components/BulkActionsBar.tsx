@@ -36,6 +36,7 @@ interface BulkActionsBarProps {
   onPurchaseSelected: () => Promise<void>;
   allDownloaded?: boolean;
   onBulkHide?: () => Promise<void>;
+  selectedApplicationDetails?: { id: string; fullName: string }[];
 }
 
 const BulkActionsBar = ({
@@ -49,7 +50,8 @@ const BulkActionsBar = ({
   selectedApplicationIds,
   onPurchaseSelected,
   allDownloaded = false,
-  onBulkHide
+  onBulkHide,
+  selectedApplicationDetails = []
 }: BulkActionsBarProps) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [showPurchaseAlert, setShowPurchaseAlert] = useState(false);

@@ -6,6 +6,8 @@ import { format } from 'date-fns';
 import { Lock, Unlock, Download } from 'lucide-react';
 import DownloadOptions from './application-table/DownloadOptions';
 import { getPrice, AgeDiscountSettings } from './application-table/priceUtils';
+import { useQuery } from '@tanstack/react-query';
+import { fetchLockoutPeriods, mapLockPeriodToType } from '@/lib/services/lock/lockService';
 
 interface ApplicationDetailsProps {
   application: ApplicationItem | DownloadedApplication | null;
@@ -33,6 +35,11 @@ const ApplicationDetails = ({
   ageDiscountSettings
 }: ApplicationDetailsProps) => {
   const [showLockOptions, setShowLockOptions] = useState(false);
+  
+  const { data: lockoutPeriods = [] } = useQuery({
+    queryKey: ['lockout-periods'],
+    queryFn: fetchLockoutPeriods
+  });
 
   const handleDownload = async () => {
     if (!application || !onDownload) return;
@@ -164,24 +171,20 @@ const ApplicationDetails = ({
                       <div className="px-4 py-2 bg-blue-50 text-xs text-blue-700 border-b border-blue-100">
                         Lock this application to avoid other dealers being able to view. 24-hr lockout period automatic for every purchase.
                       </div>
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                        onClick={() => handleLock('24hours')}
-                      >
-                        24 Hours - $4.99
-                      </button>
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                        onClick={() => handleLock('1week')}
-                      >
-                        1 Week - $9.99
-                      </button>
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                        onClick={() => handleLock('permanent')}
-                      >
-                        Permanent - $29.99
-                      </button>
+                      {lockoutPeriods.map(period => (
+                        <button
+                          key={period.id}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                          onClick={() => handleLock(mapLockPeriodToType(period.name))}
+                        >
+                          {period.name} - ${period.fee.toFixed(2)}
+                        </button>
+                      ))}
+                      {lockoutPeriods.length === 0 && (
+                        <div className="px-4 py-2 text-sm text-gray-500">
+                          Loading lock options...
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -217,7 +220,7 @@ const ApplicationDetails = ({
         
         <div className="space-y-4 py-4">
           <div>
-            <h3 className="text-lg font-semibold mb-2">{application.fullName}</h3>
+            <h3 className="text-lg font-semibold mb-2">{application?.fullName}</h3>
             <p className="text-sm text-gray-500">
               Submitted on {format(new Date(getDisplayDate()), 'MMMM d, yyyy')}
             </p>

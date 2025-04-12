@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Lock, Download, ShoppingCart, X, EyeOff } from 'lucide-react';
@@ -22,7 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useQuery } from '@tanstack/react-query';
-import { fetchLockoutPeriods } from '@/lib/services/lock/lockService';
+import { fetchLockoutPeriods, mapLockPeriodToType } from '@/lib/services/lock/lockService';
 
 interface BulkActionsBarProps {
   selectedCount: number;
@@ -56,7 +55,6 @@ const BulkActionsBar = ({
   const [isDownloading, setIsDownloading] = useState(false);
   const [showPurchaseAlert, setShowPurchaseAlert] = useState(false);
   
-  // Fetch available lockout periods
   const { data: lockoutPeriods = [] } = useQuery({
     queryKey: ['lockout-periods'],
     queryFn: fetchLockoutPeriods
@@ -97,7 +95,6 @@ const BulkActionsBar = ({
             Clear
           </Button>
 
-          {/* Add Hide button */}
           {selectedCount > 0 && onBulkHide && (
             <Button
               size="sm"
@@ -111,7 +108,6 @@ const BulkActionsBar = ({
             </Button>
           )}
           
-          {/* Show Lock button for purchased applications */}
           {(unpurchasedCount === 0 || allDownloaded) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -129,30 +125,19 @@ const BulkActionsBar = ({
                   {lockoutPeriods.map(period => (
                     <DropdownMenuItem 
                       key={period.id} 
-                      onClick={() => onBulkLock(period.name.toLowerCase().replace(/\s+/g, '') as LockType)}
+                      onClick={() => onBulkLock(mapLockPeriodToType(period.name))}
                     >
                       {period.name} (${period.fee.toFixed(2)} each)
                     </DropdownMenuItem>
                   ))}
                   {lockoutPeriods.length === 0 && (
-                    <>
-                      <DropdownMenuItem onClick={() => onBulkLock('24hours')}>
-                        24 Hours ($4.99 each)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onBulkLock('1week')}>
-                        1 Week ($9.99 each)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onBulkLock('permanent')}>
-                        Permanent ($29.99 each)
-                      </DropdownMenuItem>
-                    </>
+                    <DropdownMenuItem disabled>Loading lock options...</DropdownMenuItem>
                   )}
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
           
-          {/* Only show Download button if all items are purchased */}
           {(unpurchasedCount === 0 || allDownloaded) && selectedApplicationIds.length > 0 && (
             <DownloadOptions
               applicationIds={selectedApplicationIds}
@@ -163,7 +148,6 @@ const BulkActionsBar = ({
             />
           )}
           
-          {/* Show combined action button when there's a mix of purchased and unpurchased */}
           {unpurchasedCount > 0 && selectedCount > unpurchasedCount && (
             <Button
               size="sm"
@@ -176,7 +160,6 @@ const BulkActionsBar = ({
             </Button>
           )}
           
-          {/* Always show Purchase button if there are unpurchased items */}
           {unpurchasedCount > 0 && (
             <Button
               size="sm"
@@ -191,7 +174,6 @@ const BulkActionsBar = ({
         </div>
       </div>
 
-      {/* Alert dialog for mixed purchased/unpurchased selection */}
       <AlertDialog open={showPurchaseAlert} onOpenChange={setShowPurchaseAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>

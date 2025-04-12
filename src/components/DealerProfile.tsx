@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, UserCog, Lock } from 'lucide-react';
 import { updateUserPassword } from '@/lib/auth';
+import { Separator } from '@/components/ui/separator';
 
 const DealerProfile = () => {
   const { user, profile } = useAuth();
@@ -149,127 +150,152 @@ const DealerProfile = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Dealer Profile</CardTitle>
+        <CardTitle>Account Settings</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              value={user?.email || ''}
-              disabled
-              className="bg-gray-100"
-            />
-            <p className="text-sm text-gray-500">Email cannot be changed</p>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="full_name">Full Name</Label>
-            <Input
-              id="full_name"
-              name="full_name"
-              value={formData.full_name}
-              onChange={handleChange}
-              placeholder="Your full name"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number</Label>
-            <Input
-              id="phone"
-              name="phone"
-              value={formData.phone || ''}
-              onChange={handleChange}
-              placeholder="Your phone number"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="company_name">Dealership Name</Label>
-            <Input
-              id="company_name"
-              name="company_name"
-              value={formData.company_name || ''}
-              onChange={handleChange}
-              placeholder="Your dealership name"
-            />
-          </div>
-          
-          <Button 
-            type="submit" 
-            className="w-full bg-ontario-blue hover:bg-ontario-blue/90"
-            disabled={isSaving}
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
-              </>
-            ) : (
-              'Save Profile'
-            )}
-          </Button>
-        </form>
-
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <h3 className="font-medium text-lg mb-4">Change Password</h3>
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword">Current Password</Label>
-              <Input
-                id="currentPassword"
-                name="currentPassword"
-                type="password"
-                value={passwordData.currentPassword}
-                onChange={handlePasswordChange}
-                placeholder="Enter current password"
-                required
-              />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Dealer Profile Section */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-4">
+              <UserCog className="h-5 w-5 text-ontario-blue" />
+              <h3 className="font-medium text-lg">Dealer Profile</h3>
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
-              <Input
-                id="newPassword"
-                name="newPassword"
-                type="password"
-                value={passwordData.newPassword}
-                onChange={handlePasswordChange}
-                placeholder="Enter new password"
-                required
-              />
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  value={user?.email || ''}
+                  disabled
+                  className="bg-gray-100"
+                />
+                <p className="text-sm text-gray-500">Email cannot be changed</p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="full_name">Full Name</Label>
+                <Input
+                  id="full_name"
+                  name="full_name"
+                  value={formData.full_name}
+                  onChange={handleChange}
+                  placeholder="Your full name"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  value={formData.phone || ''}
+                  onChange={handleChange}
+                  placeholder="Your phone number"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="company_name">Dealership Name</Label>
+                <Input
+                  id="company_name"
+                  name="company_name"
+                  value={formData.company_name || ''}
+                  onChange={handleChange}
+                  placeholder="Your dealership name"
+                />
+              </div>
+              
+              <Button 
+                type="submit" 
+                className="w-full bg-ontario-blue hover:bg-ontario-blue/90"
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                  </>
+                ) : (
+                  'Save Profile'
+                )}
+              </Button>
+            </form>
+          </div>
+          
+          {/* Vertical Separator for desktop view */}
+          <div className="hidden md:block md:absolute md:left-1/2 md:top-[88px] md:bottom-6 md:-ml-px">
+            <Separator orientation="vertical" className="bg-gray-200" />
+          </div>
+          
+          {/* Horizontal Separator for mobile view */}
+          <div className="md:hidden">
+            <Separator className="my-6 bg-gray-200" />
+          </div>
+          
+          {/* Change Password Section */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Lock className="h-5 w-5 text-ontario-blue" />
+              <h3 className="font-medium text-lg">Change Password</h3>
             </div>
+            
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword">Current Password</Label>
+                <Input
+                  id="currentPassword"
+                  name="currentPassword"
+                  type="password"
+                  value={passwordData.currentPassword}
+                  onChange={handlePasswordChange}
+                  placeholder="Enter current password"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">New Password</Label>
+                <Input
+                  id="newPassword"
+                  name="newPassword"
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={handlePasswordChange}
+                  placeholder="Enter new password"
+                  required
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                value={passwordData.confirmPassword}
-                onChange={handlePasswordChange}
-                placeholder="Confirm new password"
-                required
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={handlePasswordChange}
+                  placeholder="Confirm new password"
+                  required
+                />
+              </div>
 
-            <Button 
-              type="submit" 
-              variant="outline"
-              className="w-full border-ontario-blue text-ontario-blue hover:bg-ontario-blue/10"
-              disabled={isChangingPassword}
-            >
-              {isChangingPassword ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating Password...
-                </>
-              ) : (
-                'Update Password'
-              )}
-            </Button>
-          </form>
+              <Button 
+                type="submit" 
+                variant="outline"
+                className="w-full border-ontario-blue text-ontario-blue hover:bg-ontario-blue/10"
+                disabled={isChangingPassword}
+              >
+                {isChangingPassword ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating Password...
+                  </>
+                ) : (
+                  'Update Password'
+                )}
+              </Button>
+            </form>
+          </div>
         </div>
       </CardContent>
     </Card>

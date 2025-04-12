@@ -34,6 +34,41 @@ export const LockStatusBadge = ({ lockInfo }: { lockInfo?: LockInfo }) => {
   }
   
   if (lockInfo.isOwnLock) {
+    // Format the expiration date if available
+    if (lockInfo.expiresAt) {
+      try {
+        const expiryDate = parseISO(lockInfo.expiresAt);
+        
+        if (isValid(expiryDate)) {
+          const now = new Date();
+          
+          // Check if the lock has expired
+          if (expiryDate < now) {
+            return (
+              <Badge variant="outline" className="bg-gray-100 text-gray-500 border-gray-200">
+                Lock expired
+              </Badge>
+            );
+          }
+          
+          // Format the date and time in local timezone with line break
+          const formattedDate = format(expiryDate, 'MMM d, yyyy');
+          const formattedTime = format(expiryDate, 'h:mm a');
+          
+          return (
+            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+              <div className="flex flex-col items-center text-center">
+                <span>You locked until</span>
+                <span>{formattedDate} {formattedTime}</span>
+              </div>
+            </Badge>
+          );
+        }
+      } catch (error) {
+        console.error('Error formatting lock expiration date:', error);
+      }
+    }
+    
     return (
       <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
         You locked
@@ -41,7 +76,7 @@ export const LockStatusBadge = ({ lockInfo }: { lockInfo?: LockInfo }) => {
     );
   }
   
-  // Format the expiration date if available
+  // Format the expiration date if available for locks by other dealers
   if (lockInfo.expiresAt) {
     try {
       const expiryDate = parseISO(lockInfo.expiresAt);

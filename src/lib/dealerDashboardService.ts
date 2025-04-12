@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationItem, LockType, LockInfo, DownloadedApplication, DealerPurchase } from '@/lib/types/dealer-dashboard';
 import { formatDistanceToNow, parseISO, differenceInDays } from 'date-fns';
@@ -203,7 +202,19 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
       // Fall back to direct query approach
     } else if (rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
       console.log(`Retrieved ${rpcData.length} downloaded applications from RPC function`);
-      return rpcData as DownloadedApplication[];
+      
+      // Fetch lock information for each application
+      const downloadedWithLocks = await Promise.all(
+        rpcData.map(async (app) => {
+          const lockInfo = await getApplicationLockInfo(app.applicationId, dealerId);
+          return {
+            ...app,
+            lockInfo
+          };
+        })
+      );
+      
+      return downloadedWithLocks as DownloadedApplication[];
     }
     
     // If RPC approach failed, try direct table queries
@@ -236,8 +247,7 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
       return [];
     }
     
-    // For each purchase, get the application details from the RPC function
-    // that has the proper security context
+    // For each purchase, get the application details and lock information
     const downloadedApplications: DownloadedApplication[] = await Promise.all(
       purchasesData.map(async (purchase) => {
         const { data: appData, error: appError } = await supabase
@@ -258,6 +268,9 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
         
         const app = appData || {};
         
+        // Get lock information for this application
+        const lockInfo = await getApplicationLockInfo(purchase.application_id, dealerId);
+        
         // Create a properly structured DownloadedApplication
         return {
           id: purchase.id,
@@ -274,6 +287,7 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
           province: app.province,
           postalCode: app.postalcode,
           vehicleType: app.vehicletype,
+          lockInfo: lockInfo,
           requiredFeatures: app.requiredfeatures,
           unwantedColors: app.unwantedcolors,
           preferredMakeModel: app.preferredmakemodel,
@@ -301,6 +315,46 @@ export const getDownloadedApplications = async (dealerId: string): Promise<Downl
     return [];
   }
 };
+
+async function getApplicationLockInfo(applicationId: string, dealerId: string): Promise<LockInfo> {
+  try {
+    const { data, error } = await supabase
+      .from('application_locks')
+      .select('*')
+      .eq('application_id', applicationId)
+      .order('locked_at', { ascending: false })
+      .limit(1);
+    
+    if (error) {
+      console.error("Error fetching lock info:", error);
+      return { isLocked: false };
+    }
+    
+    if (!data || data.length === 0) {
+      return { isLocked: false };
+    }
+    
+    const lockRecord = data[0];
+    const now = new Date();
+    const expiresAt = new Date(lockRecord.expires_at);
+    
+    // Check if lock has expired
+    if (expiresAt < now) {
+      return { isLocked: false };
+    }
+    
+    return {
+      isLocked: true,
+      lockedBy: lockRecord.dealer_id,
+      expiresAt: lockRecord.expires_at,
+      lockType: lockRecord.lock_type as LockType,
+      isOwnLock: lockRecord.dealer_id === dealerId
+    };
+  } catch (error) {
+    console.error("Error getting lock info:", error);
+    return { isLocked: false };
+  }
+}
 
 export const isApplicationPurchased = async (applicationId: string, dealerId: string): Promise<boolean> => {
   try {

@@ -2,3 +2,4 @@
 # Redirects for Netlify/Vercel
 /PasswordReset/* /PasswordReset 200
 /* /index.html 200
+

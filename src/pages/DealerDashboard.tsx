@@ -108,12 +108,11 @@ const DealerDashboard = () => {
   });
   const [activeApplicationTab, setActiveApplicationTab] = useState<'visible' | 'hidden'>('visible');
   const [purchasedApplicationIds, setPurchasedApplicationIds] = useState<string[]>([]);
-  
   const [hideOlderThan90Days, setHideOlderThan90Days] = useState<boolean>(true);
   const [hideLockedApplications, setHideLockedApplications] = useState<boolean>(false);
   const [hidePurchasedApplications, setHidePurchasedApplications] = useState<boolean>(true);
-  
-  const selectionBeforePayment = useRef<string[]>([]);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState<boolean>(true);
+  const autoRefreshIntervalRef = useRef<number | null>(null);
   
   const [searchParams, setSearchParams] = useSearchParams();
   const paymentSuccess = searchParams.get('payment_success') === 'true';
@@ -130,6 +129,30 @@ const DealerDashboard = () => {
       loadPurchasedApplicationIds();
     }
   }, [user]);
+  
+  useEffect(() => {
+    if (autoRefreshEnabled) {
+      if (autoRefreshIntervalRef.current !== null) {
+        window.clearInterval(autoRefreshIntervalRef.current);
+      }
+      
+      autoRefreshIntervalRef.current = window.setInterval(() => {
+        console.log("Auto-refresh triggered");
+        loadData();
+      }, 60000);
+    } else {
+      if (autoRefreshIntervalRef.current !== null) {
+        window.clearInterval(autoRefreshIntervalRef.current);
+        autoRefreshIntervalRef.current = null;
+      }
+    }
+    
+    return () => {
+      if (autoRefreshIntervalRef.current !== null) {
+        window.clearInterval(autoRefreshIntervalRef.current);
+      }
+    };
+  }, [autoRefreshEnabled]);
   
   const loadPurchasedApplicationIds = async () => {
     if (!user?.id) return;
@@ -677,6 +700,10 @@ const DealerDashboard = () => {
     loadData();
   };
 
+  const handleToggleAutoRefresh = (checked: boolean) => {
+    setAutoRefreshEnabled(checked);
+  };
+
   useEffect(() => {
     if (user) {
       loadData();
@@ -709,9 +736,11 @@ const DealerDashboard = () => {
                     hideOlderThan90Days={hideOlderThan90Days}
                     hideLockedApplications={hideLockedApplications}
                     hidePurchasedApplications={hidePurchasedApplications}
+                    autoRefreshEnabled={autoRefreshEnabled}
                     onToggleHideOlderThan90Days={handleToggleHideOlderThan90Days}
                     onToggleHideLockedApplications={handleToggleHideLockedApplications}
                     onToggleHidePurchasedApplications={handleToggleHidePurchasedApplications}
+                    onToggleAutoRefresh={handleToggleAutoRefresh}
                   />
                   <ApplicationTable
                     applications={applications}

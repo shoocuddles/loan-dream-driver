@@ -20,24 +20,48 @@ const ResetPassword = () => {
 
   // Extract token from URL or session storage
   useEffect(() => {
-    // Check if we have a hash fragment with the token (redirect from email)
-    if (window.location.hash) {
+    console.log("Reset password page loaded");
+    
+    // Check URL for token in different formats
+    const extractToken = () => {
       try {
-        // The hash comes in format like #access_token=...&refresh_token=...
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
-        
-        if (accessToken) {
-          // Store the token in session storage for use when submitting the form
-          sessionStorage.setItem('resetPasswordToken', accessToken);
+        // Check for hash fragment (#access_token=...)
+        if (window.location.hash) {
+          console.log("Found hash in URL:", window.location.hash);
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          const accessToken = hashParams.get('access_token');
           
-          // Clean up the URL by removing the hash
-          window.history.replaceState(null, '', window.location.pathname);
+          if (accessToken) {
+            console.log("Successfully extracted access token from hash");
+            sessionStorage.setItem('resetPasswordToken', accessToken);
+            return true;
+          }
         }
+        
+        // Check for query parameter (?token=...)
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('token');
+        
+        if (urlToken) {
+          console.log("Found token in URL query parameters");
+          // We don't need to store this as Supabase will handle it automatically
+          return true;
+        }
+        
+        return false;
       } catch (error) {
-        console.error("Failed to parse URL hash:", error);
+        console.error("Failed to parse URL for token:", error);
         setTokenError("Invalid password reset link. Please request a new one.");
+        return false;
       }
+    };
+    
+    const hasToken = extractToken();
+    console.log("Token extraction result:", hasToken ? "token found" : "no token found");
+    
+    // Clean up the URL by removing the hash or query params
+    if (hasToken) {
+      window.history.replaceState(null, '', window.location.pathname);
     }
   }, []);
 
@@ -56,6 +80,7 @@ const ResetPassword = () => {
 
     try {
       setIsProcessing(true);
+      console.log("Attempting to reset password");
       
       // We don't need the token for updateUser - Supabase handles this
       // as long as the user has a valid session from the recovery link
@@ -68,6 +93,7 @@ const ResetPassword = () => {
         throw error;
       }
       
+      console.log("Password reset successful");
       // Clear any stored token
       sessionStorage.removeItem('resetPasswordToken');
       

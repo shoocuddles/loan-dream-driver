@@ -22,10 +22,21 @@ const ForgotPassword = () => {
       setIsProcessing(true);
       
       // Create the full absolute URL for reset password
-      const resetUrl = `${window.location.origin}/reset-password`;
-      console.log("Setting password reset redirect URL to:", resetUrl);
+      // Use explicit production URL if in production environment
+      const isProduction = window.location.hostname.includes('ontario-loans.com');
       
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      let resetUrl = '';
+      if (isProduction) {
+        resetUrl = 'https://ontario-loans.com/reset-password';
+      } else {
+        resetUrl = `${window.location.origin}/reset-password`;
+      }
+      
+      console.log("Setting password reset redirect URL to:", resetUrl);
+      console.log("Current environment:", isProduction ? "production" : "development/staging");
+      console.log("Current origin:", window.location.origin);
+      
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: resetUrl,
       });
       
@@ -35,6 +46,7 @@ const ForgotPassword = () => {
         throw error;
       }
       
+      console.log("Password reset response:", data);
       setIsSubmitted(true);
       toast.success("Password reset link sent to your email");
       

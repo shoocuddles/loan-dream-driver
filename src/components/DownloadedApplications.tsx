@@ -1,3 +1,4 @@
+
 import { useState, useRef } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import BulkActionsBar from './BulkActionsBar';
 import { lockApplication } from '@/lib/services/lock/lockService';
 import { toast } from 'sonner';
 import { createCheckoutSession } from '@/lib/services/stripe/stripeService';
+import { LockStatusBadge } from './application-table/StatusBadge';
 
 interface DownloadedApplicationsProps {
   applications: DownloadedApplication[];
@@ -47,32 +49,6 @@ const DownloadedApplications = ({
       console.error('Error formatting date:', dateString, error);
       return 'Invalid date';
     }
-  };
-
-  const formatLockStatus = (application: DownloadedApplication) => {
-    if (!application.lockInfo || !application.lockInfo.isLocked) {
-      return 'Not locked';
-    }
-
-    if (application.lockInfo.lockType === 'permanent') {
-      return 'Perm. Locked';
-    }
-
-    if (application.lockInfo.expiresAt) {
-      try {
-        const expiryDate = parseISO(application.lockInfo.expiresAt);
-        if (isValid(expiryDate)) {
-          if (expiryDate < new Date()) {
-            return 'Lock expired';
-          }
-          return `Locked until ${format(expiryDate, 'MMM d, h:mm a')}`;
-        }
-      } catch (error) {
-        console.error('Error formatting lock date:', error);
-      }
-    }
-    
-    return 'Locked';
   };
 
   const toggleApplicationSelection = (applicationId: string) => {
@@ -251,11 +227,7 @@ const DownloadedApplications = ({
                     <TableCell>{application.vehicleType || 'N/A'}</TableCell>
                     <TableCell>{safeFormatDate(application.downloadDate || application.purchaseDate)}</TableCell>
                     <TableCell>
-                      <div className={`text-sm ${application.lockInfo?.isLocked ? 
-                        (application.lockInfo.lockType === 'permanent' ? 'text-amber-600 font-semibold' : 'text-blue-600') : 
-                        'text-gray-500'}`}>
-                        {formatLockStatus(application)}
-                      </div>
+                      <LockStatusBadge lockInfo={application.lockInfo} />
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-2">

@@ -36,6 +36,11 @@ export interface AgeDiscountInfo {
   discount: number;
 }
 
+export interface ApplicationDetail {
+  id: string;
+  fullName: string;
+}
+
 export interface StripeCheckoutParams {
   applicationIds: string[];
   priceType: 'standard' | 'discounted';
@@ -45,6 +50,7 @@ export interface StripeCheckoutParams {
   lockType?: string;
   lockFee?: number;
   isLockPayment?: boolean;
+  applicationDetails?: ApplicationDetail[];
 }
 
 export interface CheckoutSessionResponse {

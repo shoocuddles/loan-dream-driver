@@ -1,7 +1,7 @@
-
 import { LockType, LockInfo, LockoutPeriod } from '@/lib/types/dealer-dashboard';
 import { supabase, rpcCall } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { createCheckoutSession } from '@/lib/services/stripe/stripeService';
 
 /**
  * Checks if an application is locked
@@ -175,5 +175,63 @@ export const processLocksAfterPayment = async (
   } catch (error) {
     console.error('Error processing locks after payment:', error);
     return 0;
+  }
+};
+
+/**
+ * Creates a checkout session for extending locks
+ */
+export const createLockExtensionCheckout = async (
+  applicationIds: string[],
+  lockType: LockType,
+  applicationDetails: {
+    id: string;
+    fullName: string;
+  }[]
+): Promise<{url?: string, sessionId?: string, error?: string}> => {
+  try {
+    console.log(`Creating checkout for extending locks on ${applicationIds.length} applications`);
+    
+    // Get lock period details
+    const lockPeriods = await fetchLockoutPeriods();
+    
+    // Find the selected lock period
+    const selectedPeriod = lockPeriods.find(period => {
+      if (lockType === '24hours' && period.name === '24 Hours') return true;
+      if (lockType === '1week' && period.name === '1 Week') return true;
+      if (lockType === 'permanent' && period.name === 'Permanent') return true;
+      return false;
+    });
+
+    if (!selectedPeriod) {
+      throw new Error(`Invalid lock type: ${lockType}`);
+    }
+
+    // Store pending locks in session storage for processing after payment
+    sessionStorage.setItem('pendingLockApplications', JSON.stringify(applicationIds));
+    sessionStorage.setItem('pendingLockType', lockType);
+    
+    // Create checkout session
+    const response = await createCheckoutSession({
+      applicationIds: [], // No actual applications being purchased
+      priceType: 'standard',
+      lockType: lockType,
+      lockFee: selectedPeriod.fee,
+      isLockPayment: true,
+      applicationDetails: applicationDetails
+    });
+    
+    if (response.error) {
+      console.error('Error creating checkout session for lock extension:', response.error);
+      return { error: response.error.message };
+    }
+    
+    return {
+      url: response.data?.url,
+      sessionId: response.data?.sessionId
+    };
+  } catch (error: any) {
+    console.error('Error creating lock extension checkout:', error);
+    return { error: error.message };
   }
 };

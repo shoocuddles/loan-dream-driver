@@ -63,8 +63,13 @@ serve(async (req) => {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
       
-      // Process the successful payment
-      await handleSuccessfulPayment(session, supabase);
+      // Check if this is a lock extension payment
+      if (session.metadata?.is_lock_extension === 'true') {
+        await handleLockExtensionPayment(session, supabase);
+      } else {
+        // Process regular application purchase
+        await handleSuccessfulPayment(session, supabase);
+      }
     }
     
     return new Response(
@@ -80,6 +85,100 @@ serve(async (req) => {
   }
 });
 
+// Add a new function to handle lock extension payments
+async function handleLockExtensionPayment(session, supabase) {
+  const dealerId = session.metadata?.dealer_id;
+  const applicationIdsString = session.metadata?.application_ids;
+  const lockType = session.metadata?.lock_type;
+  const lockFee = parseFloat(session.metadata?.lock_fee || "0");
+  
+  if (!dealerId || !applicationIdsString || !lockType) {
+    console.error("Missing required metadata for lock extension");
+    return;
+  }
+  
+  const applicationIds = applicationIdsString.split(',');
+  console.log(`Processing lock extension for dealer ${dealerId}, applications count: ${applicationIds.length}, lock type: ${lockType}`);
+  
+  // Process each application
+  for (const appId of applicationIds) {
+    try {
+      // Store the invoice details for this lock extension
+      await storeInvoiceDetails(
+        supabase, 
+        dealerId, 
+        session.id, 
+        'lock_extension', 
+        lockFee, 
+        [appId], 
+        lockType
+      );
+      
+      // Apply the lock with the new expiration
+      // Calculate expiration based on lock type
+      let expirationHours = 24; // Default for 24hours
+      if (lockType === '1week') expirationHours = 168; // 7 days
+      if (lockType === 'permanent') expirationHours = 87600; // 10 years (essentially permanent)
+      
+      // Apply the lock through the RPC function
+      const { data: lockData, error: lockError } = await supabase.rpc(
+        'lock_application',
+        {
+          p_application_id: appId,
+          p_dealer_id: dealerId,
+          p_lock_type: lockType,
+          p_payment_id: session.id,
+          p_payment_amount: lockFee
+        }
+      );
+      
+      if (lockError) {
+        console.error(`Error applying lock for ${appId}:`, lockError);
+        continue;
+      }
+      
+      console.log(`Successfully applied ${lockType} lock to application ${appId}`);
+      
+    } catch (error) {
+      console.error(`Error processing lock extension for application ${appId}:`, error);
+    }
+  }
+}
+
+// Store invoice details for both purchases and lock extensions
+async function storeInvoiceDetails(supabase, dealerId, sessionId, invoiceType, amount, applicationIds, lockType = null) {
+  try {
+    // Try to get Stripe Invoice details if available
+    // This would be a separate call to Stripe API if needed
+    
+    const invoiceData = {
+      dealer_id: dealerId,
+      stripe_session_id: sessionId,
+      amount: amount,
+      currency: 'cad',
+      application_ids: applicationIds.join(','),
+      invoice_type: invoiceType,
+      lock_type: lockType,
+      created_at: new Date().toISOString(),
+      status: 'paid'
+    };
+    
+    // Insert into dealer_invoices table
+    const { data, error } = await supabase
+      .from('dealer_invoices')
+      .insert(invoiceData);
+    
+    if (error) {
+      console.error("Error storing invoice:", error);
+    } else {
+      console.log(`Successfully stored ${invoiceType} invoice for session ${sessionId}`);
+    }
+    
+  } catch (error) {
+    console.error("Error storing invoice details:", error);
+  }
+}
+
 async function handleSuccessfulPayment(session, supabase) {
   const dealerId = session.metadata?.dealer_id;
   const applicationIdsString = session.metadata?.application_ids;
@@ -93,6 +192,16 @@ async function handleSuccessfulPayment(session, supabase) {
   const unitPrice = parseFloat(session.metadata?.unit_price || "0");
   
   console.log(`Processing webhook payment for dealer ${dealerId}, applications count: ${applicationIds.length}`);
+  
+  // Store the invoice details
+  await storeInvoiceDetails(
+    supabase, 
+    dealerId, 
+    session.id, 
+    'purchase', 
+    unitPrice * applicationIds.length,
+    applicationIds
+  );
   
   // Process each application
   for (const appId of applicationIds) {

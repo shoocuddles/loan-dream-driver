@@ -17,6 +17,8 @@ interface Invoice {
   number: string;
   status: string;
   application_ids?: string[];
+  description?: string;
+  type?: 'purchase' | 'lock_extension';
 }
 
 const DealerInvoices = () => {
@@ -82,6 +84,21 @@ const DealerInvoices = () => {
     }
   };
 
+  const getInvoiceTypeDisplay = (invoice: Invoice) => {
+    if (invoice.type === 'lock_extension') {
+      return (
+        <span className="text-sm text-amber-700 font-medium">
+          Lock Extension
+        </span>
+      );
+    }
+    return (
+      <span className="text-sm text-gray-500">
+        Application Purchase
+      </span>
+    );
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -119,6 +136,7 @@ const DealerInvoices = () => {
                 <tr className="bg-ontario-blue text-white">
                   <th className="px-4 py-2 text-left">Date</th>
                   <th className="px-4 py-2 text-left">Invoice #</th>
+                  <th className="px-4 py-2 text-left">Type</th>
                   <th className="px-4 py-2 text-left">Amount</th>
                   <th className="px-4 py-2 text-center">Status</th>
                   <th className="px-4 py-2 text-center">Actions</th>
@@ -129,6 +147,9 @@ const DealerInvoices = () => {
                   <tr key={invoice.id} className="border-b hover:bg-gray-50">
                     <td className="px-4 py-3">{formatDate(invoice.created)}</td>
                     <td className="px-4 py-3">{invoice.number || invoice.id.slice(0, 8)}</td>
+                    <td className="px-4 py-3">
+                      {getInvoiceTypeDisplay(invoice)}
+                    </td>
                     <td className="px-4 py-3">
                       {formatCurrency(invoice.total, invoice.currency)}
                     </td>

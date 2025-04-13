@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationItem, LockType, LockInfo, DownloadedApplication, DealerPurchase } from '@/lib/types/dealer-dashboard';
 import { formatDistanceToNow, parseISO, differenceInDays } from 'date-fns';
@@ -35,7 +34,8 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
         standardPrice: app.standardPrice || 0,
         discountedPrice: app.discountedPrice || 0,
         vehicleType: app.vehicleType || 'N/A',
-        isPurchased: app.isPurchased || false
+        isPurchased: app.isPurchased || false,
+        purchaseCount: 0 // Initialize with 0, will be updated below
       };
     });
 
@@ -106,6 +106,41 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
           app.isPurchased = true;
         }
       });
+    }
+
+    // Fetch purchase counts for all applications
+    const appIds = applications.map(app => app.applicationId);
+    
+    // Get purchase counts by application_id
+    const { data: purchaseCountsData, error: purchaseCountsError } = await supabase
+      .from('dealer_purchases')
+      .select('application_id, count')
+      .eq('is_active', true)
+      .in('application_id', appIds)
+      .select()
+      .then(({ data }) => {
+        const counts = {};
+        
+        // Group by application_id and count
+        if (data) {
+          data.forEach(purchase => {
+            const appId = purchase.application_id;
+            counts[appId] = (counts[appId] || 0) + 1;
+          });
+        }
+        
+        return { data: counts, error: null };
+      });
+    
+    if (purchaseCountsError) {
+      console.error("Error getting purchase counts:", purchaseCountsError);
+    } else {
+      // Update purchase counts in applications
+      applications.forEach(app => {
+        app.purchaseCount = purchaseCountsData?.[app.applicationId] || 0;
+      });
+      
+      console.log("Purchase counts loaded successfully");
     }
 
     return applications;

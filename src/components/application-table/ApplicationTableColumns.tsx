@@ -105,14 +105,19 @@ export const createColumns = ({
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (
-        <StatusBadge status={row.original.status} />
-      ),
-    },
-    {
-      accessorKey: "lockInfo",
-      header: "Lock Status",
-      cell: ({ row }) => (
-        <LockStatusBadge lockInfo={row.original.lockInfo} />
+        <div className="flex flex-col gap-1">
+          <StatusBadge status={row.original.status} />
+          <LockStatusBadge lockInfo={row.original.lockInfo} />
+          {row.original.purchaseCount !== undefined && (
+            <div className={row.original.purchaseCount === 0 ? 
+              "text-xs font-bold text-green-600" : 
+              "text-xs text-gray-500"}>
+              {row.original.purchaseCount === 0 ? 
+                "NEW LEAD" : 
+                `Purchased ${row.original.purchaseCount} time${row.original.purchaseCount === 1 ? '' : 's'}`}
+            </div>
+          )}
+        </div>
       ),
     },
     {

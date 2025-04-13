@@ -29,6 +29,7 @@ export interface ApplicationItem {
   discountedPrice: number;
   vehicleType: string;
   isAgeDiscounted?: boolean;
+  purchaseCount?: number; // Added this field to track the number of times purchased
 }
 
 // Updated LockType to include 2weeks

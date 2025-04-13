@@ -89,7 +89,7 @@ export const createColumns = ({
     },
     {
       accessorKey: "vehicleType",
-      header: "Vehicle Type",
+      header: "Vehicle Wanted",
       cell: ({ row }) => (
         <div>{row.original.vehicleType || 'N/A'}</div>
       ),

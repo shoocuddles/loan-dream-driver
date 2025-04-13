@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -260,23 +261,58 @@ export const generateApplicationPDF = (application: Application, isAdmin = false
 /**
  * Application lock/unlock functions
  */
-export const lockApplication = async (applicationId: string, dealerId: string): Promise<boolean> => {
+export const lockApplication = async (applicationId: string, dealerId: string, lockType = '24hours'): Promise<{success: boolean; message?: string}> => {
   try {
-    console.log(`🔒 Locking application ${applicationId} for dealer ${dealerId}`);
-    return true;
+    console.log(`🔒 Locking application ${applicationId} for dealer ${dealerId} with lock type ${lockType}`);
+    
+    const { data, error } = await rpcCall<{success: boolean; message?: string}>(
+      'lock_application',
+      {
+        p_application_id: applicationId,
+        p_dealer_id: dealerId,
+        p_lock_type: lockType
+      }
+    );
+    
+    if (error) {
+      console.error("Error locking application:", error);
+      throw error;
+    }
+    
+    return data || { success: false, message: "Unknown error occurred" };
   } catch (error: any) {
-    console.error("Error locking application:", error.message);
-    return false;
+    console.error("Error locking application:", error);
+    return { 
+      success: false, 
+      message: error.message || "Failed to lock application" 
+    };
   }
 };
 
-export const unlockApplication = async (applicationId: string): Promise<boolean> => {
+export const unlockApplication = async (applicationId: string): Promise<{success: boolean; message?: string}> => {
   try {
     console.log(`🔓 Unlocking application ${applicationId}`);
-    return true;
+    
+    const { data, error } = await rpcCall<{success: boolean; message?: string}>(
+      'unlock_application',
+      {
+        p_application_id: applicationId,
+        p_dealer_id: 'admin' // Use 'admin' as dealer ID for admin unlocks
+      }
+    );
+    
+    if (error) {
+      console.error("Error unlocking application:", error);
+      throw error;
+    }
+    
+    return data || { success: false, message: "Unknown error occurred" };
   } catch (error: any) {
-    console.error("Error unlocking application:", error.message);
-    return false;
+    console.error("Error unlocking application:", error);
+    return { 
+      success: false, 
+      message: error.message || "Failed to unlock application" 
+    };
   }
 };
 

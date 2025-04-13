@@ -890,9 +890,16 @@ const DealerDashboard = () => {
                     )}
                   </Button>
                 </div>
-                <p className="text-xs text-gray-500 text-center">
-                  Your payment will be processed securely through Stripe
-                </p>
+                <div className="text-xs text-gray-500 space-y-3">
+                  <p className="text-center">
+                    Your payment will be processed securely through Stripe
+                  </p>
+                  <p className="text-xs text-gray-600 border-t pt-3">
+                    By purchasing this data you agree to use it legally and within the laws of Ontario, Canada, and your local government. 
+                    The information that you are purchasing has been submitted directly by the applicant and we do not guarantee the legitimacy of this data. 
+                    All purchases are final.
+                  </p>
+                </div>
               </div>
             </DialogContent>
           </Dialog>

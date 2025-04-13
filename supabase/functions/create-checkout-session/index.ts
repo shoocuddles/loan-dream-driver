@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Stripe } from "https://esm.sh/stripe@14.20.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -31,7 +30,7 @@ serve(async (req) => {
       );
     }
     
-    const { applicationIds, priceType, couponId, applicationDetails } = requestData;
+    const { applicationIds, priceType, couponId, applicationDetails, ageDiscounts } = requestData;
     
     if (!applicationIds || !priceType) {
       return new Response(
@@ -95,7 +94,7 @@ serve(async (req) => {
     // Get system settings for pricing
     const { data: settings, error: settingsError } = await supabase
       .from('system_settings')
-      .select('standard_price, discounted_price')
+      .select('standard_price, discounted_price, age_discount_percentage')
       .single();
     
     if (settingsError || !settings) {
@@ -135,23 +134,55 @@ serve(async (req) => {
     
     console.log("Purchase counts:", purchaseCounts);
     
-    // Calculate total price based on purchase history
+    // Calculate total price based on purchase history and age discounts
     let totalAmount = 0;
     let hasDiscounted = false;
+    let ageDiscountCount = 0;
+    let previousPurchaseCount = 0;
+    let standardPriceCount = 0;
     
+    // Create a map of application IDs to their age discount status
+    const ageDiscountMap: Record<string, boolean> = {};
+    if (ageDiscounts && Array.isArray(ageDiscounts)) {
+      ageDiscounts.forEach(item => {
+        ageDiscountMap[item.id] = true;
+      });
+    }
+    
+    // Calculate the price for each application
     applicationIdsArray.forEach(appId => {
       const isPreviouslyPurchased = purchaseCounts[appId] && purchaseCounts[appId] > 0;
-      const priceAmount = (priceType === 'discounted' || isPreviouslyPurchased) ? 
-        settings.discounted_price : settings.standard_price;
+      const hasAgeDiscount = ageDiscountMap[appId] === true;
+      let appPrice = settings.standard_price;
       
-      if (isPreviouslyPurchased) {
+      // Apply age discount if applicable
+      if (hasAgeDiscount) {
+        const discountMultiplier = (100 - settings.age_discount_percentage) / 100;
+        appPrice = settings.standard_price * discountMultiplier;
         hasDiscounted = true;
+        ageDiscountCount++;
+      } 
+      // Apply purchase history discount if applicable and no age discount
+      else if (isPreviouslyPurchased) {
+        appPrice = settings.discounted_price;
+        hasDiscounted = true;
+        previousPurchaseCount++;
+      } 
+      // Otherwise apply standard price or the requested price type
+      else {
+        appPrice = priceType === 'discounted' ? settings.discounted_price : settings.standard_price;
+        if (priceType === 'discounted') {
+          hasDiscounted = true;
+        } else {
+          standardPriceCount++;
+        }
       }
       
-      totalAmount += priceAmount;
+      totalAmount += appPrice;
     });
     
-    const priceAmount = priceType === 'discounted' ? settings.discounted_price : settings.standard_price;
+    console.log(`Total price calculated: ${totalAmount} for ${applicationIdsArray.length} applications`);
+    console.log(`Age discounts: ${ageDiscountCount}, Previous purchases: ${previousPurchaseCount}, Standard: ${standardPriceCount}`);
     
     // Initialize Stripe
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
@@ -199,8 +230,10 @@ serve(async (req) => {
       price_type: priceType,
       unit_price: (totalAmount / applicationIdsArray.length).toString(),
       has_discount: hasDiscounted ? 'true' : 'false',
-      discount_type: hasDiscounted ? 'previous_purchase' : null,
-      application_count: applicationIdsArray.length.toString()
+      discount_type: hasDiscounted ? 'mixed' : null,
+      application_count: applicationIdsArray.length.toString(),
+      age_discount_count: ageDiscountCount.toString(),
+      previous_purchase_count: previousPurchaseCount.toString()
     };
     
     // Store application IDs in chunks to avoid exceeding metadata size limit

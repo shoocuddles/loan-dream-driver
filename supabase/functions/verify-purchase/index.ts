@@ -96,9 +96,12 @@ serve(async (req) => {
     
     console.log(`Processing ${applicationIds.length} application purchases for dealer ${dealerId}`);
 
-    // Calculate the price per application (total amount / quantity)
+    // Calculate the price per application from the total amount
     const lineItems = await stripe.checkout.sessions.listLineItems(sessionId);
-    const amount = lineItems.data[0]?.amount_total / 100 / applicationIds.length || 0;
+    const totalAmount = lineItems.data[0]?.amount_total / 100 || 0;
+    const amount = totalAmount / applicationIds.length;
+
+    console.log(`Total amount: ${totalAmount}, Per application: ${amount}`);
 
     // Record a purchase for each application
     let successCount = 0;
@@ -132,7 +135,7 @@ serve(async (req) => {
         purchasedCount: successCount,
         totalCount: applicationIds.length,
         paymentId: session.payment_intent,
-        amount: lineItems.data[0]?.amount_total / 100 || 0
+        amount: totalAmount
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

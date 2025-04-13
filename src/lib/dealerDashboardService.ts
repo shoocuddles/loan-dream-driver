@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationItem, LockType, LockInfo, DownloadedApplication, DealerPurchase } from '@/lib/types/dealer-dashboard';
 import { formatDistanceToNow, parseISO, differenceInDays } from 'date-fns';
@@ -111,6 +112,8 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
     // Fetch purchase counts for all applications from dealer_purchases table
     const appIds = applications.map(app => app.applicationId);
     
+    console.log("Fetching purchase counts for applications:", appIds);
+    
     // Get purchase counts by application_id - Fix: Query to properly count purchases per application
     const { data: purchaseCountsData, error: purchaseCountsError } = await supabase
       .from('dealer_purchases')
@@ -124,10 +127,14 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
       // Create a count map of purchases per application
       const purchaseCountMap: {[key: string]: number} = {};
       
+      console.log("Raw purchase data received:", purchaseCountsData);
+      
       purchaseCountsData.forEach(purchase => {
         const appId = purchase.application_id;
         purchaseCountMap[appId] = (purchaseCountMap[appId] || 0) + 1;
       });
+      
+      console.log("Purchase count map created:", purchaseCountMap);
       
       // Update purchase counts in applications
       applications.forEach(app => {

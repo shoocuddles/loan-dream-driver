@@ -106,7 +106,9 @@ export const createColumns = ({
       header: "Status",
       cell: ({ row }) => {
         const application = row.original;
-        const purchaseCount = application.purchaseCount || 0;
+        const purchaseCount = application.purchaseCount !== undefined ? application.purchaseCount : 0;
+        
+        console.log(`Application ${application.applicationId} (${application.fullName}) purchase count: ${purchaseCount}`);
         
         return (
           <div className="flex flex-col gap-1">

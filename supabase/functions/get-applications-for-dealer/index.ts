@@ -74,7 +74,8 @@ serve(async (req) => {
       );
     }
     
-    // Get purchase counts for each application - THIS IS THE CRITICAL NEW PART
+    // Get purchase counts for each application
+    // Enhanced: Use no filter to get ALL purchases across all dealers
     const { data: allPurchasesData, error: allPurchasesError } = await supabase
       .from('dealer_purchases')
       .select('application_id')
@@ -95,14 +96,24 @@ serve(async (req) => {
     
     // Create purchase count map
     const purchaseCountMap: { [key: string]: number } = {};
-    if (allPurchasesData) {
+    if (allPurchasesData && allPurchasesData.length > 0) {
       allPurchasesData.forEach(purchase => {
         const appId = purchase.application_id;
         purchaseCountMap[appId] = (purchaseCountMap[appId] || 0) + 1;
       });
+      
+      // Log sample counts for debugging
+      console.log(`Created purchase count map with ${Object.keys(purchaseCountMap).length} entries`);
+      
+      // Log the first few entries for debugging
+      const sampleKeys = Object.keys(purchaseCountMap).slice(0, 5);
+      const sampleCounts = sampleKeys.reduce((obj, key) => {
+        obj[key] = purchaseCountMap[key];
+        return obj;
+      }, {} as Record<string, number>);
+      
+      console.log("Sample purchase counts:", JSON.stringify(sampleCounts));
     }
-    
-    console.log(`Created purchase count map with ${Object.keys(purchaseCountMap).length} entries`);
     
     const purchasedIds = purchasedData.map(item => item.application_id);
     console.log(`Filtering out ${purchasedIds.length} purchased applications`);

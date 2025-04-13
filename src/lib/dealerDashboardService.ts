@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationItem, LockType, LockInfo, DownloadedApplication, DealerPurchase } from '@/lib/types/dealer-dashboard';
 import { formatDistanceToNow, parseISO, differenceInDays } from 'date-fns';
@@ -36,7 +35,7 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
         discountedPrice: app.discountedPrice || 0,
         vehicleType: app.vehicleType || 'N/A',
         isPurchased: app.isPurchased || false,
-        purchaseCount: 0 // Initialize with 0, will be updated below
+        purchaseCount: app.purchaseCount || 0
       };
     });
 
@@ -109,77 +108,14 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
       });
     }
 
-    // Fetch purchase counts for all applications from dealer_purchases table
-    const appIds = applications.map(app => app.applicationId);
-    
-    console.log("Fetching purchase counts for applications:", appIds.length);
-    
-    // Debugging purposes - let's check what's in the dealer_purchases table
-    console.log("DEBUG: Querying dealer_purchases table for all purchases");
-    
-    const { data: allPurchases, error: allPurchasesError } = await supabase
-      .from('dealer_purchases')
-      .select('application_id, dealer_id')
-      .eq('is_active', true);
-      
-    if (allPurchasesError) {
-      console.error("Error fetching all purchases:", allPurchasesError);
-    } else {
-      console.log(`DEBUG: Found ${allPurchases?.length || 0} total active purchases in the system`);
-      
-      // Log some sample data if available
-      if (allPurchases && allPurchases.length > 0) {
-        console.log("DEBUG: Sample purchases:", allPurchases.slice(0, 5));
-        
-        // Count purchases per application
-        const debugPurchaseMap: {[key: string]: number} = {};
-        allPurchases.forEach(purchase => {
-          const appId = purchase.application_id;
-          debugPurchaseMap[appId] = (debugPurchaseMap[appId] || 0) + 1;
-        });
-        
-        console.log("DEBUG: Purchase counts per application:", debugPurchaseMap);
-        
-        // Check if any of our applications have purchases
-        const applicationsWithPurchases = appIds.filter(id => debugPurchaseMap[id] && debugPurchaseMap[id] > 0);
-        console.log(`DEBUG: ${applicationsWithPurchases.length} of our applications have been purchased before`);
-        if (applicationsWithPurchases.length > 0) {
-          console.log("DEBUG: Applications with purchases:", applicationsWithPurchases);
-        }
-      }
-    }
-    
-    // Query purchase counts for our specific application IDs
-    const { data: purchaseCountsData, error: purchaseCountsError } = await supabase
-      .from('dealer_purchases')
-      .select('application_id')
-      .in('application_id', appIds)
-      .eq('is_active', true);
-    
-    if (purchaseCountsError) {
-      console.error("Error getting purchase counts:", purchaseCountsError);
-    } else if (purchaseCountsData && Array.isArray(purchaseCountsData)) {
-      // Create a count map of purchases per application
-      const purchaseCountMap: {[key: string]: number} = {};
-      
-      console.log("Raw purchase data received:", purchaseCountsData.length, "records");
-      
-      purchaseCountsData.forEach(purchase => {
-        const appId = purchase.application_id;
-        purchaseCountMap[appId] = (purchaseCountMap[appId] || 0) + 1;
-      });
-      
-      console.log("Purchase count map created:", purchaseCountMap);
-      
-      // Update purchase counts in applications
-      applications.forEach(app => {
-        app.purchaseCount = purchaseCountMap[app.applicationId] || 0;
-      });
-      
-      const purchasedCount = applications.filter(a => (a.purchaseCount || 0) > 0).length;
-      console.log("Purchase counts loaded successfully:", 
-        purchasedCount, "applications have been purchased before");
-    }
+    // We'll no longer need to query purchase counts here since they're included directly in the API response
+    console.log(`Applications with purchase counts loaded. First few applications:`, 
+      applications.slice(0, 3).map(app => ({
+        id: app.applicationId,
+        name: app.fullName,
+        purchaseCount: app.purchaseCount
+      }))
+    );
 
     return applications;
   } catch (error) {

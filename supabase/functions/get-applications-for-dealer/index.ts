@@ -74,11 +74,46 @@ serve(async (req) => {
       );
     }
     
+    // Get purchase counts for each application - THIS IS THE CRITICAL NEW PART
+    const { data: allPurchasesData, error: allPurchasesError } = await supabase
+      .from('dealer_purchases')
+      .select('application_id')
+      .eq('is_active', true);
+    
+    if (allPurchasesError) {
+      console.error("Error fetching purchase counts:", allPurchasesError);
+      return new Response(
+        JSON.stringify({ 
+          error: { 
+            message: "Failed to fetch purchase counts",
+            details: allPurchasesError.message
+          }
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+    
+    // Create purchase count map
+    const purchaseCountMap: { [key: string]: number } = {};
+    if (allPurchasesData) {
+      allPurchasesData.forEach(purchase => {
+        const appId = purchase.application_id;
+        purchaseCountMap[appId] = (purchaseCountMap[appId] || 0) + 1;
+      });
+    }
+    
+    console.log(`Created purchase count map with ${Object.keys(purchaseCountMap).length} entries`);
+    
     const purchasedIds = purchasedData.map(item => item.application_id);
     console.log(`Filtering out ${purchasedIds.length} purchased applications`);
     
-    // Filter out purchased applications
-    const filteredData = data.filter(app => !purchasedIds.includes(app.applicationId));
+    // Filter out purchased applications and add purchase counts
+    const filteredData = data.filter(app => !purchasedIds.includes(app.applicationId)).map(app => {
+      return {
+        ...app,
+        purchaseCount: purchaseCountMap[app.applicationId] || 0
+      };
+    });
     
     return new Response(
       JSON.stringify(filteredData),

@@ -108,39 +108,34 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
       });
     }
 
-    // Fetch purchase counts for all applications
+    // Fetch purchase counts for all applications from dealer_purchases table
     const appIds = applications.map(app => app.applicationId);
     
-    // Get purchase counts by application_id
+    // Get purchase counts by application_id - Fix: Query to properly count purchases per application
     const { data: purchaseCountsData, error: purchaseCountsError } = await supabase
       .from('dealer_purchases')
-      .select('application_id, count')
+      .select('application_id')
       .eq('is_active', true)
-      .in('application_id', appIds)
-      .select()
-      .then(({ data }) => {
-        const counts = {};
-        
-        // Group by application_id and count
-        if (data) {
-          data.forEach(purchase => {
-            const appId = purchase.application_id;
-            counts[appId] = (counts[appId] || 0) + 1;
-          });
-        }
-        
-        return { data: counts, error: null };
-      });
+      .in('application_id', appIds);
     
     if (purchaseCountsError) {
       console.error("Error getting purchase counts:", purchaseCountsError);
-    } else {
-      // Update purchase counts in applications
-      applications.forEach(app => {
-        app.purchaseCount = purchaseCountsData?.[app.applicationId] || 0;
+    } else if (purchaseCountsData && Array.isArray(purchaseCountsData)) {
+      // Create a count map of purchases per application
+      const purchaseCountMap: {[key: string]: number} = {};
+      
+      purchaseCountsData.forEach(purchase => {
+        const appId = purchase.application_id;
+        purchaseCountMap[appId] = (purchaseCountMap[appId] || 0) + 1;
       });
       
-      console.log("Purchase counts loaded successfully");
+      // Update purchase counts in applications
+      applications.forEach(app => {
+        app.purchaseCount = purchaseCountMap[app.applicationId] || 0;
+      });
+      
+      console.log("Purchase counts loaded successfully:", 
+        applications.filter(a => (a.purchaseCount || 0) > 0).length, "applications have been purchased before");
     }
 
     return applications;

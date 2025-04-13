@@ -187,6 +187,99 @@ export type Database = {
         }
         Relationships: []
       }
+      applications_old: {
+        Row: {
+          additionalnotes: string | null
+          amountowed: string | null
+          city: string | null
+          created_at: string | null
+          currentpayment: string | null
+          currentvehicle: string | null
+          email: string | null
+          employer_name: string | null
+          employment_duration: string | null
+          employmentstatus: string | null
+          fullname: string
+          hasexistingloan: boolean | null
+          id: string
+          iscomplete: boolean | null
+          job_title: string | null
+          mileage: string | null
+          monthlyincome: string | null
+          phonenumber: string | null
+          postalcode: string | null
+          preferredmakemodel: string | null
+          province: string | null
+          requiredfeatures: string | null
+          status: string | null
+          streetaddress: string | null
+          unwantedcolors: string | null
+          updated_at: string | null
+          user_id: string | null
+          vehicletype: string | null
+        }
+        Insert: {
+          additionalnotes?: string | null
+          amountowed?: string | null
+          city?: string | null
+          created_at?: string | null
+          currentpayment?: string | null
+          currentvehicle?: string | null
+          email?: string | null
+          employer_name?: string | null
+          employment_duration?: string | null
+          employmentstatus?: string | null
+          fullname: string
+          hasexistingloan?: boolean | null
+          id?: string
+          iscomplete?: boolean | null
+          job_title?: string | null
+          mileage?: string | null
+          monthlyincome?: string | null
+          phonenumber?: string | null
+          postalcode?: string | null
+          preferredmakemodel?: string | null
+          province?: string | null
+          requiredfeatures?: string | null
+          status?: string | null
+          streetaddress?: string | null
+          unwantedcolors?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          vehicletype?: string | null
+        }
+        Update: {
+          additionalnotes?: string | null
+          amountowed?: string | null
+          city?: string | null
+          created_at?: string | null
+          currentpayment?: string | null
+          currentvehicle?: string | null
+          email?: string | null
+          employer_name?: string | null
+          employment_duration?: string | null
+          employmentstatus?: string | null
+          fullname?: string
+          hasexistingloan?: boolean | null
+          id?: string
+          iscomplete?: boolean | null
+          job_title?: string | null
+          mileage?: string | null
+          monthlyincome?: string | null
+          phonenumber?: string | null
+          postalcode?: string | null
+          preferredmakemodel?: string | null
+          province?: string | null
+          requiredfeatures?: string | null
+          status?: string | null
+          streetaddress?: string | null
+          unwantedcolors?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          vehicletype?: string | null
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           created_at: string
@@ -588,6 +681,10 @@ export type Database = {
         Args: { p_dealer_id: string; p_application_id: string }
         Returns: Json
       }
+      move_old_applications: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       pause_dealer: {
         Args: {
           p_dealer_id: string
@@ -632,6 +729,10 @@ export type Database = {
       send_dealer_pin_email: {
         Args: { p_dealer_id: string }
         Returns: Json
+      }
+      sync_columns: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       unlock_application: {
         Args: { p_application_id: string; p_dealer_id: string }

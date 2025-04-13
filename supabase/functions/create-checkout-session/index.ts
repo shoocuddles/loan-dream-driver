@@ -107,24 +107,33 @@ serve(async (req) => {
     
     // Check if any of the applications have been purchased before to apply discounted price
     const applicationIdsArray = Array.isArray(applicationIds) ? applicationIds : [applicationIds];
+    
+    // Fix for the group function issue
+    // Instead of using .count() which requires a group function, get all records and count them in JS
     const { data: purchaseData, error: purchaseError } = await supabase
       .from('dealer_purchases')
-      .select('application_id, COUNT(*)')
+      .select('application_id')
       .in('application_id', applicationIdsArray)
-      .eq('is_active', true)
-      .group('application_id');
+      .eq('is_active', true);
     
     if (purchaseError) {
       console.error("Error checking purchase history:", purchaseError);
     }
     
     // Create a map of application IDs to purchase counts
-    const purchaseCounts = {};
+    const purchaseCounts: Record<string, number> = {};
     if (purchaseData) {
+      // Count purchases for each application ID
       purchaseData.forEach(item => {
-        purchaseCounts[item.application_id] = parseInt(item.count);
+        if (purchaseCounts[item.application_id]) {
+          purchaseCounts[item.application_id]++;
+        } else {
+          purchaseCounts[item.application_id] = 1;
+        }
       });
     }
+    
+    console.log("Purchase counts:", purchaseCounts);
     
     // Calculate total price based on purchase history
     let totalAmount = 0;

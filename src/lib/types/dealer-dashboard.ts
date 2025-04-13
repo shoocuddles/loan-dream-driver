@@ -1,4 +1,5 @@
 
+
 // Add these to the existing types
 
 export interface DealerPurchase {
@@ -94,3 +95,4 @@ export interface SystemSettings {
   ageDiscountThreshold: number;
   ageDiscountPercentage: number;
 }
+

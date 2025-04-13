@@ -193,6 +193,51 @@ serve(async (req) => {
         .eq('id', dealer.id);
     }
     
+    // Prepare metadata - handle large batches of application IDs
+    const metadata: Record<string, string> = {
+      dealer_id: dealer.id,
+      price_type: priceType,
+      unit_price: (totalAmount / applicationIdsArray.length).toString(),
+      has_discount: hasDiscounted ? 'true' : 'false',
+      discount_type: hasDiscounted ? 'previous_purchase' : null,
+      application_count: applicationIdsArray.length.toString()
+    };
+    
+    // Store application IDs in chunks to avoid exceeding metadata size limit
+    // Stripe has a limit of 500 characters per metadata value
+    if (applicationIdsArray.length === 1) {
+      metadata.application_ids = applicationIdsArray[0];
+    } else {
+      // For multiple applications, store only the count in metadata
+      // and save full list to a database record that we can retrieve later
+      
+      // Create a temporary purchase record to store all application IDs
+      const { data: batchRecord, error: batchError } = await supabase
+        .from('application_batch_purchases')
+        .insert({
+          dealer_id: dealer.id,
+          application_ids: applicationIdsArray,
+          price_type: priceType,
+          created_at: new Date().toISOString()
+        })
+        .select('id')
+        .single();
+      
+      if (batchError) {
+        console.error("Error creating batch purchase record:", batchError);
+        // Continue anyway, we'll just have less detailed metadata
+      } else if (batchRecord) {
+        metadata.batch_id = batchRecord.id;
+      }
+    }
+    
+    // Add application info to metadata if available
+    if (application) {
+      metadata.application_client = application.fullname;
+      if (application.email) metadata.application_email = application.email;
+      if (application.city) metadata.application_city = application.city;
+    }
+    
     // Create a checkout session
     const sessionParams = {
       customer: customerId,
@@ -216,14 +261,7 @@ serve(async (req) => {
       mode: 'payment',
       success_url: `${req.headers.get("origin")}/dealer-dashboard?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.headers.get("origin")}/dealer-dashboard?payment_cancelled=true`,
-      metadata: {
-        dealer_id: dealer.id,
-        application_ids: applicationIdsArray.join(','),
-        price_type: priceType,
-        unit_price: (totalAmount / applicationIdsArray.length).toString(),
-        has_discount: hasDiscounted ? 'true' : 'false',
-        discount_type: hasDiscounted ? 'previous_purchase' : null
-      }
+      metadata: metadata
     };
     
     // Add coupon if provided
@@ -233,13 +271,6 @@ serve(async (req) => {
           coupon: couponId
         }
       ];
-    }
-    
-    // Add application info to metadata if available
-    if (application) {
-      sessionParams.metadata.application_client = application.fullname;
-      sessionParams.metadata.application_email = application.email;
-      sessionParams.metadata.application_city = application.city;
     }
     
     console.log("Creating Stripe checkout session with params:", JSON.stringify(sessionParams));

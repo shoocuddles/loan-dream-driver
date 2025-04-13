@@ -114,7 +114,42 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
     
     console.log("Fetching purchase counts for applications:", appIds.length);
     
-    // IMPORTANT FIX: Remove the 'eq' filter conditions that were limiting the query only to the current dealer
+    // Debugging purposes - let's check what's in the dealer_purchases table
+    console.log("DEBUG: Querying dealer_purchases table for all purchases");
+    
+    const { data: allPurchases, error: allPurchasesError } = await supabase
+      .from('dealer_purchases')
+      .select('application_id, dealer_id')
+      .eq('is_active', true);
+      
+    if (allPurchasesError) {
+      console.error("Error fetching all purchases:", allPurchasesError);
+    } else {
+      console.log(`DEBUG: Found ${allPurchases?.length || 0} total active purchases in the system`);
+      
+      // Log some sample data if available
+      if (allPurchases && allPurchases.length > 0) {
+        console.log("DEBUG: Sample purchases:", allPurchases.slice(0, 5));
+        
+        // Count purchases per application
+        const debugPurchaseMap: {[key: string]: number} = {};
+        allPurchases.forEach(purchase => {
+          const appId = purchase.application_id;
+          debugPurchaseMap[appId] = (debugPurchaseMap[appId] || 0) + 1;
+        });
+        
+        console.log("DEBUG: Purchase counts per application:", debugPurchaseMap);
+        
+        // Check if any of our applications have purchases
+        const applicationsWithPurchases = appIds.filter(id => debugPurchaseMap[id] && debugPurchaseMap[id] > 0);
+        console.log(`DEBUG: ${applicationsWithPurchases.length} of our applications have been purchased before`);
+        if (applicationsWithPurchases.length > 0) {
+          console.log("DEBUG: Applications with purchases:", applicationsWithPurchases);
+        }
+      }
+    }
+    
+    // Query purchase counts for our specific application IDs
     const { data: purchaseCountsData, error: purchaseCountsError } = await supabase
       .from('dealer_purchases')
       .select('application_id')

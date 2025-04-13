@@ -104,21 +104,24 @@ export const createColumns = ({
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => (
-        <div className="flex flex-col gap-1">
-          <StatusBadge status={row.original.status} />
-          <LockStatusBadge lockInfo={row.original.lockInfo} />
-          {row.original.purchaseCount !== undefined && (
-            <div className={row.original.purchaseCount === 0 ? 
+      cell: ({ row }) => {
+        const application = row.original;
+        const purchaseCount = application.purchaseCount || 0;
+        
+        return (
+          <div className="flex flex-col gap-1">
+            <StatusBadge status={application.status} />
+            <LockStatusBadge lockInfo={application.lockInfo} />
+            <div className={purchaseCount === 0 ? 
               "text-xs font-bold text-green-600" : 
               "text-xs text-gray-500"}>
-              {row.original.purchaseCount === 0 ? 
+              {purchaseCount === 0 ? 
                 "NEW LEAD" : 
-                `Purchased ${row.original.purchaseCount} time${row.original.purchaseCount === 1 ? '' : 's'}`}
+                `Purchased ${purchaseCount} time${purchaseCount === 1 ? '' : 's'}`}
             </div>
-          )}
-        </div>
-      ),
+          </div>
+        );
+      },
     },
     {
       accessorKey: "price",

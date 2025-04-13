@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -26,9 +25,8 @@ import { isValid, parseISO, format } from 'date-fns';
 import DownloadOptions from "@/components/application-table/DownloadOptions";
 import CsvUploader from "@/components/CsvUploader";
 import { AgeDiscountSettings } from "@/components/application-table/priceUtils";
-import { ApplicationItem } from "@/lib/types/dealer-dashboard";
 
-interface AdminApplicationItem {
+interface ApplicationItem {
   applicationId: string;
   fullName: string;
   email: string;
@@ -42,7 +40,7 @@ interface AdminApplicationItem {
 }
 
 const AdminDashboard = () => {
-  const [applications, setApplications] = useState<AdminApplicationItem[]>([]);
+  const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("applications");
@@ -134,28 +132,20 @@ const AdminDashboard = () => {
     try {
       setProcessingId(`unlock-${applicationId}`);
       
-      const result = await unlockApplication(applicationId);
+      await unlockApplication(applicationId);
       
-      if (result.success) {
-        setApplications(prev => 
-          prev.map(app => 
-            app.applicationId === applicationId
-              ? { ...app, isLocked: false, lockExpiresAt: undefined, lockedBy: undefined }
-              : app
-          )
-        );
-        
-        toast({
-          title: "Application Unlocked",
-          description: "The application has been unlocked successfully.",
-        });
-      } else {
-        toast({
-          title: "Unlock Failed",
-          description: result.message || "There was a problem unlocking the application.",
-          variant: "destructive",
-        });
-      }
+      setApplications(prev => 
+        prev.map(app => 
+          app.applicationId === applicationId
+            ? { ...app, isLocked: false, lockExpiresAt: null, lockedBy: null }
+            : app
+        )
+      );
+      
+      toast({
+        title: "Application Unlocked",
+        description: "The application has been unlocked successfully.",
+      });
     } catch (error) {
       console.error("Unlock error:", error);
       toast({
@@ -169,25 +159,6 @@ const AdminDashboard = () => {
   };
 
   const handleViewDetails = (applicationId: string) => {
-    // Create an ApplicationItem object with the minimum required properties
-    const appItem: ApplicationItem = {
-      id: applicationId,
-      applicationId: applicationId,
-      fullName: applications.find(app => app.applicationId === applicationId)?.fullName || "Unknown",
-      city: applications.find(app => app.applicationId === applicationId)?.city || "Unknown",
-      submissionDate: applications.find(app => app.applicationId === applicationId)?.submissionDate || new Date().toISOString(),
-      status: applications.find(app => app.applicationId === applicationId)?.status || "unknown",
-      vehicleType: applications.find(app => app.applicationId === applicationId)?.vehicleType || "Unknown",
-      standardPrice: 0, // These values will be loaded in the details component
-      discountedPrice: 0,
-      lockInfo: {
-        isLocked: applications.find(app => app.applicationId === applicationId)?.isLocked || false,
-        lockedBy: applications.find(app => app.applicationId === applicationId)?.lockedBy,
-        expiresAt: applications.find(app => app.applicationId === applicationId)?.lockExpiresAt
-      },
-      isDownloaded: false,
-    };
-    
     toast({
       title: "View Details",
       description: `Viewing details for application ${applicationId}`,
@@ -198,7 +169,7 @@ const AdminDashboard = () => {
     loadApplications();
   };
 
-  const applicationColumns: ColumnDef<AdminApplicationItem>[] = [
+  const applicationColumns: ColumnDef<ApplicationItem>[] = [
     {
       accessorKey: 'submissionDate',
       header: 'Date',

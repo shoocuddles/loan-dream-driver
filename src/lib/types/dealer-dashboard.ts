@@ -87,12 +87,10 @@ export interface LockoutPeriod {
 }
 
 export interface SystemSettings {
-  id: number;
   standardPrice: number;
   discountedPrice: number;
-  lockoutPeriodHours: number;
-  updated_at: string;
-  ageDiscountEnabled?: boolean;
-  ageDiscountThreshold?: number;
-  ageDiscountPercentage?: number;
+  temporaryLockMinutes: number;
+  ageDiscountEnabled: boolean;
+  ageDiscountThreshold: number;
+  ageDiscountPercentage: number;
 }

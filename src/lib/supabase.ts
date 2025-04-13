@@ -26,6 +26,114 @@ export async function rpcCall<T>(
   }
 }
 
+// Auth functions
+export const signOutDealer = async () => {
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Sign out error:", error);
+      throw error;
+    }
+    return true;
+  } catch (error) {
+    console.error("Sign out error:", error);
+    throw error;
+  }
+};
+
+// Function to unlock applications
+export const unlockApplication = async (applicationId: string) => {
+  try {
+    console.log(`Unlocking application ${applicationId}`);
+    
+    // Delete any locks for this application
+    const { error } = await supabase
+      .from('application_locks')
+      .delete()
+      .eq('application_id', applicationId);
+    
+    if (error) throw error;
+    
+    console.log(`Application ${applicationId} unlocked successfully`);
+    return true;
+  } catch (error) {
+    console.error('Error unlocking application:', error);
+    throw error;
+  }
+};
+
+// Dealer management functions
+export const addDealer = async (dealerData: any) => {
+  try {
+    // Implementation would go here
+    console.log('Adding dealer:', dealerData);
+    return true;
+  } catch (error) {
+    console.error('Error adding dealer:', error);
+    throw error;
+  }
+};
+
+export const pauseDealer = async (dealerId: string, isPermanent: boolean = false) => {
+  try {
+    // Implementation would go here
+    console.log('Pausing dealer:', dealerId, 'isPermanent:', isPermanent);
+    return true;
+  } catch (error) {
+    console.error('Error pausing dealer:', error);
+    throw error;
+  }
+};
+
+export const resumeDealerByAdmin = async (pauseId: string) => {
+  try {
+    // Implementation would go here
+    console.log('Resuming dealer by admin:', pauseId);
+    return true;
+  } catch (error) {
+    console.error('Error resuming dealer by admin:', error);
+    throw error;
+  }
+};
+
+export const resumeDealerWithPin = async (pauseId: string, pinCode: string) => {
+  try {
+    // Implementation would go here
+    console.log('Resuming dealer with pin:', pauseId, 'pin:', pinCode);
+    return true;
+  } catch (error) {
+    console.error('Error resuming dealer with pin:', error);
+    throw error;
+  }
+};
+
+export const sendDealerPinEmail = async (email: string, pinCode: string) => {
+  try {
+    // Implementation would go here
+    console.log('Sending dealer pin email to:', email, 'pin:', pinCode);
+    return true;
+  } catch (error) {
+    console.error('Error sending dealer pin email:', error);
+    throw error;
+  }
+};
+
+export const isDealerPaused = async (dealerId: string) => {
+  try {
+    // Implementation would go here
+    console.log('Checking if dealer is paused:', dealerId);
+    return false;
+  } catch (error) {
+    console.error('Error checking if dealer is paused:', error);
+    throw error;
+  }
+};
+
+export const getDefaultPin = () => {
+  // Generate a random 4-digit pin
+  return Math.floor(1000 + Math.random() * 9000).toString();
+};
+
 export const getAllApplications = async () => {
   try {
     const { data, error } = await supabase

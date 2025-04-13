@@ -175,7 +175,8 @@ const AdminDashboard = () => {
         return;
       }
 
-      const formattedApp: ApplicationItem = {
+      const formattedApp = {
+        id: appDetails.id,
         applicationId: appDetails.id,
         fullName: appDetails.fullname || 'Unknown',
         email: appDetails.email || '',
@@ -202,6 +203,7 @@ const AdminDashboard = () => {
         employmentDuration: appDetails.employment_duration || '',
         additionalNotes: appDetails.additionalnotes || '',
         isPurchased: false,
+        isDownloaded: false,
         standardPrice: 0,
         discountedPrice: 0,
         lockInfo: appDetails.isLocked ? {

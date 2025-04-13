@@ -1,96 +1,65 @@
 
-// Add these to the existing types
+import { Application } from '../types/supabase';
 
-export interface DealerPurchase {
-  id: string;
-  applicationId: string;
-  purchaseDate: string;
-  paymentId: string;
-  paymentAmount: number;
-  downloadedAt?: string;
-  downloadCount: number;
-  discountApplied: boolean;
-  discountType?: string;
-  discountAmount?: number;
-}
-
-// Extend ApplicationItem to include purchased state
 export interface ApplicationItem {
-  id: string;
   applicationId: string;
   fullName: string;
-  city: string;
-  submissionDate: string;
-  status: string;
-  lockInfo: LockInfo;
-  isDownloaded: boolean;
-  isPurchased?: boolean;
-  standardPrice: number;
-  discountedPrice: number;
-  vehicleType: string;
-  isAgeDiscounted?: boolean;
-  purchaseCount?: number; // Added this field to track the number of times purchased
-}
-
-// Updated LockType to include 2weeks
-export type LockType = '24hours' | '1week' | '2weeks' | 'permanent' | 'temporary';
-
-export interface LockInfo {
-  isLocked: boolean;
-  lockedBy?: string;
-  expiresAt?: string;
-  lockType?: LockType;
-  isOwnLock?: boolean;
-}
-
-export interface DownloadedApplication {
-  id: string;
-  purchaseId?: string;
-  applicationId: string;
-  downloadDate?: string;
-  purchaseDate?: string;
-  paymentAmount?: number;
-  fullName: string;
-  phoneNumber?: string;
   email?: string;
-  address?: string;
+  phoneNumber?: string;
   city?: string;
+  address?: string;
   province?: string;
   postalCode?: string;
   vehicleType?: string;
-  lockInfo?: LockInfo;
-  // Include all other application fields
-  requiredFeatures?: string;
-  unwantedColors?: string;
-  preferredMakeModel?: string;
-  hasExistingLoan?: boolean;
-  currentVehicle?: string;
-  currentPayment?: string;
-  amountOwed?: string;
-  mileage?: string;
+  submissionDate: string;
+  status: string;
+  isLocked?: boolean;
+  lockExpiresAt?: string;
+  lockedBy?: string;
   employmentStatus?: string;
   monthlyIncome?: string;
   employerName?: string;
   jobTitle?: string;
   employmentDuration?: string;
+  hasExistingLoan?: boolean;
+  currentPayment?: string;
+  amountOwed?: string;
+  currentVehicle?: string;
+  mileage?: string;
+  requiredFeatures?: string;
+  unwantedColors?: string;
+  preferredMakeModel?: string;
   additionalNotes?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  isPurchased?: boolean;
+  isDownloaded?: boolean;
+  standardPrice?: number;
+  discountedPrice?: number;
+  lockInfo?: {
+    isLocked: boolean;
+    expiresAt?: string;
+    lockedBy?: string;
+    isOwnLock?: boolean;
+    lockType?: string;
+  };
+  id?: string; // For compatibility with AdminDashboard
 }
 
-export interface LockoutPeriod {
-  id: number;
-  name: string;
-  hours: number;
-  fee: number;
+export interface DealerItem {
+  id: string;
+  email: string;
+  name: string; 
+  company: string;
   isActive: boolean;
+  isAdmin: boolean;
+  created_at: string;
+  passwordHash: string;
+  stripeCustomerId?: string;
+  pauseStatus?: PauseStatus;
 }
 
-export interface SystemSettings {
-  standardPrice: number;
-  discountedPrice: number;
-  temporaryLockMinutes: number;
-  ageDiscountEnabled: boolean;
-  ageDiscountThreshold: number;
-  ageDiscountPercentage: number;
+export interface PauseStatus {
+  isPaused: boolean;
+  isPermanent?: boolean;
+  pauseId?: string;
+  pausedAt?: string;
 }

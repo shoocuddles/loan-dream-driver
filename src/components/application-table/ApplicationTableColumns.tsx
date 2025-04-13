@@ -149,6 +149,9 @@ export const createColumns = ({
         } else if (application.lockInfo?.isLocked && !application.lockInfo?.isOwnLock) {
           isDiscounted = true;
           discountReason = "Prev Lock";
+        } else if (application.purchaseCount && application.purchaseCount > 0) {
+          isDiscounted = true;
+          discountReason = "Prev Purchase";
         }
         
         return (

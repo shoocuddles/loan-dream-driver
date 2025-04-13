@@ -5,23 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-application-name",
-};
-
-const MINIMUM_STRIPE_AMOUNT = 50; // 50 cents minimum requirement
-
-// Helper function to format a full name to first name and last initial
-const formatName = (fullName: string): string => {
-  if (!fullName) return 'Applicant';
-  
-  const nameParts = fullName.trim().split(' ');
-  if (nameParts.length === 1) return nameParts[0];
-  
-  const firstName = nameParts[0];
-  const lastName = nameParts[nameParts.length - 1];
-  const lastInitial = lastName.charAt(0);
-  
-  return `${firstName} ${lastInitial}`;
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
@@ -31,443 +15,42 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Processing checkout session request");
-    
     // Get request data
-    const { 
-      applicationIds, 
-      priceType, 
-      couponId, 
-      ageDiscounts,
-      lockType,
-      lockFee,
-      isLockPayment = false,
-      applicationDetails = []
-    } = await req.json();
+    const requestData = await req.json();
+    console.log("Request data:", requestData);
     
-    console.log("Request data:", { 
-      applicationIds, 
-      priceType, 
-      couponId, 
-      ageDiscounts, 
-      lockType,
-      lockFee,
-      isLockPayment,
-      applicationDetailsCount: applicationDetails?.length
-    });
-    
-    // Check if this is a lock payment or regular application purchase
-    if (isLockPayment && lockType && lockFee) {
-      // Lock extension payment flow
-      return await handleLockExtensionPayment(
-        req, 
-        applicationIds,
-        lockType, 
-        lockFee, 
-        applicationDetails
-      );
-    }
-    
-    // Regular application purchase flow
-    if (!applicationIds || !applicationIds.length || !priceType) {
+    // Special handling for test requests from StripeDebug component
+    if (requestData.test === true) {
+      console.log("Test request detected, returning mock response");
       return new Response(
         JSON.stringify({ 
-          error: { 
-            message: "Missing required parameters",
-            details: "Application IDs and price type are required"
-          }
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
-    }
-    
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error("Missing Supabase credentials");
-      return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: "Server configuration error",
-            details: "Missing Supabase credentials"
-          }
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // Get the authentication header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error("Missing Authorization header");
-      return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: "Missing authorization header",
-            details: "You must be authenticated to purchase applications"
-          }
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
-      );
-    }
-    
-    // Get user from the token
-    const { data: { user }, error: userError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-    
-    if (userError || !user) {
-      console.error("Auth error:", userError);
-      return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: "Invalid authentication token",
-            details: userError?.message || "Authentication failed"
-          }
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
-      );
-    }
-    
-    console.log("Authenticated user:", user.id);
-    
-    // Get dealer info from user_profiles
-    const { data: dealer, error: dealerError } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-    
-    if (dealerError || !dealer) {
-      console.error("Dealer profile not found:", dealerError);
-      return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: "Dealer not found",
-            details: dealerError?.message || "Your dealer account could not be found"
-          }
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
-      );
-    }
-    
-    console.log("Found dealer profile:", dealer.id);
-    
-    // Get application info for each application
-    const { data: applications, error: appError } = await supabase
-      .from('applications')
-      .select('id, fullname, email, city, created_at')
-      .in('id', applicationIds);
-    
-    if (appError || !applications || applications.length === 0) {
-      console.error("Error fetching applications:", appError);
-      return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: "Applications not found",
-            details: appError?.message || "The requested applications could not be found"
-          }
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
-      );
-    }
-    
-    console.log("Found applications:", applications.length);
-    
-    // Get system settings for pricing
-    const { data: settings, error: settingsError } = await supabase
-      .from('system_settings')
-      .select('*')
-      .single();
-    
-    if (settingsError || !settings) {
-      console.error("System settings not found:", settingsError);
-      return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: "System settings not found",
-            details: settingsError?.message || "Could not retrieve pricing information"
-          }
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-    
-    // Check which applications are already downloaded
-    const { data: downloadedApps, error: downloadError } = await supabase
-      .from('application_downloads')
-      .select('application_id')
-      .eq('dealer_id', dealer.id)
-      .in('application_id', applicationIds);
-    
-    const downloadedIds = downloadedApps ? downloadedApps.map(d => d.application_id) : [];
-    const applicationsToCharge = applications.filter(app => !downloadedIds.includes(app.id));
-    
-    console.log("Applications to charge:", applicationsToCharge.length);
-    
-    if (applicationsToCharge.length === 0) {
-      // All applications already purchased
-      return new Response(
-        JSON.stringify({
-          message: "All selected applications have already been purchased",
-          alreadyPurchased: true
+          message: "This is a test response from the create-checkout function",
+          success: true
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
-    // Initialize Stripe
-    const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeSecretKey) {
-      console.error("Stripe secret key not configured");
+    const { applicationIds, priceType, couponId, applicationDetails } = requestData;
+    
+    if (!applicationIds || !priceType) {
       return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: "Stripe configuration error",
-            details: "Stripe secret key is not configured in the environment"
-          }
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        JSON.stringify({ error: "Missing required parameters" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
-    
-    // Log whether we're in test or live mode
-    const isLiveMode = stripeSecretKey.startsWith('sk_live_');
-    console.log(`Using Stripe in ${isLiveMode ? 'LIVE' : 'TEST'} mode`);
-    
-    const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: "2023-10-16",
-    });
-    
-    // Check or create Stripe customer
-    let customerId = dealer.stripe_customer_id;
-    
-    try {
-      if (!customerId) {
-        // Create a new customer
-        const customer = await stripe.customers.create({
-          email: user.email,
-          name: dealer.full_name || dealer.email,
-          metadata: {
-            dealer_id: dealer.id,
-            company: dealer.company_name || "Not specified"
-          }
-        });
-        
-        customerId = customer.id;
-        
-        // Save customer ID back to user_profiles record
-        await supabase
-          .from('user_profiles')
-          .update({ stripe_customer_id: customerId })
-          .eq('id', dealer.id);
-          
-        console.log("Created new Stripe customer:", customerId);
-      } else {
-        // Verify the customer exists
-        try {
-          await stripe.customers.retrieve(customerId);
-          console.log("Using existing Stripe customer:", customerId);
-        } catch (customerError) {
-          console.error("Invalid customer ID, creating new one:", customerError);
-          
-          // Create a new customer
-          const customer = await stripe.customers.create({
-            email: user.email,
-            name: dealer.full_name || dealer.email,
-            metadata: {
-              dealer_id: dealer.id,
-              company: dealer.company_name || "Not specified"
-            }
-          });
-          
-          customerId = customer.id;
-          
-          // Update the customer ID in user_profiles
-          await supabase
-            .from('user_profiles')
-            .update({ stripe_customer_id: customerId })
-            .eq('id', dealer.id);
-            
-          console.log("Created replacement Stripe customer:", customerId);
-        }
-      }
-      
-      // Create line items with detailed descriptions for each application
-      const lineItems = applicationsToCharge.map(app => {
-        // Get last 6 characters of the application ID
-        const appIdShort = app.id.substring(app.id.length - 6);
-        // Format the name to show first name and last initial
-        const formattedName = formatName(app.fullname);
-        
-        // Check if this application has an age discount
-        const ageDiscount = ageDiscounts?.find(d => d.id === app.id);
-        
-        // Calculate the price based on discounts
-        let unitPrice = priceType === 'discounted' ? settings.discounted_price : settings.standard_price;
-        
-        // Apply age discount if applicable
-        if (ageDiscount) {
-          const ageDiscountMultiplier = (100 - ageDiscount.discount) / 100;
-          unitPrice = unitPrice * ageDiscountMultiplier;
-          console.log(`Applied age discount (${ageDiscount.discount}%) to ${app.id}. New price: ${unitPrice}`);
-        }
-        
-        // Convert to cents for Stripe
-        const stripePriceInCents = Math.round(unitPrice * 100);
-        
-        return {
-          price_data: {
-            currency: 'cad',
-            product_data: {
-              name: `Lead purchase ${formattedName} - ${appIdShort}`,
-              description: `Application from ${app.city || 'Unknown location'}${ageDiscount ? ` (${ageDiscount.discount}% age discount)` : ''}`
-            },
-            unit_amount: Math.max(stripePriceInCents, MINIMUM_STRIPE_AMOUNT / applicationsToCharge.length), // Ensure minimum per item
-            tax_behavior: 'exclusive',
-          },
-          quantity: 1,
-        };
-      });
-      
-      console.log("Line items:", lineItems);
-      
-      // Create a checkout session
-      const sessionParams = {
-        customer: customerId,
-        payment_method_types: ['card'],
-        line_items: lineItems,
-        mode: 'payment',
-        success_url: `${req.headers.get("origin") || 'https://loan-dream-driver.lovable.app'}/dealer-dashboard?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${req.headers.get("origin") || 'https://loan-dream-driver.lovable.app'}/dealer-dashboard?payment_cancelled=true`,
-        metadata: {
-          dealer_id: dealer.id,
-          price_type: priceType,
-          application_count: applicationsToCharge.length.toString(),
-          application_ids: applicationsToCharge.map(app => app.id).join(','),
-          unit_price: priceType === 'discounted' ? settings.discounted_price : settings.standard_price,
-          has_age_discounts: ageDiscounts && ageDiscounts.length > 0 ? 'true' : 'false'
-        }
-      };
-      
-      // Add coupon if provided
-      if (couponId) {
-        sessionParams.discounts = [
-          {
-            coupon: couponId
-          }
-        ];
-      }
-      
-      console.log("Creating checkout session with params:", JSON.stringify(sessionParams, null, 2));
-      
-      try {
-        const session = await stripe.checkout.sessions.create(sessionParams);
-        
-        console.log("Checkout session created:", session.id);
-        
-        if (!session.url) {
-          throw new Error("Checkout session created but no URL returned");
-        }
-        
-        // Ensure we have a valid URL
-        try {
-          new URL(session.url);
-        } catch (urlError) {
-          console.error("Invalid checkout URL:", session.url, urlError);
-          throw new Error(`Invalid checkout URL returned: ${session.url}`);
-        }
-        
-        return new Response(
-          JSON.stringify({ 
-            sessionId: session.id,
-            url: session.url,
-            isLiveMode
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      } catch (sessionError) {
-        console.error("Error creating checkout session:", sessionError);
-        
-        // Provide specific error for common Stripe issues
-        if (sessionError.message?.includes('amount_too_small')) {
-          return new Response(
-            JSON.stringify({ 
-              error: { 
-                message: "Stripe payment amount too small",
-                details: "The payment amount is below Stripe's minimum requirement."
-              }
-            }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-          );
-        }
-        
-        throw sessionError;
-      }
-    } catch (stripeError) {
-      console.error("Error creating checkout session:", stripeError);
-      return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: "Stripe error",
-            details: stripeError.message || "Error creating Stripe checkout session" 
-          }
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-  } catch (error) {
-    console.error("Unexpected error:", error);
-    return new Response(
-      JSON.stringify({ 
-        error: { 
-          message: error.message || "Unknown error",
-          details: "An unexpected error occurred while processing the request."
-        }
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-    );
-  }
-});
-
-async function handleLockExtensionPayment(req, applicationIds, lockType, lockFee, applicationDetails) {
-  try {
-    console.log(`Processing lock extension payment for ${applicationIds.length} applications`);
     
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error("Missing Supabase credentials");
-      return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: "Server configuration error",
-            details: "Missing Supabase credentials"
-          }
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') || '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    );
     
     // Get the authentication header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      console.error("Missing Authorization header");
       return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: "Missing authorization header",
-            details: "You must be authenticated to purchase applications"
-          }
-        }),
+        JSON.stringify({ error: "Missing authorization header" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
       );
     }
@@ -478,19 +61,11 @@ async function handleLockExtensionPayment(req, applicationIds, lockType, lockFee
     );
     
     if (userError || !user) {
-      console.error("Auth error:", userError);
       return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: "Invalid authentication token",
-            details: userError?.message || "Authentication failed"
-          }
-        }),
+        JSON.stringify({ error: "Invalid authentication token" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
       );
     }
-    
-    console.log("Authenticated user:", user.id);
     
     // Get dealer info from user_profiles
     const { data: dealer, error: dealerError } = await supabase
@@ -500,226 +75,180 @@ async function handleLockExtensionPayment(req, applicationIds, lockType, lockFee
       .single();
     
     if (dealerError || !dealer) {
-      console.error("Dealer profile not found:", dealerError);
       return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: "Dealer not found",
-            details: dealerError?.message || "Your dealer account could not be found"
-          }
-        }),
+        JSON.stringify({ error: "Dealer not found" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
       );
     }
     
+    // Get application info to include in the metadata
+    const { data: application, error: appError } = await supabase
+      .from('applications')
+      .select('fullname, email, city')
+      .eq('id', Array.isArray(applicationIds) ? applicationIds[0] : applicationIds)
+      .single();
+    
+    if (appError) {
+      console.error("Error fetching application:", appError);
+    }
+    
+    // Get system settings for pricing
+    const { data: settings, error: settingsError } = await supabase
+      .from('system_settings')
+      .select('standard_price, discounted_price')
+      .single();
+    
+    if (settingsError || !settings) {
+      return new Response(
+        JSON.stringify({ error: "System settings not found" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+      );
+    }
+    
+    // Check if any of the applications have been purchased before to apply discounted price
+    const applicationIdsArray = Array.isArray(applicationIds) ? applicationIds : [applicationIds];
+    const { data: purchaseData, error: purchaseError } = await supabase
+      .from('dealer_purchases')
+      .select('application_id, COUNT(*)')
+      .in('application_id', applicationIdsArray)
+      .eq('is_active', true)
+      .group('application_id');
+    
+    if (purchaseError) {
+      console.error("Error checking purchase history:", purchaseError);
+    }
+    
+    // Create a map of application IDs to purchase counts
+    const purchaseCounts = {};
+    if (purchaseData) {
+      purchaseData.forEach(item => {
+        purchaseCounts[item.application_id] = parseInt(item.count);
+      });
+    }
+    
+    // Calculate total price based on purchase history
+    let totalAmount = 0;
+    let hasDiscounted = false;
+    
+    applicationIdsArray.forEach(appId => {
+      const isPreviouslyPurchased = purchaseCounts[appId] && purchaseCounts[appId] > 0;
+      const priceAmount = (priceType === 'discounted' || isPreviouslyPurchased) ? 
+        settings.discounted_price : settings.standard_price;
+      
+      if (isPreviouslyPurchased) {
+        hasDiscounted = true;
+      }
+      
+      totalAmount += priceAmount;
+    });
+    
+    const priceAmount = priceType === 'discounted' ? settings.discounted_price : settings.standard_price;
+    
     // Initialize Stripe
-    const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeSecretKey) {
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) {
       console.error("Stripe secret key not configured");
       return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: "Stripe configuration error",
-            details: "Stripe secret key is not configured in the environment"
-          }
-        }),
+        JSON.stringify({ error: "Stripe configuration error: Missing API key" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
     
-    // Log whether we're in test or live mode
-    const isLiveMode = stripeSecretKey.startsWith('sk_live_');
-    console.log(`Using Stripe in ${isLiveMode ? 'LIVE' : 'TEST'} mode`);
-    
-    const stripe = new Stripe(stripeSecretKey, {
+    const stripe = new Stripe(stripeKey, {
       apiVersion: "2023-10-16",
+      httpClient: Stripe.createFetchHttpClient(),
     });
     
     // Check or create Stripe customer
     let customerId = dealer.stripe_customer_id;
     
-    try {
-      if (!customerId) {
-        // Create a new customer
-        const customer = await stripe.customers.create({
-          email: user.email,
-          name: dealer.full_name || dealer.email,
-          metadata: {
-            dealer_id: dealer.id,
-            company: dealer.company_name || "Not specified"
-          }
-        });
-        
-        customerId = customer.id;
-        
-        // Save customer ID back to user_profiles record
-        await supabase
-          .from('user_profiles')
-          .update({ stripe_customer_id: customerId })
-          .eq('id', dealer.id);
-          
-        console.log("Created new Stripe customer:", customerId);
-      } else {
-        // Verify the customer exists
-        try {
-          await stripe.customers.retrieve(customerId);
-          console.log("Using existing Stripe customer:", customerId);
-        } catch (customerError) {
-          console.error("Invalid customer ID, creating new one:", customerError);
-          
-          // Create a new customer
-          const customer = await stripe.customers.create({
-            email: user.email,
-            name: dealer.full_name || dealer.email,
-            metadata: {
-              dealer_id: dealer.id,
-              company: dealer.company_name || "Not specified"
-            }
-          });
-          
-          customerId = customer.id;
-          
-          // Update the customer ID in user_profiles
-          await supabase
-            .from('user_profiles')
-            .update({ stripe_customer_id: customerId })
-            .eq('id', dealer.id);
-            
-          console.log("Created replacement Stripe customer:", customerId);
+    if (!customerId) {
+      // Create a new customer
+      console.log("Creating new Stripe customer for:", user.email);
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: dealer.full_name || dealer.email,
+        metadata: {
+          dealer_id: dealer.id,
+          company: dealer.company_name || "Not specified"
         }
-      }
+      });
       
-      // Get lock period name
-      let lockPeriodName = "Lock Extension";
-      if (lockType === '24hours') lockPeriodName = "24 Hours";
-      if (lockType === '1week') lockPeriodName = "1 Week";
-      if (lockType === 'permanent') lockPeriodName = "Permanent";
+      customerId = customer.id;
+      console.log("Created Stripe customer:", customerId);
       
-      // If no application details were provided, attempt to fetch them
-      if (!applicationDetails || applicationDetails.length === 0) {
-        console.warn("No application details provided for lock extension");
-        const { data: applicationData, error: appError } = await supabase
-          .from('applications')
-          .select('id, fullname')
-          .in('id', applicationIds);
-        
-        if (!appError && applicationData && applicationData.length > 0) {
-          applicationDetails = applicationData.map(app => ({
-            id: app.id,
-            fullName: app.fullname
-          }));
-          
-          console.log("Retrieved application details:", applicationDetails.length);
-        } else {
-          // Default to using the application IDs with placeholder names
-          applicationDetails = applicationIds.map(id => ({
-            id,
-            fullName: 'Applicant'
-          }));
-          
-          console.log("Using placeholder application details");
-        }
-      }
-      
-      // Create line items for each application lock extension
-      const lineItems = applicationDetails.map(app => {
-        const appIdShort = app.id.substring(app.id.length - 6);
-        const displayName = app.fullName || 'Applicant';
-        const formattedName = formatName(displayName);
-        
-        return {
+      // Save customer ID back to user_profiles record
+      await supabase
+        .from('user_profiles')
+        .update({ stripe_customer_id: customerId })
+        .eq('id', dealer.id);
+    }
+    
+    // Create a checkout session
+    const sessionParams = {
+      customer: customerId,
+      payment_method_types: ['card'],
+      line_items: [
+        {
           price_data: {
             currency: 'cad',
             product_data: {
-              name: `Extend lock period for ${formattedName}`,
-              description: `ID: ${appIdShort} | Period: ${lockPeriodName}`
+              name: `Application Purchase`,
+              description: applicationIdsArray.length > 1 ? 
+                `${applicationIdsArray.length} Applications` : 
+                `Single Application Purchase`
             },
-            unit_amount: Math.max(Math.round(lockFee * 100), MINIMUM_STRIPE_AMOUNT / applicationIds.length),
+            unit_amount: Math.round(totalAmount * 100 / applicationIdsArray.length), // Convert to cents
             tax_behavior: 'exclusive',
           },
-          quantity: 1,
-        };
-      });
-      
-      console.log("Lock extension line items:", lineItems);
-      
-      // Create a checkout session for lock extension
-      const sessionParams = {
-        customer: customerId,
-        payment_method_types: ['card'],
-        line_items: lineItems,
-        mode: 'payment',
-        success_url: `${req.headers.get("origin") || 'https://loan-dream-driver.lovable.app'}/dealer-dashboard?payment_success=true&session_id={CHECKOUT_SESSION_ID}&is_lock=true`,
-        cancel_url: `${req.headers.get("origin") || 'https://loan-dream-driver.lovable.app'}/dealer-dashboard?payment_cancelled=true`,
-        metadata: {
-          dealer_id: dealer.id,
-          application_count: applicationIds.length.toString(),
-          application_ids: applicationIds.join(','),
-          is_lock_payment: 'true',
-          lock_type: lockType,
-          lock_fee: lockFee.toString()
-        }
-      };
-      
-      console.log("Creating lock extension checkout session with params:", JSON.stringify(sessionParams, null, 2));
-      
-      try {
-        const session = await stripe.checkout.sessions.create(sessionParams);
-        
-        console.log("Lock extension checkout session created:", session.id);
-        
-        if (!session.url) {
-          throw new Error("Checkout session created but no URL returned");
-        }
-        
-        return new Response(
-          JSON.stringify({ 
-            sessionId: session.id,
-            url: session.url,
-            isLiveMode
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      } catch (sessionError) {
-        console.error("Error creating checkout session:", sessionError);
-        
-        // Provide specific error for common Stripe issues
-        if (sessionError.message?.includes('amount_too_small')) {
-          return new Response(
-            JSON.stringify({ 
-              error: { 
-                message: "Stripe payment amount too small",
-                details: "The payment amount is below Stripe's minimum requirement."
-              }
-            }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-          );
-        }
-        
-        throw sessionError;
+          quantity: applicationIdsArray.length,
+        },
+      ],
+      mode: 'payment',
+      success_url: `${req.headers.get("origin")}/dealer-dashboard?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.headers.get("origin")}/dealer-dashboard?payment_cancelled=true`,
+      metadata: {
+        dealer_id: dealer.id,
+        application_ids: applicationIdsArray.join(','),
+        price_type: priceType,
+        unit_price: (totalAmount / applicationIdsArray.length).toString(),
+        has_discount: hasDiscounted ? 'true' : 'false',
+        discount_type: hasDiscounted ? 'previous_purchase' : null
       }
-    } catch (stripeError) {
-      console.error("Error creating checkout session:", stripeError);
-      return new Response(
-        JSON.stringify({ 
-          error: { 
-            message: "Stripe error",
-            details: stripeError.message || "Error creating Stripe checkout session" 
-          }
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
+    };
+    
+    // Add coupon if provided
+    if (couponId) {
+      sessionParams.discounts = [
+        {
+          coupon: couponId
+        }
+      ];
     }
-  } catch (error) {
-    console.error("Error in lock extension payment:", error);
+    
+    // Add application info to metadata if available
+    if (application) {
+      sessionParams.metadata.application_client = application.fullname;
+      sessionParams.metadata.application_email = application.email;
+      sessionParams.metadata.application_city = application.city;
+    }
+    
+    console.log("Creating Stripe checkout session with params:", JSON.stringify(sessionParams));
+    const session = await stripe.checkout.sessions.create(sessionParams);
+    console.log("Checkout session created:", session.id);
+    
     return new Response(
       JSON.stringify({ 
-        error: { 
-          message: error.message || "Unknown error",
-          details: "An unexpected error occurred while processing lock extension payment."
-        }
+        sessionId: session.id,
+        url: session.url
       }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Error creating checkout session:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
-}
+});

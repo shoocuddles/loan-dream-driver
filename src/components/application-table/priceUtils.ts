@@ -30,6 +30,11 @@ export const getPrice = (application: ApplicationItem, ageDiscountSettings?: Age
     isDiscounted = true;
     finalPrice = application.discountedPrice;
   }
+  // Check for purchase count discount (if the application was previously purchased)
+  else if (application.purchaseCount && application.purchaseCount > 0) {
+    isDiscounted = true;
+    finalPrice = application.discountedPrice;
+  }
   
   return `$${finalPrice.toFixed(2)}`;
 };
@@ -50,6 +55,11 @@ export const getPriceValue = (application: ApplicationItem, ageDiscountSettings?
   
   // Apply lock discount if applicable (and no age discount)
   if (application.lockInfo?.isLocked && !application.lockInfo?.isOwnLock) {
+    return application.discountedPrice;
+  }
+
+  // Apply discount for previously purchased applications
+  if (application.purchaseCount && application.purchaseCount > 0) {
     return application.discountedPrice;
   }
   

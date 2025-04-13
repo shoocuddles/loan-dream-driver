@@ -25,6 +25,7 @@ import { isValid, parseISO, format } from 'date-fns';
 import DownloadOptions from "@/components/application-table/DownloadOptions";
 import CsvUploader from "@/components/CsvUploader";
 import { AgeDiscountSettings } from "@/components/application-table/priceUtils";
+import AdminApplicationDetails from "@/components/AdminApplicationDetails";
 
 interface ApplicationItem {
   applicationId: string;
@@ -49,6 +50,8 @@ const AdminDashboard = () => {
     daysThreshold: 30,
     discountPercentage: 25
   });
+  const [selectedApplication, setSelectedApplication] = useState<ApplicationItem | null>(null);
+  const [isApplicationDetailsOpen, setIsApplicationDetailsOpen] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -158,11 +161,74 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleViewDetails = (applicationId: string) => {
-    toast({
-      title: "View Details",
-      description: `Viewing details for application ${applicationId}`,
-    });
+  const handleViewDetails = async (applicationId: string) => {
+    try {
+      setProcessingId(applicationId);
+      
+      const appDetails = await getApplicationDetails(applicationId);
+      if (!appDetails) {
+        toast({
+          title: "Error",
+          description: "Could not find application details",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const formattedApp: ApplicationItem = {
+        applicationId: appDetails.id,
+        fullName: appDetails.fullname || 'Unknown',
+        email: appDetails.email || '',
+        phoneNumber: appDetails.phonenumber || '',
+        city: appDetails.city || '',
+        address: appDetails.streetaddress || '',
+        province: appDetails.province || '',
+        postalCode: appDetails.postalcode || '',
+        vehicleType: appDetails.vehicletype || '',
+        submissionDate: appDetails.created_at || '',
+        status: appDetails.status || 'pending',
+        requiredFeatures: appDetails.requiredfeatures || '',
+        unwantedColors: appDetails.unwantedcolors || '',
+        preferredMakeModel: appDetails.preferredmakemodel || '',
+        hasExistingLoan: appDetails.hasexistingloan || false,
+        currentPayment: appDetails.currentpayment || '',
+        amountOwed: appDetails.amountowed || '',
+        currentVehicle: appDetails.currentvehicle || '',
+        mileage: appDetails.mileage || '',
+        employmentStatus: appDetails.employmentstatus || '',
+        monthlyIncome: appDetails.monthlyincome || '',
+        employerName: appDetails.employer_name || '',
+        jobTitle: appDetails.job_title || '',
+        employmentDuration: appDetails.employment_duration || '',
+        additionalNotes: appDetails.additionalnotes || '',
+        isPurchased: false,
+        standardPrice: 0,
+        discountedPrice: 0,
+        lockInfo: appDetails.isLocked ? {
+          isLocked: true,
+          expiresAt: appDetails.lockExpiresAt || '',
+          lockedBy: appDetails.lockedBy || '',
+          isOwnLock: true,
+          lockType: 'temporary'
+        } : undefined
+      };
+
+      setSelectedApplication(formattedApp);
+      setIsApplicationDetailsOpen(true);
+    } catch (error) {
+      console.error("Error getting application details:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load application details",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleApplicationUpdated = () => {
+    loadApplications();
   };
 
   const handleUploadSuccess = (count: number) => {
@@ -322,6 +388,13 @@ const AdminDashboard = () => {
       </main>
       
       <Footer />
+      
+      <AdminApplicationDetails
+        application={selectedApplication}
+        isOpen={isApplicationDetailsOpen}
+        onClose={() => setIsApplicationDetailsOpen(false)}
+        onApplicationUpdated={handleApplicationUpdated}
+      />
     </div>
   );
 };

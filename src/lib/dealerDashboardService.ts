@@ -112,14 +112,14 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
     // Fetch purchase counts for all applications from dealer_purchases table
     const appIds = applications.map(app => app.applicationId);
     
-    console.log("Fetching purchase counts for applications:", appIds);
+    console.log("Fetching purchase counts for applications:", appIds.length);
     
-    // Get purchase counts by application_id - Fix: Query to properly count purchases per application
+    // IMPORTANT FIX: Remove the 'eq' filter conditions that were limiting the query only to the current dealer
     const { data: purchaseCountsData, error: purchaseCountsError } = await supabase
       .from('dealer_purchases')
       .select('application_id')
-      .eq('is_active', true)
-      .in('application_id', appIds);
+      .in('application_id', appIds)
+      .eq('is_active', true);
     
     if (purchaseCountsError) {
       console.error("Error getting purchase counts:", purchaseCountsError);
@@ -127,7 +127,7 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
       // Create a count map of purchases per application
       const purchaseCountMap: {[key: string]: number} = {};
       
-      console.log("Raw purchase data received:", purchaseCountsData);
+      console.log("Raw purchase data received:", purchaseCountsData.length, "records");
       
       purchaseCountsData.forEach(purchase => {
         const appId = purchase.application_id;
@@ -141,8 +141,9 @@ export const fetchApplications = async (dealerId: string): Promise<ApplicationIt
         app.purchaseCount = purchaseCountMap[app.applicationId] || 0;
       });
       
+      const purchasedCount = applications.filter(a => (a.purchaseCount || 0) > 0).length;
       console.log("Purchase counts loaded successfully:", 
-        applications.filter(a => (a.purchaseCount || 0) > 0).length, "applications have been purchased before");
+        purchasedCount, "applications have been purchased before");
     }
 
     return applications;

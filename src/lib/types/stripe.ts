@@ -54,9 +54,11 @@ export interface StripeCheckoutParams {
 }
 
 export interface CheckoutSessionResponse {
-  sessionId: string;
-  url: string;
+  sessionId?: string;
+  url?: string;
   isLiveMode?: boolean;
+  alreadyPurchased?: boolean;
+  message?: string;
 }
 
 export interface StripeAccountInfo {

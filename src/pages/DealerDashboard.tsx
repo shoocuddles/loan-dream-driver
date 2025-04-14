@@ -599,6 +599,15 @@ const DealerDashboard = () => {
           throw new Error(response.error.message);
         }
         
+        if (response.data?.alreadyPurchased) {
+          toast.success(response.data.message || "Applications already purchased");
+          await loadData();
+          await loadPurchasedApplicationIds();
+          setShowPaymentDialog(false);
+          setPendingAction(null);
+          return;
+        }
+        
         if (response.data?.url) {
           toast.success("Checkout session created. Redirecting to payment page...");
           

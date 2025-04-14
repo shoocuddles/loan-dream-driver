@@ -3,14 +3,10 @@ import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
-// Directly access the URL and key from the environment variables
-const SUPABASE_URL = "https://kgtfpuvksmqyaraijoal.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtndGZwdXZrc21xeWFyYWlqb2FsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MjAxMjksImV4cCI6MjA1OTM5NjEyOX0._fj5EqjZBmS_fHB5Z2p2lDJdXilePMUrbf3If_wGBz0";
-
 // Download as CSV directly from Supabase with proper formatting
 export const downloadFullCsv = async (applicationIds: string[]): Promise<void> => {
   try {
-    console.log('📊 Requesting full CSV directly from Supabase for applications:', applicationIds);
+    console.log('📊 Requesting full CSV export for applications:', applicationIds);
     
     if (!applicationIds.length) {
       console.error('❌ No application IDs provided for CSV generation');
@@ -18,16 +14,16 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
       return;
     }
 
-    // First try using the RPC function method with proper parameter format
+    // First try using the RPC function method
     try {
-      // Log exact parameters being sent for debugging
-      const params = { app_ids: applicationIds };
-      console.log('📊 Sending parameters to export_applications_as_csv:', params);
+      console.log('📊 Sending parameters to get_applications_csv:', { ids: applicationIds });
       
-      const { data: csvData, error } = await supabase.rpc('export_applications_as_csv', params);
+      const { data: csvData, error } = await supabase.rpc('get_applications_csv', { 
+        ids: applicationIds 
+      });
       
       if (error) {
-        console.error('❌ Error from RPC export_applications_as_csv:', error);
+        console.error('❌ Error from RPC get_applications_csv:', error);
         throw error;
       }
       
@@ -46,22 +42,22 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
         
         // Save the blob directly as a file without any manipulation
         saveAs(blob, fileName);
-        console.log('✅ CSV file saved successfully using RPC method');
+        console.log('✅ CSV file saved successfully');
         toast.success('CSV downloaded successfully');
         return;
       }
     } catch (rpcError) {
-      console.error('❌ Error from RPC export_applications_as_csv:', rpcError);
-      console.log('⚠️ Falling back to direct fetch method...');
+      console.error('❌ Error calling get_applications_csv:', rpcError);
+      console.log('⚠️ Falling back to direct data fetch method...');
     }
     
     // Fallback to direct REST API call if the RPC method fails
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/applications?id=in.(${applicationIds.join(',')})&select=*`, {
+    const response = await fetch(`${supabase.supabaseUrl}/rest/v1/applications?id=in.(${applicationIds.join(',')})&select=*`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'apikey': supabase.supabaseKey,
+        'Authorization': `Bearer ${supabase.supabaseKey}`,
         'Accept': 'application/json'
       }
     });

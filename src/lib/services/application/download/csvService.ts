@@ -3,10 +3,10 @@ import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
-// Download as CSV directly from Supabase RPC function with proper formatting
+// Download as CSV directly from Supabase function with proper formatting
 export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => {
   try {
-    console.log('📊 Requesting CSV directly from Supabase for applications:', applicationIds);
+    console.log('📊 Requesting CSV export for applications:', applicationIds);
     
     if (!applicationIds.length) {
       console.error('❌ No application IDs provided for CSV generation');
@@ -14,19 +14,14 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
-    // Parameter name should be app_ids which matches the function definition
-    // Log exact parameters being sent for debugging
-    const params = { app_ids: applicationIds };
-    console.log('📊 Sending parameters to export_applications_as_csv:', params);
-    
-    // Call the RPC function with the proper parameter format
-    const { data: csvData, error } = await supabase.rpc('export_applications_as_csv', params);
+    // Call the get_applications_csv function - using EXACTLY the parameter name that's defined in SQL
+    const { data: csvData, error } = await supabase.rpc('get_applications_csv', { 
+      ids: applicationIds 
+    });
     
     if (error) {
-      console.error('❌ Error from Supabase export_applications_as_csv:', error);
+      console.error('❌ Error from Supabase get_applications_csv:', error);
       toast.error(`Error generating CSV: ${error.message}`);
-      
-      // Don't continue if there's an error with the RPC function
       return;
     }
     
@@ -36,7 +31,7 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
 
-    console.log('✅ CSV data received from Supabase');
+    console.log('✅ CSV data received successfully');
     console.log('📊 CSV data length:', csvData.length);
     console.log('📊 First 100 characters of CSV:', csvData.substring(0, 100));
     
@@ -48,9 +43,9 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       ? `application_${applicationIds[0]}.csv`
       : `applications_${new Date().getTime()}.csv`;
     
-    // Save the blob directly as a file without any manipulation
+    // Save the blob directly as a file
     saveAs(blob, fileName);
-    console.log('✅ CSV file saved successfully');
+    console.log('✅ CSV file downloaded successfully');
     toast.success('CSV downloaded successfully');
     
   } catch (error) {

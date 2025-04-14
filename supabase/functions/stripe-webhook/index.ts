@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Stripe } from "https://esm.sh/stripe@14.20.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -228,6 +229,7 @@ async function handleSuccessfulPayment(session, supabase) {
       
       console.log(`Purchase recorded for application ${appId}:`, purchaseData?.is_new ? 'New purchase' : 'Already purchased');
       
+      // The problem might be here. Let's ensure we always create a lock for purchased applications
       // Apply automatic lock (24 hours for purchased applications)
       const lockExpiry = new Date();
       lockExpiry.setHours(lockExpiry.getHours() + 24);
@@ -264,31 +266,45 @@ async function handleSuccessfulPayment(session, supabase) {
         .gt('expires_at', new Date().toISOString())
         .limit(1);
       
-      // If there's already an active lock by this dealer, don't create a new one
+      // FIX: Always create a 24-hour lock when purchase is successful, regardless if there's an existing lock
+      // We'll extend the existing lock if there is one, or create a new one if not
+      const lockExpiryTime = new Date();
+      lockExpiryTime.setHours(lockExpiryTime.getHours() + 24); // Set expiry to 24 hours from now
+      
       if (existingDealerLocks && existingDealerLocks.length > 0) {
-        console.log(`Dealer already has an active lock on application ${appId}`);
-        continue;
-      }
-      
-      // Create a new lock for the dealer
-      console.log(`Creating purchase lock for application ${appId}`);
-      
-      const { data: lockData, error: lockError } = await supabase
-        .from('application_locks')
-        .insert({
-          application_id: appId,
-          dealer_id: dealerId,
-          lock_type: 'purchase_lock',
-          expires_at: lockExpiry.toISOString(),
-          is_paid: true,
-          payment_id: session.id,
-          payment_amount: 0 // No extra charge for the initial lock
-        })
-        .select()
-        .single();
-      
-      if (lockError) {
-        console.error(`Error creating lock for ${appId}:`, lockError);
+        // If there's an existing lock by this dealer, extend it to 24 hours from now
+        console.log(`Extending existing lock for dealer ${dealerId} on application ${appId} to 24 hours`);
+        
+        await supabase
+          .from('application_locks')
+          .update({
+            expires_at: lockExpiryTime.toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingDealerLocks[0].id);
+      } else {
+        // Create a new 24-hour lock for the dealer
+        console.log(`Creating new 24-hour purchase lock for application ${appId} for dealer ${dealerId}`);
+        
+        const { data: lockData, error: lockError } = await supabase
+          .from('application_locks')
+          .insert({
+            application_id: appId,
+            dealer_id: dealerId,
+            lock_type: 'purchase_lock',
+            expires_at: lockExpiryTime.toISOString(),
+            is_paid: true,
+            payment_id: session.id,
+            payment_amount: 0 // No extra charge for the initial lock
+          })
+          .select()
+          .single();
+        
+        if (lockError) {
+          console.error(`Error creating lock for ${appId}:`, lockError);
+        } else {
+          console.log(`Successfully created purchase lock for application ${appId} with expiry at ${lockExpiryTime.toISOString()}`);
+        }
       }
     } catch (error) {
       console.error(`Error processing application ${appId}:`, error);

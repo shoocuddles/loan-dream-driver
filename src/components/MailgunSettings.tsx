@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,7 +11,9 @@ import { Loader2, Send, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import EmailDebugger from './EmailDebugger';
+import EmailTemplateEditor from './EmailTemplateEditor';
 import { setupEmailLogCapture, logEmailDebug } from '@/lib/emailLogger';
 
 interface TestEmailFormData {
@@ -31,6 +34,7 @@ const MailgunSettings = () => {
   const [sendingTest, setSendingTest] = useState(false);
   const [showDebugger, setShowDebugger] = useState(false);
   const [sendingDirectTest, setSendingDirectTest] = useState(false);
+  const [activeTab, setActiveTab] = useState('settings');
   const { profile } = useAuth();
   
   const form = useForm<TestEmailFormData>({
@@ -44,11 +48,6 @@ const MailgunSettings = () => {
   useEffect(() => {
     fetchMailgunSettings();
     setupEmailLogCapture();
-    
-    return () => {
-      // Optional: clean up console override when component unmounts
-      // restoreConsole();
-    };
   }, []);
 
   useEffect(() => {
@@ -244,185 +243,250 @@ const MailgunSettings = () => {
     setShowDebugger(!showDebugger);
   };
 
+  const runDealerNotification = async () => {
+    try {
+      logEmailDebug('Manually running dealer notification function');
+      
+      const response = await supabase.functions.invoke('send-dealer-notification', {
+        body: {}
+      });
+      
+      logEmailDebug('Dealer notification response: ' + JSON.stringify(response));
+      
+      if (response.error) {
+        throw new Error(response.error.message || 'Unknown error occurred');
+      }
+      
+      if (response.data?.success) {
+        toast.success(`Notification sent to ${response.data.dealersNotified} dealers for ${response.data.applicationsProcessed} applications.`);
+      } else {
+        throw new Error('Notification failed without specific error');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error running dealer notification:', error);
+      toast.error(`Failed to run dealer notification: ${errorMessage}`);
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 gap-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Mailgun Email Settings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label>API Key</Label>
-                <Input
-                  type="password"
-                  value={settings.api_key}
-                  onChange={(e) => setSettings({...settings, api_key: e.target.value})}
-                  placeholder="Enter Mailgun API Key"
-                  required
-                  className="pr-10"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Domain</Label>
-                <Input
-                  type="text"
-                  value={settings.domain}
-                  onChange={(e) => setSettings({...settings, domain: e.target.value})}
-                  placeholder="Enter Mailgun Domain"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>From Email</Label>
-                <Input
-                  type="email"
-                  value={settings.from_email}
-                  onChange={(e) => setSettings({...settings, from_email: e.target.value})}
-                  placeholder="Enter From Email Address"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>From Name</Label>
-                <Input
-                  type="text"
-                  value={settings.from_name}
-                  onChange={(e) => setSettings({...settings, from_name: e.target.value})}
-                  placeholder="Enter From Name"
-                />
-              </div>
-              <Button 
-                type="submit" 
-                disabled={isLoading}
-                className="w-full bg-ontario-blue hover:bg-ontario-blue/90"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
-                  </>
-                ) : (
-                  'Save Mailgun Settings'
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+    <div className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="settings">API Settings</TabsTrigger>
+          <TabsTrigger value="templates">Email Templates</TabsTrigger>
+          <TabsTrigger value="testing">Testing & Debug</TabsTrigger>
+        </TabsList>
         
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Test Email</CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleDebugger}
-            >
-              {showDebugger ? (
-                <>
-                  <EyeOff className="h-4 w-4 mr-2" /> Hide Debug
-                </>
-              ) : (
-                <>
-                  <Eye className="h-4 w-4 mr-2" /> Show Debug
-                </>
-              )}
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSendTestEmail)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="to"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>To</FormLabel>
-                      <FormControl>
-                        <Input placeholder="recipient@example.com" {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="subject"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Subject</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Test Email" {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="body"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Body</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="This is just a test email to test the email sending system" 
-                          className="min-h-[120px]" 
-                          {...field} 
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                
+        <TabsContent value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle>Mailgun API Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>API Key</Label>
+                  <Input
+                    type="password"
+                    value={settings.api_key}
+                    onChange={(e) => setSettings({...settings, api_key: e.target.value})}
+                    placeholder="Enter Mailgun API Key"
+                    required
+                    className="pr-10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Domain</Label>
+                  <Input
+                    type="text"
+                    value={settings.domain}
+                    onChange={(e) => setSettings({...settings, domain: e.target.value})}
+                    placeholder="Enter Mailgun Domain"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>From Email</Label>
+                  <Input
+                    type="email"
+                    value={settings.from_email}
+                    onChange={(e) => setSettings({...settings, from_email: e.target.value})}
+                    placeholder="Enter From Email Address"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>From Name</Label>
+                  <Input
+                    type="text"
+                    value={settings.from_name}
+                    onChange={(e) => setSettings({...settings, from_name: e.target.value})}
+                    placeholder="Enter From Name"
+                  />
+                </div>
                 <Button 
                   type="submit" 
-                  disabled={sendingTest}
+                  disabled={isLoading}
                   className="w-full bg-ontario-blue hover:bg-ontario-blue/90"
                 >
-                  {sendingTest ? (
+                  {isLoading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
                     </>
                   ) : (
-                    <>
-                      <Send className="mr-2 h-4 w-4" /> Send Test Email
-                    </>
-                  )}
-                </Button>
-                
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-gray-300" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white px-2 text-gray-500">or</span>
-                  </div>
-                </div>
-                
-                <Button 
-                  type="button"
-                  onClick={handleSendDirectMailgunTest}
-                  disabled={sendingDirectTest}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {sendingDirectTest ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending Direct...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="mr-2 h-4 w-4" /> Send Test from Mailgun
-                    </>
+                    'Save Mailgun Settings'
                   )}
                 </Button>
               </form>
-            </Form>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="templates">
+          <div className="space-y-6">
+            <EmailTemplateEditor 
+              templateType="dealer_notification" 
+              title="Dealer Application Notification" 
+              description="Email sent to dealers when new applications are received."
+            />
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Manual Notification Trigger</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Use this button to manually send notification emails to dealers about new applications that haven't been notified yet.
+                </p>
+                <Button 
+                  onClick={runDealerNotification}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Send Dealer Notifications Now
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="testing">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Test Email</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleDebugger}
+                >
+                  {showDebugger ? (
+                    <>
+                      <EyeOff className="h-4 w-4 mr-2" /> Hide Debug
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4 mr-2" /> Show Debug
+                    </>
+                  )}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleSendTestEmail)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="to"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>To</FormLabel>
+                          <FormControl>
+                            <Input placeholder="recipient@example.com" {...field} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="subject"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Subject</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Test Email" {...field} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="body"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Body</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="This is just a test email to test the email sending system" 
+                              className="min-h-[120px]" 
+                              {...field} 
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <Button 
+                      type="submit" 
+                      disabled={sendingTest}
+                      className="w-full bg-ontario-blue hover:bg-ontario-blue/90"
+                    >
+                      {sendingTest ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-2 h-4 w-4" /> Send Test Email
+                        </>
+                      )}
+                    </Button>
+                    
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-gray-300" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-white px-2 text-gray-500">or</span>
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      type="button"
+                      onClick={handleSendDirectMailgunTest}
+                      disabled={sendingDirectTest}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      {sendingDirectTest ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending Direct...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-2 h-4 w-4" /> Send Test from Mailgun
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
 
-      <EmailDebugger visible={showDebugger} />
+            <EmailDebugger visible={showDebugger} />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

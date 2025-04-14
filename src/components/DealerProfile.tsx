@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ const DealerProfile = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [emailNotifications, setEmailNotifications] = useState<boolean>(false);
   const [formData, setFormData] = useState<{
     full_name: string;
     phone: string;
@@ -40,7 +41,10 @@ const DealerProfile = () => {
         phone: profile.phone || '',
         company_name: profile.company_name || ''
       });
-      setEmailNotifications(profile.email_notifications ?? true);
+      // Here we make sure to use the exact value from the profile
+      // instead of defaulting to true
+      setEmailNotifications(profile.email_notifications === undefined ? false : profile.email_notifications);
+      console.log('Email notifications setting loaded:', profile.email_notifications);
     }
   }, [profile]);
 
@@ -133,6 +137,8 @@ const DealerProfile = () => {
     if (!user) return;
 
     try {
+      console.log('Updating email notifications to:', checked);
+      
       const { error } = await supabase
         .from('user_profiles')
         .update({ email_notifications: checked })
@@ -145,6 +151,8 @@ const DealerProfile = () => {
     } catch (error: any) {
       console.error('Error updating email notifications:', error.message);
       toast.error(`Failed to update email notifications: ${error.message}`);
+      // Revert UI state on error
+      setEmailNotifications(!checked);
     }
   };
 

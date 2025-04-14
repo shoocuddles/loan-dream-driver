@@ -3,13 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 // Function to manually trigger the dealer notification edge function
-export const sendDealerNotifications = async () => {
+export const sendDealerNotifications = async (applicationId?: string) => {
   try {
-    console.log("🔔 Manually triggering dealer notifications");
+    console.log("🔔 Manually triggering dealer notifications", applicationId ? `for application ${applicationId}` : "");
     
     const { data, error } = await supabase.functions.invoke("send-dealer-notification", {
       body: {
-        trigger_source: "manual_button"
+        trigger_source: "manual_or_realtime",
+        application_id: applicationId || undefined
       }
     });
     
@@ -30,7 +31,7 @@ export const sendDealerNotifications = async () => {
     } else {
       throw new Error(data?.error || "Function returned success: false");
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Error triggering dealer notifications:", error);
     toast.error(`Failed to send notifications: ${error.message || "Unknown error"}`);
     return {

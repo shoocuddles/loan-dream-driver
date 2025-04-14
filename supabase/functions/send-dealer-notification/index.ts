@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.2";
 
@@ -33,7 +34,7 @@ function log(level: 'info' | 'error' | 'warn', message: string, data?: any) {
   }
 }
 
-// New utility function to format name
+// Utility function to format name
 function formatNameForEmail(fullName: string): string {
   // Split the full name into parts
   const nameParts = fullName.trim().split(' ');
@@ -114,7 +115,7 @@ serve(async (req) => {
     // Parse request body if present
     let requestBody = {};
     try {
-      if (req.bodyUsed) {
+      if (!req.bodyUsed) {
         requestBody = await req.json();
         log('info', "Request body:", requestBody);
       }
@@ -223,11 +224,11 @@ serve(async (req) => {
 
     log('info', `Found ${applications?.length || 0} applications that need notifications`);
 
-    // Fetch dealers who want email notifications
+    // Fetch dealers who want email notifications - EXPLICITLY CHECK email_notifications = true
     const { data: dealers, error: dealersError } = await supabaseClient
       .from('user_profiles')
       .select('id, email')
-      .eq('email_notifications', true)
+      .eq('email_notifications', true)  // Make sure this is exactly true, not null or undefined
       .eq('role', 'dealer');
 
     if (dealersError) {

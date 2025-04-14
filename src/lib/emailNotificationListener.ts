@@ -30,7 +30,8 @@ export const setupEmailNotificationListener = () => {
             console.log("🔔 Triggering dealer notifications for new application:", payload.new.id);
             
             try {
-              const result = await sendDealerNotifications();
+              // Send notifications only to dealers with email_notifications=true
+              const result = await sendDealerNotifications(payload.new.id);
               
               if (result.success) {
                 console.log("✅ Email notifications sent successfully:", result);
@@ -75,14 +76,20 @@ export const testRealtimeConnection = async () => {
     console.log("🧪 Testing Supabase realtime connection...");
     
     // Make sure realtime is enabled for the table
-    const { data: realtimeTables, error: realtimeError } = await supabase
-      .from('_realtime')
-      .select('table_name');
+    const { data: realtimeEnabled, error: realtimeError } = await supabase
+      .rpc('is_realtime_enabled_for_table', { 
+        table_name: 'applications' 
+      });
     
     if (realtimeError) {
-      console.warn("⚠️ Could not check realtime tables:", realtimeError);
+      console.warn("⚠️ Could not check realtime configuration:", realtimeError);
     } else {
-      console.log("📋 Realtime tables:", realtimeTables);
+      console.log("📋 Is realtime enabled for applications table:", realtimeEnabled);
+      
+      if (!realtimeEnabled) {
+        console.error("❌ Realtime is not enabled for the applications table!");
+        return false;
+      }
     }
     
     // Test the connection

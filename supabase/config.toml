@@ -1,20 +1,18 @@
 
-# This file controls the configuration for your Supabase project.
-
 project_id = "kgtfpuvksmqyaraijoal"
 
 [api]
 enabled = true
 port = 54321
-schemas = ["public", "storage"]
+schemas = ["public", "storage", "graphql_public"]
 
 [db]
 port = 54322
-shadow_port = 54320
 
 [studio]
 enabled = true
 port = 54323
+api_url = "http://localhost"
 
 [inbucket]
 enabled = true
@@ -22,30 +20,15 @@ port = 54324
 
 [auth]
 enabled = true
-port = 54325
-
-[storage]
-enabled = true
-port = 54326
-
-[realtime]
-enabled = true
-port = 54327
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_expiry = 10000
 
 [functions]
-[functions.stripe-webhook]
+[functions.send-dealer-notification]
 verify_jwt = false
-[functions.create-checkout-session]
-verify_jwt = true
-[functions.verify-purchase]
-verify_jwt = true
-[functions.create-coupon]
-verify_jwt = true
-[functions.list-coupons]
-verify_jwt = true
-[functions.get-prices]
-verify_jwt = true
-[functions.get-account-info]
-verify_jwt = true
-[functions.sync-prices]
-verify_jwt = true
+
+[functions.send-test-email]
+verify_jwt = false

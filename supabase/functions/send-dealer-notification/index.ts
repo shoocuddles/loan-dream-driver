@@ -115,12 +115,18 @@ serve(async (req) => {
     // Parse request body if present
     let requestBody = {};
     try {
-      if (!req.bodyUsed) {
-        requestBody = await req.json();
-        log('info', "Request body:", requestBody);
+      const bodyText = await req.text();
+      if (bodyText) {
+        try {
+          requestBody = JSON.parse(bodyText);
+          log('info', "Request body:", requestBody);
+        } catch (parseError) {
+          log('warn', "Failed to parse request body as JSON:", bodyText);
+          requestBody = {};
+        }
       }
     } catch (e) {
-      log('warn', "Could not parse request body, continuing anyway");
+      log('warn', "Could not read request body, continuing anyway");
     }
     
     // Initialize Supabase client with service role

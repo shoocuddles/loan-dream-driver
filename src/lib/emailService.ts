@@ -66,7 +66,7 @@ export const checkNotificationStatus = async (applicationId: string) => {
   }
 };
 
-// New function to test the database trigger
+// Function to test the database trigger
 export const testNotificationTrigger = async () => {
   try {
     console.log("🧪 Testing notification database trigger");
@@ -120,7 +120,7 @@ export const testNotificationTrigger = async () => {
   }
 };
 
-// New function to verify realtime is configured properly
+// Function to verify realtime is configured properly
 export const checkRealtimeConfiguration = async () => {
   try {
     console.log("🔍 Checking if realtime is enabled for applications table");

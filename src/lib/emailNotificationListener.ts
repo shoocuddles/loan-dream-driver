@@ -103,6 +103,27 @@ export const testRealtimeConnection = async () => {
         console.log("🔄 Realtime test status:", status);
       });
     
+    // Create a test application to verify the trigger
+    console.log("🧪 Creating test application to verify realtime notifications...");
+    try {
+      const { data: testApp, error: testError } = await supabase
+        .from('applications')
+        .insert({
+          fullname: 'Realtime Test',
+          status: 'submitted',
+          iscomplete: true
+        })
+        .select();
+      
+      if (testError) {
+        console.error("❌ Failed to create test application:", testError);
+      } else {
+        console.log("✅ Test application created:", testApp);
+      }
+    } catch (e) {
+      console.error("❌ Error creating test application:", e);
+    }
+    
     // Cleanup after a short delay
     setTimeout(() => {
       supabase.removeChannel(channel);
@@ -111,6 +132,34 @@ export const testRealtimeConnection = async () => {
     return true;
   } catch (error) {
     console.error("❌ Error testing realtime connection:", error);
+    return false;
+  }
+};
+
+/**
+ * Force test the database trigger functionality
+ */
+export const testDatabaseTrigger = async () => {
+  console.log("🧪 Testing database trigger for dealer notifications...");
+  
+  try {
+    // Use direct RPC call to test the trigger function
+    const { data, error } = await supabase.functions.invoke("send-dealer-notification", {
+      body: {
+        trigger_source: "direct_test",
+        test_trigger: true
+      }
+    });
+    
+    if (error) {
+      console.error("❌ Error testing database trigger:", error);
+      return false;
+    }
+    
+    console.log("✅ Database trigger test result:", data);
+    return true;
+  } catch (error) {
+    console.error("❌ Error testing database trigger:", error);
     return false;
   }
 };

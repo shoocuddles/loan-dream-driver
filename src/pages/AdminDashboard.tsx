@@ -27,7 +27,7 @@ import DownloadOptions from "@/components/application-table/DownloadOptions";
 import CsvUploader from "@/components/CsvUploader";
 import { AgeDiscountSettings } from "@/components/application-table/priceUtils";
 import { setupEmailLogCapture } from "@/lib/emailLogger";
-import { setupEmailNotificationListener, testRealtimeConnection } from "@/lib/emailNotificationListener";
+import { setupEmailNotificationListener, testRealtimeConnection, testDatabaseTrigger } from "@/lib/emailNotificationListener";
 
 interface ApplicationItem {
   applicationId: string;
@@ -85,6 +85,19 @@ const AdminDashboard = () => {
     testRealtimeConnection().then(isConnected => {
       if (isConnected) {
         console.log("✅ Realtime connection is working properly");
+        
+        testDatabaseTrigger().then(success => {
+          if (success) {
+            console.log("✅ Database trigger for notifications is working properly");
+          } else {
+            console.warn("⚠️ Database trigger test failed");
+            toast({
+              title: "Database Trigger Issue",
+              description: "Automatic notifications via database trigger may not work. Please check logs.",
+              variant: "destructive",
+            });
+          }
+        });
       } else {
         console.warn("⚠️ Realtime connection test failed");
         toast({

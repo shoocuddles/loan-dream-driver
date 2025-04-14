@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Eye, EyeOff, Copy } from 'lucide-react';
+import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface LogEntry {
@@ -19,6 +19,7 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
   const [clientLogs, setClientLogs] = useState<LogEntry[]>([]);
   const [serverLogs, setServerLogs] = useState<LogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -33,7 +34,8 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
     
     try {
       // Fetch server logs from Supabase Edge Functions
-      const { data: edgeFunctionLogs, error } = await fetch(
+      console.log("Fetching edge function logs");
+      const response = await fetch(
         'https://kgtfpuvksmqyaraijoal.supabase.co/functions/v1/send-test-email/logs?minutes=5',
         {
           method: 'GET',
@@ -42,13 +44,20 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
             'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
           }
         }
-      ).then(res => res.json());
-
-      if (error) {
-        console.error('Error fetching edge function logs:', error);
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Error fetching logs: ${response.status} ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.error) {
+        console.error('Error fetching edge function logs:', result.error);
+        setLastError(result.error);
       } else {
         // Format server logs
-        const formattedServerLogs = (edgeFunctionLogs || [])
+        const formattedServerLogs = (result.data || [])
           .filter((log: any) => {
             // Only include logs related to send-test-email function
             return log.function_id === '6fc74bdd-22d9-4cc0-8751-9400bf63c307';
@@ -63,18 +72,9 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
       }
 
       // Get client logs from console
-      const consoleLogs = [];
-      const originalConsoleLog = console.log;
-      const originalConsoleError = console.error;
-      
-      // Only collect logs within the last 5 minutes (300000 ms)
       const fiveMinutesAgo = Date.now() - 300000;
       
       // Filter for email-related logs in the browser's console
-      const clientConsoleLogs = [];
-      
-      // We can't access past console.logs, but we can provide any recent ones from this session
-      // that have been explicitly collected by the application
       if (window._emailDebugLogs) {
         const recentLogs = window._emailDebugLogs.filter((log: any) => 
           log.timestamp > fiveMinutesAgo && 
@@ -88,6 +88,7 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
       }
     } catch (err) {
       console.error('Error in fetchLogs:', err);
+      setLastError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsLoading(false);
     }
@@ -110,12 +111,27 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
       });
   };
 
+  const handleRefreshLogs = () => {
+    fetchLogs();
+  };
+
   if (!visible) {
     return null;
   }
 
   return (
     <div className="mt-6 space-y-6">
+      <div className="flex justify-end mb-2">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefreshLogs}
+          disabled={isLoading}
+        >
+          Refresh Logs
+        </Button>
+      </div>
+      
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-md font-medium">Client-side Logs</CardTitle>
@@ -177,7 +193,9 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
               </ul>
             ) : (
               <p className="text-gray-500 text-center py-4">
-                {isLoading ? 'Loading logs...' : 'No edge function logs found in the last 5 minutes'}
+                {isLoading ? 'Loading logs...' : lastError ? 
+                  `Error fetching logs: ${lastError}` : 
+                  'No edge function logs found in the last 5 minutes'}
               </p>
             )}
           </div>

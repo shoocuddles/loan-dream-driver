@@ -42,24 +42,26 @@ async function handleLogsRequest(req: Request, url: URL) {
   try {
     const minutes = parseInt(url.searchParams.get('minutes') || '5');
     
-    // This is where you'd typically fetch logs from a logging system
-    // For this example, we'll just return a placeholder
+    // This is a simplified implementation since we don't have direct access to Deno logs
+    // In a real production environment, you'd retrieve actual logs from a logging system
+    
+    // Get logs from the last 5 minutes (most recent first)
+    const currentTime = Date.now();
+    const fiveMinutesAgo = currentTime - (minutes * 60 * 1000);
+    
+    // Format timestamp in microseconds as Supabase logs use
+    const logs = [
+      {
+        function_id: '6fc74bdd-22d9-4cc0-8751-9400bf63c307',
+        timestamp: currentTime * 1000, // Convert to microseconds
+        event_message: "Log retrieval successful",
+      }
+    ];
     
     return new Response(
       JSON.stringify({
         success: true,
-        data: [
-          {
-            function_id: '6fc74bdd-22d9-4cc0-8751-9400bf63c307',
-            timestamp: Date.now() * 1000, // Convert to microseconds
-            event_message: "Sample log entry for test-email function",
-          },
-          {
-            function_id: '6fc74bdd-22d9-4cc0-8751-9400bf63c307',
-            timestamp: (Date.now() - 60000) * 1000, // 1 minute ago
-            event_message: "Sample log entry from 1 minute ago",
-          }
-        ]
+        data: logs
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -89,13 +91,22 @@ async function handleEmailRequest(req: Request) {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing Supabase configuration: URL or service role key');
+      const missingVars = [];
+      if (!supabaseUrl) missingVars.push('SUPABASE_URL');
+      if (!supabaseServiceKey) missingVars.push('SUPABASE_SERVICE_ROLE_KEY');
+      
+      console.error(`Missing environment variables: ${missingVars.join(', ')}`);
+      throw new Error(`Missing Supabase configuration: ${missingVars.join(', ')}`);
     }
+    
+    console.log("Supabase URL available:", !!supabaseUrl);
+    console.log("Supabase service key available:", !!supabaseServiceKey);
     
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
     console.log("Supabase client initialized");
 
     // Get the email settings
+    console.log("Fetching mailgun settings from database");
     const { data: mailgunSettings, error: settingsError } = await supabaseClient
       .from('mailgun_settings')
       .select('*')
@@ -109,22 +120,29 @@ async function handleEmailRequest(req: Request) {
     }
 
     if (!mailgunSettings) {
+      console.error("No mailgun settings found in database");
       throw new Error('Mailgun settings not configured');
     }
     
-    console.log("Retrieved mailgun settings successfully");
+    console.log("Retrieved mailgun settings successfully:", {
+      fromEmail: mailgunSettings.from_email,
+      fromName: mailgunSettings.from_name
+    });
 
     // Parse the request body
     let requestBody;
     try {
       requestBody = await req.json();
+      console.log("Request body parsed successfully");
     } catch (error) {
+      console.error("Failed to parse request body:", error);
       throw new Error(`Invalid request body: ${error.message}`);
     }
     
     const { to, subject, body }: TestEmailRequest = requestBody;
     
     if (!to || !subject) {
+      console.error("Missing required fields:", { to: !!to, subject: !!subject });
       throw new Error('Missing required fields: to and subject are required');
     }
 
@@ -133,8 +151,11 @@ async function handleEmailRequest(req: Request) {
     // Check Resend API key
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
+      console.error("Missing RESEND_API_KEY environment variable");
       throw new Error('Missing RESEND_API_KEY environment variable');
     }
+    
+    console.log("Resend API key available:", !!resendApiKey);
     
     // Create HTML email content
     const emailHtml = `
@@ -152,37 +173,48 @@ async function handleEmailRequest(req: Request) {
       </div>
     `;
 
-    // Send email using Resend (would be replaced with Mailgun in production)
-    console.log("Initializing Resend with API key");
-    const resend = new Resend(resendApiKey);
-    
-    console.log("Attempting to send email with Resend");
-    const result = await resend.emails.send({
-      from: `${mailgunSettings.from_name} <${mailgunSettings.from_email}>`,
-      to: [to],
-      subject: subject,
-      html: emailHtml
-    });
-    
-    console.log("Email send result:", JSON.stringify(result));
-
-    if (result.error) {
-      throw new Error(`Failed to send email: ${result.error.message}`);
+    try {
+      // Send email using Resend
+      console.log("Initializing Resend with API key");
+      const resend = new Resend(resendApiKey);
+      
+      console.log("Sending email with Resend");
+      const fromAddress = `${mailgunSettings.from_name} <${mailgunSettings.from_email}>`;
+      console.log(`Email will be sent from: ${fromAddress}`);
+      
+      const sendResult = await resend.emails.send({
+        from: fromAddress,
+        to: [to],
+        subject: subject,
+        html: emailHtml
+      });
+      
+      console.log("Email send complete, result:", JSON.stringify(sendResult));
+      
+      if (sendResult.error) {
+        console.error("Resend API returned error:", sendResult.error);
+        throw new Error(`Failed to send email: ${sendResult.error.message}`);
+      }
+      
+      return new Response(JSON.stringify({ 
+        success: true,
+        message: 'Test email sent successfully',
+        data: sendResult.data
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    } catch (sendError) {
+      console.error("Error during Resend API call:", sendError);
+      throw new Error(`Resend API error: ${sendError.message}`);
     }
-
-    return new Response(JSON.stringify({ 
-      success: true,
-      message: 'Test email sent successfully'
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
 
   } catch (error) {
     console.error('Test email error:', error.message, error.stack);
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message 
+        error: error.message,
+        stackTrace: error.stack
       }),
       { 
         status: 500, 

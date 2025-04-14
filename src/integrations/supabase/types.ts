@@ -464,6 +464,30 @@ export type Database = {
         }
         Relationships: []
       }
+      email_templates: {
+        Row: {
+          created_at: string
+          html_content: string | null
+          id: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          html_content?: string | null
+          id?: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          html_content?: string | null
+          id?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           company_id: string

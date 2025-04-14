@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -96,42 +95,23 @@ const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
     logEmailDebug(`Saving email template for ${templateType}`);
 
     try {
-      let result;
-      
-      if (templateId) {
-        // Update existing template
-        result = await supabase
-          .from('email_templates')
-          .update({
-            html_content: htmlContent,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', templateId);
-      } else {
-        // Create new template
-        result = await supabase
-          .from('email_templates')
-          .insert({
-            type: templateType,
-            html_content: htmlContent
-          });
-          
-        // If insert successful, get the new ID
-        if (!result.error) {
-          const { data } = await supabase
-            .from('email_templates')
-            .select('id')
-            .eq('type', templateType)
-            .single();
-            
-          if (data) {
-            setTemplateId(data.id);
-            logEmailDebug(`Created new template with ID: ${data.id}`);
-          }
-        }
-      }
+      const { data, error } = await supabase
+        .from('email_templates')
+        .upsert({
+          id: templateId,
+          type: templateType,
+          html_content: htmlContent,
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
 
-      if (result.error) throw result.error;
+      if (error) throw error;
+      
+      if (data.id !== templateId) {
+        setTemplateId(data.id);
+        logEmailDebug(`Created new template with ID: ${data.id}`);
+      }
       
       toast.success('Email template saved successfully');
       setIsEditing(false);

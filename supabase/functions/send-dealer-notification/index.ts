@@ -95,6 +95,18 @@ serve(async (req) => {
 
   try {
     log('info', "Starting dealer notification function");
+    log('info', `Request source: ${req.headers.get('origin') || 'unknown'}`);
+    
+    // Parse request body if present
+    let requestBody = {};
+    try {
+      if (req.bodyUsed) {
+        requestBody = await req.json();
+        log('info', "Request body:", requestBody);
+      }
+    } catch (e) {
+      log('warn', "Could not parse request body, continuing anyway");
+    }
     
     // Initialize Supabase client with service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -164,13 +176,35 @@ serve(async (req) => {
 
     log('info', "Fetching new applications that need notifications");
     
-    // Check for new applications to notify
-    const { data: applications, error: applicationsError } = await supabaseClient
-      .rpc('get_new_applications_for_notification');
+    // Check if a specific application ID was provided
+    const specificAppId = requestBody?.application_id;
+    
+    // Modify the query based on whether we have a specific application ID
+    let applications;
+    let applicationsError;
+    
+    if (specificAppId) {
+      log('info', `Fetching specific application: ${specificAppId}`);
+      const result = await supabaseClient
+        .from('applications')
+        .select('id, fullname, city, vehicletype, created_at')
+        .eq('id', specificAppId)
+        .eq('status', 'submitted');
+      
+      applications = result.data;
+      applicationsError = result.error;
+    } else {
+      log('info', "Fetching all applications that need notifications");
+      const result = await supabaseClient
+        .rpc('get_new_applications_for_notification');
+      
+      applications = result.data;
+      applicationsError = result.error;
+    }
 
     if (applicationsError) {
-      log('error', "Error fetching new applications", applicationsError);
-      throw new Error('Error fetching new applications');
+      log('error', "Error fetching applications", applicationsError);
+      throw new Error('Error fetching applications');
     }
 
     log('info', `Found ${applications?.length || 0} applications that need notifications`);
@@ -273,7 +307,9 @@ serve(async (req) => {
       applicationsProcessed: applications?.length || 0,
       dealersNotified: dealers?.length || 0,
       notificationsSuccessCount,
-      notificationsErrorCount
+      notificationsErrorCount,
+      triggerSource: requestBody?.trigger_source || 'unknown',
+      logs: recentLogs.slice(-10) // Include recent logs in the response
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });

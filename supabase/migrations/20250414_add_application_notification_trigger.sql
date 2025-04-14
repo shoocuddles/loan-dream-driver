@@ -6,31 +6,42 @@ DECLARE
   http_status INTEGER;
   http_content TEXT;
   edge_function_url TEXT;
+  supabase_anon_key TEXT;
 BEGIN
   -- Only trigger for new submissions (when status changes to 'submitted')
   IF (TG_OP = 'INSERT' AND NEW.status = 'submitted') OR 
      (TG_OP = 'UPDATE' AND NEW.status = 'submitted' AND (OLD.status <> 'submitted' OR OLD.status IS NULL)) THEN
     
-    -- Call the edge function using the pg_net extension
-    -- This allows asynchronous HTTP calls from the database
-    PERFORM net.http_post(
-      url := CASE 
-        WHEN current_setting('server_version_num')::int >= 150000 -- This is for development vs production
-        THEN 'https://kgtfpuvksmqyaraijoal.supabase.co/functions/v1/send-dealer-notification'
-        ELSE 'https://kgtfpuvksmqyaraijoal.supabase.co/functions/v1/send-dealer-notification'
-      END,
-      headers := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || current_setting('supabase.anon_key', true)
-      ),
-      body := '{}'::jsonb
-    );
+    -- Get the anon key from server settings (securely)
+    supabase_anon_key := current_setting('supabase.anon_key', true);
+    
+    -- Log the event clearly for debugging
+    RAISE LOG 'Application submission detected: id=%, status=%, triggering dealer notification', NEW.id, NEW.status;
+    
+    -- Call the edge function using the pg_net extension with more detailed logging
+    SELECT
+      status, content INTO http_status, http_content
+    FROM
+      net.http_post(
+        url := 'https://kgtfpuvksmqyaraijoal.supabase.co/functions/v1/send-dealer-notification',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || supabase_anon_key
+        ),
+        body := jsonb_build_object(
+          'application_id', NEW.id,
+          'trigger_source', 'database_trigger'
+        )
+      );
+    
+    -- Log the HTTP response for debugging
+    RAISE LOG 'Dealer notification HTTP call: status=%, response=%', http_status, http_content;
     
     -- Log the notification
     INSERT INTO public.application_notifications (application_id, email_sent) 
-    VALUES (NEW.id, false);
+    VALUES (NEW.id, http_status BETWEEN 200 AND 299);
     
-    RAISE LOG 'Dealer notification triggered for application %', NEW.id;
+    RAISE LOG 'Dealer notification triggered for application %, HTTP status: %', NEW.id, http_status;
   END IF;
   
   RETURN NEW;
@@ -50,3 +61,10 @@ CREATE TRIGGER application_notification_trigger
 GRANT USAGE ON SCHEMA net TO postgres, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA net TO postgres, authenticated, service_role;
 GRANT ALL ON ALL ROUTINES IN SCHEMA net TO postgres, authenticated, service_role;
+
+-- Make sure pg_net extension is enabled
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- Add index to improve performance of notification queries
+CREATE INDEX IF NOT EXISTS idx_applications_status ON public.applications(status);
+CREATE INDEX IF NOT EXISTS idx_application_notifications_app_id ON public.application_notifications(application_id);

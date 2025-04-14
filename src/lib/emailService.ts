@@ -8,12 +8,17 @@ export const sendDealerNotifications = async () => {
     console.log("🔔 Manually triggering dealer notifications");
     
     const { data, error } = await supabase.functions.invoke("send-dealer-notification", {
-      body: {}
+      body: {
+        trigger_source: "manual_button"
+      }
     });
     
     console.log("📧 Dealer notification response:", data);
     
-    if (error) throw error;
+    if (error) {
+      console.error("❌ Error from dealer notification function:", error);
+      throw error;
+    }
     
     if (data?.success) {
       return {
@@ -23,7 +28,7 @@ export const sendDealerNotifications = async () => {
         results: data.results
       };
     } else {
-      throw new Error("Function returned success: false");
+      throw new Error(data?.error || "Function returned success: false");
     }
   } catch (error) {
     console.error("❌ Error triggering dealer notifications:", error);
@@ -55,6 +60,60 @@ export const checkNotificationStatus = async (applicationId: string) => {
     return {
       success: false,
       notified: false,
+      error: error.message
+    };
+  }
+};
+
+// New function to test the database trigger
+export const testNotificationTrigger = async () => {
+  try {
+    console.log("🧪 Testing notification database trigger");
+    
+    // Create a test application with "submitted" status to test the trigger
+    const { data, error } = await supabase
+      .from("applications")
+      .insert({
+        fullname: "Test Notification Trigger",
+        status: "submitted",
+        iscomplete: true
+      })
+      .select();
+      
+    if (error) throw error;
+    
+    console.log("✅ Created test application to verify trigger:", data);
+    
+    // Wait a moment for the trigger to process
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Check if notification was created
+    if (data && data.length > 0) {
+      const { data: notificationData, error: notificationError } = await supabase
+        .from("application_notifications")
+        .select("*")
+        .eq("application_id", data[0].id)
+        .limit(1);
+        
+      if (notificationError) throw notificationError;
+      
+      console.log("📋 Notification check result:", notificationData);
+      
+      return {
+        success: true,
+        triggered: notificationData && notificationData.length > 0,
+        testApplicationId: data[0].id
+      };
+    }
+    
+    return {
+      success: false,
+      message: "Could not create test application"
+    };
+  } catch (error) {
+    console.error("❌ Error testing notification trigger:", error);
+    return {
+      success: false,
       error: error.message
     };
   }

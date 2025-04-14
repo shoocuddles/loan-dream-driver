@@ -61,6 +61,8 @@ async function sendEmailWithMailgun(to: string, subject: string, html: string, m
   const authHeader = `Basic ${btoa(`api:${apiKey}`)}`;
 
   try {
+    log('info', `Making request to Mailgun API at ${url}`);
+    
     // Make the request to Mailgun
     const response = await fetch(url, {
       method: 'POST',
@@ -125,6 +127,11 @@ serve(async (req) => {
       .eq('type', 'dealer_notification')
       .single();
 
+    if (templateError && templateError.code !== 'PGRST116') {
+      // PGRST116 is "no rows returned", which we can handle with the default template
+      log('error', "Error fetching email template", templateError);
+    }
+
     const emailBody = emailTemplate?.html_content || `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4;">
         <div style="background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
@@ -155,6 +162,8 @@ serve(async (req) => {
       </div>
     `;
 
+    log('info', "Fetching new applications that need notifications");
+    
     // Check for new applications to notify
     const { data: applications, error: applicationsError } = await supabaseClient
       .rpc('get_new_applications_for_notification');
@@ -163,6 +172,8 @@ serve(async (req) => {
       log('error', "Error fetching new applications", applicationsError);
       throw new Error('Error fetching new applications');
     }
+
+    log('info', `Found ${applications?.length || 0} applications that need notifications`);
 
     // Fetch dealers who want email notifications
     const { data: dealers, error: dealersError } = await supabaseClient
@@ -176,11 +187,19 @@ serve(async (req) => {
       throw new Error('Error fetching dealers');
     }
 
+    log('info', `Found ${dealers?.length || 0} dealers with notifications enabled`);
+
     const results = [];
+    let notificationsSuccessCount = 0;
+    let notificationsErrorCount = 0;
 
     // Send emails to each dealer for new applications
-    for (const dealer of dealers) {
-      for (const app of applications) {
+    for (const dealer of dealers || []) {
+      log('info', `Processing notifications for dealer: ${dealer.id}`);
+      
+      for (const app of applications || []) {
+        log('info', `Sending notification for application ${app.id} to dealer ${dealer.id}`);
+        
         // Format application date
         const appDate = new Date(app.created_at).toLocaleDateString();
         
@@ -210,6 +229,9 @@ serve(async (req) => {
 
           if (notificationError) {
             log('error', `Error recording notification for application ${app.id}`, notificationError);
+            notificationsErrorCount++;
+          } else {
+            notificationsSuccessCount++;
           }
 
           results.push({
@@ -218,7 +240,20 @@ serve(async (req) => {
             success: true
           });
         } catch (error) {
+          notificationsErrorCount++;
           log('error', `Failed to send notification to ${dealer.email} for application ${app.id}`, error);
+          
+          // Still record the attempt, but mark as not sent successfully
+          try {
+            await supabaseClient
+              .from('application_notifications')
+              .insert({
+                application_id: app.id,
+                email_sent: false
+              });
+          } catch (recordError) {
+            log('error', `Error recording failed notification for application ${app.id}`, recordError);
+          }
           
           results.push({
             dealer: dealer.email,
@@ -229,12 +264,16 @@ serve(async (req) => {
         }
       }
     }
+    
+    log('info', `Notification process complete. Success: ${notificationsSuccessCount}, Errors: ${notificationsErrorCount}`);
 
     return new Response(JSON.stringify({ 
       success: true,
       results,
-      applicationsProcessed: applications.length,
-      dealersNotified: dealers.length
+      applicationsProcessed: applications?.length || 0,
+      dealersNotified: dealers?.length || 0,
+      notificationsSuccessCount,
+      notificationsErrorCount
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });

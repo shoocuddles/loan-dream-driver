@@ -14,10 +14,13 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
+    // Parameter name should be app_ids which matches the function definition
+    // Log exact parameters being sent for debugging
+    const params = { app_ids: applicationIds };
+    console.log('📊 Sending parameters to export_applications_as_csv:', params);
+    
     // Call the RPC function with the proper parameter format
-    const { data: csvData, error } = await supabase.rpc('export_applications_as_csv', {
-      app_ids: applicationIds
-    });
+    const { data: csvData, error } = await supabase.rpc('export_applications_as_csv', params);
     
     if (error) {
       console.error('❌ Error from Supabase export_applications_as_csv:', error);

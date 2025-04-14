@@ -20,10 +20,11 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
 
     // First try using the RPC function method with proper parameter format
     try {
-      // Important: app_ids is the parameter name, must match the function declaration
-      const { data: csvData, error } = await supabase.rpc('export_applications_as_csv', { 
-        app_ids: applicationIds.map(id => id as unknown as string)
-      });
+      // Log exact parameters being sent for debugging
+      const params = { app_ids: applicationIds };
+      console.log('📊 Sending parameters to export_applications_as_csv:', params);
+      
+      const { data: csvData, error } = await supabase.rpc('export_applications_as_csv', params);
       
       if (error) {
         console.error('❌ Error from RPC export_applications_as_csv:', error);

@@ -1,11 +1,12 @@
 
-import { useState, ReactNode } from 'react';
+import { useState, ReactNode, useEffect } from 'react';
 import { cn } from "@/lib/utils";
 import { useAuth } from '@/hooks/use-auth';
 import { useNavigate } from 'react-router-dom';
 import DealerHeader from '@/components/DealerHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ShoppingBag, User, Archive, FileText } from 'lucide-react';
+import { setupEmailNotificationListener } from '@/lib/emailNotificationListener';
 
 interface DealerDashboardLayoutProps {
   availableApplications: ReactNode;
@@ -23,6 +24,13 @@ const DealerDashboardLayout = ({
   const [activeTab, setActiveTab] = useState("available");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  // Set up realtime notifications listener
+  useEffect(() => {
+    console.log("🔌 Setting up dealer dashboard notifications");
+    const unsubscribe = setupEmailNotificationListener();
+    return () => unsubscribe();
+  }, []);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);

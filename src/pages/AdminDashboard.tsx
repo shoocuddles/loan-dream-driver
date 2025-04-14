@@ -27,6 +27,7 @@ import DownloadOptions from "@/components/application-table/DownloadOptions";
 import CsvUploader from "@/components/CsvUploader";
 import { AgeDiscountSettings } from "@/components/application-table/priceUtils";
 import { setupEmailLogCapture } from "@/lib/emailLogger";
+import { setupEmailNotificationListener, testRealtimeConnection } from "@/lib/emailNotificationListener";
 
 interface ApplicationItem {
   applicationId: string;
@@ -80,6 +81,25 @@ const AdminDashboard = () => {
     loadApplications();
     loadSettings();
     setupEmailLogCapture();
+    
+    testRealtimeConnection().then(isConnected => {
+      if (isConnected) {
+        console.log("✅ Realtime connection is working properly");
+      } else {
+        console.warn("⚠️ Realtime connection test failed");
+        toast({
+          title: "Realtime Connection Issue",
+          description: "Automatic notifications may not work. Please contact support.",
+          variant: "destructive",
+        });
+      }
+    });
+    
+    const unsubscribe = setupEmailNotificationListener();
+    
+    return () => {
+      unsubscribe();
+    };
   }, [navigate]);
 
   const loadSettings = async () => {

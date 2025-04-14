@@ -1,0 +1,109 @@
+
+import { supabase } from "@/integrations/supabase/client";
+import { sendDealerNotifications } from "@/lib/emailService";
+import { toast } from "sonner";
+
+/**
+ * Sets up a realtime listener for new application submissions
+ * and triggers dealer email notifications automatically
+ */
+export const setupEmailNotificationListener = () => {
+  console.log("🔔 Setting up realtime notification listener for new application submissions");
+  
+  try {
+    // Create a subscription to the applications table for INSERT events
+    const subscription = supabase
+      .channel('application-submissions')
+      .on(
+        'postgres_changes', 
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'applications',
+          filter: 'status=eq.submitted'
+        }, 
+        async (payload) => {
+          console.log("📬 New submitted application detected via realtime:", payload.new);
+          
+          // Check if the new application has 'submitted' status
+          if (payload.new && payload.new.status === 'submitted') {
+            console.log("🔔 Triggering dealer notifications for new application:", payload.new.id);
+            
+            try {
+              const result = await sendDealerNotifications();
+              
+              if (result.success) {
+                console.log("✅ Email notifications sent successfully:", result);
+                toast.success(`Email notifications sent to ${result.dealersNotified} dealers`);
+              } else {
+                console.error("❌ Failed to send email notifications:", result.error);
+                toast.error("Failed to send dealer notifications automatically");
+              }
+            } catch (error) {
+              console.error("❌ Error in notification listener:", error);
+            }
+          }
+        }
+      )
+      .subscribe(status => {
+        console.log("📡 Realtime subscription status:", status);
+        if (status === "SUBSCRIBED") {
+          console.log("✅ Successfully subscribed to application submissions");
+        } else if (status === "CHANNEL_ERROR") {
+          console.error("❌ Error subscribing to application submissions");
+          toast.error("Failed to set up automatic dealer notifications");
+        }
+      });
+
+    // Return unsubscribe function for cleanup
+    return () => {
+      console.log("🛑 Removing realtime notification listener");
+      supabase.removeChannel(subscription);
+    };
+  } catch (error) {
+    console.error("❌ Error setting up notification listener:", error);
+    toast.error("Failed to initialize automatic notifications");
+    return () => {}; // Return empty function for consistent API
+  }
+};
+
+/**
+ * Set up a diagnostic test to check if Supabase realtime is working
+ */
+export const testRealtimeConnection = async () => {
+  try {
+    console.log("🧪 Testing Supabase realtime connection...");
+    
+    // Make sure realtime is enabled for the table
+    const { data: realtimeTables, error: realtimeError } = await supabase
+      .from('_realtime')
+      .select('table_name');
+    
+    if (realtimeError) {
+      console.warn("⚠️ Could not check realtime tables:", realtimeError);
+    } else {
+      console.log("📋 Realtime tables:", realtimeTables);
+    }
+    
+    // Test the connection
+    const channel = supabase.channel('test-connection');
+    
+    const subscription = channel
+      .on('presence', { event: 'sync' }, () => {
+        console.log("✅ Realtime sync event received - connection working");
+      })
+      .subscribe(status => {
+        console.log("🔄 Realtime test status:", status);
+      });
+    
+    // Cleanup after a short delay
+    setTimeout(() => {
+      supabase.removeChannel(channel);
+    }, 5000);
+    
+    return true;
+  } catch (error) {
+    console.error("❌ Error testing realtime connection:", error);
+    return false;
+  }
+};

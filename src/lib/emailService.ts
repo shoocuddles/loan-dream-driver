@@ -118,3 +118,36 @@ export const testNotificationTrigger = async () => {
     };
   }
 };
+
+// New function to verify realtime is configured properly
+export const checkRealtimeConfiguration = async () => {
+  try {
+    console.log("🔍 Checking if realtime is enabled for applications table");
+    
+    const { data, error } = await supabase
+      .rpc('is_realtime_enabled_for_table', { 
+        table_name: 'applications' 
+      });
+    
+    if (error) {
+      console.error("❌ Error checking realtime configuration:", error);
+      return {
+        success: false,
+        isEnabled: false,
+        error: error.message
+      };
+    }
+    
+    return {
+      success: true,
+      isEnabled: !!data
+    };
+  } catch (error) {
+    console.error("❌ Error checking realtime config:", error);
+    return {
+      success: false,
+      isEnabled: false,
+      error: error.message
+    };
+  }
+};

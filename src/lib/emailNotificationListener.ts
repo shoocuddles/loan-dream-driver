@@ -103,27 +103,6 @@ export const testRealtimeConnection = async () => {
         console.log("🔄 Realtime test status:", status);
       });
     
-    // Create a test application to verify the trigger
-    console.log("🧪 Creating test application to verify realtime notifications...");
-    try {
-      const { data: testApp, error: testError } = await supabase
-        .from('applications')
-        .insert({
-          fullname: 'Realtime Test',
-          status: 'submitted',
-          iscomplete: true
-        })
-        .select();
-      
-      if (testError) {
-        console.error("❌ Failed to create test application:", testError);
-      } else {
-        console.log("✅ Test application created:", testApp);
-      }
-    } catch (e) {
-      console.error("❌ Error creating test application:", e);
-    }
-    
     // Cleanup after a short delay
     setTimeout(() => {
       supabase.removeChannel(channel);

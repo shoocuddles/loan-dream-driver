@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import AdminPasswordChange from "@/components/AdminPasswordChange";
 import CompanyPricingSettings from "@/components/CompanyPricingSettings";
 import DealerManagement from "@/components/DealerManagement";
 import DealerPurchases from "@/components/DealerPurchases";
+import MailgunSettings from "@/components/MailgunSettings";
 import { SortableTable, ColumnDef } from "@/components/ui/sortable-table";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Unlock } from 'lucide-react';
@@ -264,7 +265,7 @@ const AdminDashboard = () => {
         <div className="container mx-auto px-4">
           <AdminHeader />
           
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="mb-6">
               <TabsTrigger value="applications">Applications</TabsTrigger>
               <TabsTrigger value="purchases">Dealer Purchases</TabsTrigger>
@@ -273,6 +274,7 @@ const AdminDashboard = () => {
               <TabsTrigger value="settings">System Settings</TabsTrigger>
               <TabsTrigger value="stripe">Stripe Integration</TabsTrigger>
               <TabsTrigger value="company-pricing">Company Pricing</TabsTrigger>
+              <TabsTrigger value="mailgun">Mailgun Settings</TabsTrigger>
             </TabsList>
             
             <TabsContent value="applications">
@@ -316,6 +318,10 @@ const AdminDashboard = () => {
 
             <TabsContent value="company-pricing">
               <CompanyPricingSettings />
+            </TabsContent>
+
+            <TabsContent value="mailgun">
+              <MailgunSettings />
             </TabsContent>
           </Tabs>
         </div>

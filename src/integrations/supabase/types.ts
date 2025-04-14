@@ -94,6 +94,35 @@ export type Database = {
           },
         ]
       }
+      application_notifications: {
+        Row: {
+          application_id: string
+          email_sent: boolean
+          id: string
+          notified_at: string
+        }
+        Insert: {
+          application_id: string
+          email_sent?: boolean
+          id?: string
+          notified_at?: string
+        }
+        Update: {
+          application_id?: string
+          email_sent?: boolean
+          id?: string
+          notified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_notifications_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       applications: {
         Row: {
           additionalnotes: string | null
@@ -512,6 +541,36 @@ export type Database = {
         }
         Relationships: []
       }
+      mailgun_settings: {
+        Row: {
+          api_key: string
+          created_at: string
+          domain: string
+          from_email: string
+          from_name: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          domain: string
+          from_email: string
+          from_name?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          domain?: string
+          from_email?: string
+          from_name?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       system_settings: {
         Row: {
           age_discount_enabled: boolean | null
@@ -551,6 +610,7 @@ export type Database = {
           company_name: string | null
           created_at: string
           email: string
+          email_notifications: boolean | null
           full_name: string | null
           id: string
           phone: string | null
@@ -561,6 +621,7 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           email: string
+          email_notifications?: boolean | null
           full_name?: string | null
           id: string
           phone?: string | null
@@ -571,6 +632,7 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           email?: string
+          email_notifications?: boolean | null
           full_name?: string | null
           id?: string
           phone?: string | null

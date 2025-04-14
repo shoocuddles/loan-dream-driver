@@ -1,9 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -16,6 +16,7 @@ const DealerProfile = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [emailNotifications, setEmailNotifications] = useState(true);
   const [formData, setFormData] = useState<{
     full_name: string;
     phone: string;
@@ -39,6 +40,7 @@ const DealerProfile = () => {
         phone: profile.phone || '',
         company_name: profile.company_name || ''
       });
+      setEmailNotifications(profile.email_notifications ?? true);
     }
   }, [profile]);
 
@@ -76,8 +78,6 @@ const DealerProfile = () => {
       
       toast.success('Profile updated successfully!');
       
-      // Refresh profile data by forcing a page reload
-      // This is a simpler approach than implementing a refresh function
       setTimeout(() => {
         window.location.reload();
       }, 1000);
@@ -92,7 +92,6 @@ const DealerProfile = () => {
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate passwords
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast.error("Passwords don't match");
       return;
@@ -110,7 +109,6 @@ const DealerProfile = () => {
 
     setIsChangingPassword(true);
     try {
-      // First verify the current password
       const { error } = await supabase.auth.signInWithPassword({
         email: user?.email || '',
         password: passwordData.currentPassword
@@ -120,7 +118,6 @@ const DealerProfile = () => {
         throw new Error("Current password is incorrect");
       }
 
-      // Then update to the new password
       await updateUserPassword(passwordData.newPassword);
       toast.success('Password updated successfully');
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -129,6 +126,25 @@ const DealerProfile = () => {
       toast.error(`Failed to update password: ${error.message}`);
     } finally {
       setIsChangingPassword(false);
+    }
+  };
+
+  const handleEmailNotificationToggle = async (checked: boolean) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ email_notifications: checked })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setEmailNotifications(checked);
+      toast.success(`Email notifications ${checked ? 'enabled' : 'disabled'}`);
+    } catch (error: any) {
+      console.error('Error updating email notifications:', error.message);
+      toast.error(`Failed to update email notifications: ${error.message}`);
     }
   };
 
@@ -153,13 +169,7 @@ const DealerProfile = () => {
         <CardTitle>Account Settings</CardTitle>
       </CardHeader>
       <CardContent className="relative">
-        {/* Vertical Separator - Positioned to only appear below the header */}
-        <div className="hidden md:block absolute left-1/2 top-0 bottom-0 -ml-px">
-          <Separator orientation="vertical" className="bg-gray-200" />
-        </div>
-        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Dealer Profile Section */}
           <div className="space-y-6">
             <div className="flex items-center gap-2 mb-4">
               <UserCog className="h-5 w-5 text-ontario-blue" />
@@ -228,13 +238,22 @@ const DealerProfile = () => {
             </form>
           </div>
           
-          {/* Horizontal Separator for mobile view */}
           <div className="md:hidden">
             <Separator className="my-6 bg-gray-200" />
           </div>
           
-          {/* Change Password Section */}
           <div className="space-y-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <Label htmlFor="email-notifications">
+                Notify me by email when new leads are received
+              </Label>
+              <Switch
+                id="email-notifications"
+                checked={emailNotifications}
+                onCheckedChange={handleEmailNotificationToggle}
+              />
+            </div>
+
             <div className="flex items-center gap-2 mb-4">
               <Lock className="h-5 w-5 text-ontario-blue" />
               <h3 className="font-medium text-lg">Change Password</h3>

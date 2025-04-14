@@ -705,6 +705,16 @@ export type Database = {
         Args: { p_dealer_id: string }
         Returns: string
       }
+      get_new_applications_for_notification: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          fullname: string
+          city: string
+          vehicletype: string
+          created_at: string
+        }[]
+      }
       get_user_company: {
         Args: Record<PropertyKey, never>
         Returns: string

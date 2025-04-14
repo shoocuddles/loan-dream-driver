@@ -10,6 +10,7 @@ export interface UserProfile {
   role: UserRole;
   company_id: string;
   created_at: string;
+  email_notifications?: boolean;
 }
 
 export interface Company {

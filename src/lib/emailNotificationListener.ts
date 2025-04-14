@@ -12,7 +12,7 @@ export const setupEmailNotificationListener = () => {
   
   try {
     // Create a subscription to the applications table for INSERT events
-    const subscription = supabase
+    const channel = supabase
       .channel('application-submissions')
       .on(
         'postgres_changes', 
@@ -46,7 +46,7 @@ export const setupEmailNotificationListener = () => {
           }
         }
       )
-      .subscribe(status => {
+      .subscribe((status) => {
         console.log("📡 Realtime subscription status:", status);
         if (status === "SUBSCRIBED") {
           console.log("✅ Successfully subscribed to application submissions");
@@ -59,7 +59,7 @@ export const setupEmailNotificationListener = () => {
     // Return unsubscribe function for cleanup
     return () => {
       console.log("🛑 Removing realtime notification listener");
-      supabase.removeChannel(subscription);
+      supabase.removeChannel(channel);
     };
   } catch (error) {
     console.error("❌ Error setting up notification listener:", error);
@@ -92,7 +92,7 @@ export const testRealtimeConnection = async () => {
       }
     }
     
-    // Test the connection
+    // Test the connection by setting up a test channel
     const channel = supabase.channel('test-connection');
     
     const subscription = channel

@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Stripe } from "https://esm.sh/stripe@14.20.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -40,10 +41,17 @@ serve(async (req) => {
     }
     
     // Initialize Supabase client
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      return new Response(
+        JSON.stringify({ error: "Missing Supabase environment variables" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
     
     // Get the authentication header
     const authHeader = req.headers.get('Authorization');
@@ -120,7 +128,7 @@ serve(async (req) => {
     }
     
     // Create a map of application IDs to purchase counts
-    const purchaseCounts: Record<string, number> = {};
+    const purchaseCounts = {};
     if (purchaseData) {
       // Count purchases for each application ID
       purchaseData.forEach(item => {
@@ -142,7 +150,7 @@ serve(async (req) => {
     let standardPriceCount = 0;
     
     // Create a map of application IDs to their age discount status
-    const ageDiscountMap: Record<string, boolean> = {};
+    const ageDiscountMap = {};
     if (ageDiscounts && Array.isArray(ageDiscounts)) {
       ageDiscounts.forEach(item => {
         ageDiscountMap[item.id] = true;
@@ -225,7 +233,7 @@ serve(async (req) => {
     }
     
     // Prepare metadata - handle large batches of application IDs
-    const metadata: Record<string, string> = {
+    const metadata = {
       dealer_id: dealer.id,
       price_type: priceType,
       unit_price: (totalAmount / applicationIdsArray.length).toString(),
@@ -313,7 +321,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         sessionId: session.id,
-        url: session.url
+        url: session.url,
+        isLiveMode: session.livemode
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

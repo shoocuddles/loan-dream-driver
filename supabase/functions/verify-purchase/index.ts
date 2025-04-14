@@ -33,10 +33,20 @@ serve(async (req) => {
     });
 
     // Initialize Supabase client with service role key
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: "Missing Supabase configuration" 
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Retrieve the session to verify payment status
     const session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -58,7 +68,7 @@ serve(async (req) => {
     }
 
     // Get application IDs - handle both direct IDs and batch IDs
-    let applicationIds: string[] = [];
+    let applicationIds = [];
     
     // Check if this is a batch purchase
     if (session.metadata?.batch_id) {

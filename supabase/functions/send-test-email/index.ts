@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.2";
 
 const corsHeaders = {
@@ -12,6 +11,7 @@ interface TestEmailRequest {
   to: string;
   subject: string;
   body: string;
+  useDirectMailgun?: boolean;
 }
 
 interface LogRequest {
@@ -121,6 +121,72 @@ async function handleLogsRequest(req: Request, url: URL) {
   }
 }
 
+async function sendEmailWithMailgun(to: string, subject: string, html: string, mailgunSettings: any, useDirectMailgun = false) {
+  log('info', "Sending email with Mailgun");
+
+  // Validate Mailgun settings
+  if (!mailgunSettings.api_key || !mailgunSettings.domain) {
+    throw new Error('Missing required Mailgun settings: API key or domain');
+  }
+
+  const fromAddress = `${mailgunSettings.from_name} <${mailgunSettings.from_email}>`;
+  log('info', `Email will be sent from: ${fromAddress}`);
+  
+  // For direct Mailgun test, use the hardcoded values as in the provided C# code
+  if (useDirectMailgun) {
+    to = "6352910@gmail.com";
+    subject = "Hello Ian V";
+    html = "Congratulations Ian V, you just sent an email with Mailgun! You are truly awesome!";
+    log('info', "Using direct Mailgun test values");
+  }
+
+  // Construct the URL for the Mailgun API request
+  const domain = mailgunSettings.domain;
+  const url = `https://api.mailgun.net/v3/${domain}/messages`;
+  
+  log('info', `Using Mailgun API URL: ${url}`);
+
+  // Create form data
+  const formData = new FormData();
+  formData.append('from', fromAddress);
+  formData.append('to', to);
+  formData.append('subject', subject);
+  formData.append('html', html);
+
+  // Set up authorization headers for Mailgun
+  const apiKey = mailgunSettings.api_key;
+  const authHeader = `Basic ${btoa(`api:${apiKey}`)}`;
+
+  try {
+    log('info', "Sending HTTP request to Mailgun API");
+
+    // Make the request to Mailgun
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader,
+      },
+      body: formData
+    });
+
+    log('info', `Mailgun API response status: ${response.status}`);
+
+    // Parse the response
+    const responseBody = await response.json();
+    log('info', "Mailgun API response body:", responseBody);
+    
+    if (!response.ok) {
+      log('error', "Mailgun API error", { status: response.status, response: responseBody });
+      throw new Error(`Mailgun API error: ${responseBody.message || 'Unknown error'}`);
+    }
+    
+    return responseBody;
+  } catch (error) {
+    log('error', "Error sending email with Mailgun", error);
+    throw error;
+  }
+}
+
 async function handleEmailRequest(req: Request) {
   log('info', "Handling email sending request");
   
@@ -174,7 +240,8 @@ async function handleEmailRequest(req: Request) {
       mailgunSettings = data;
       log('info', "Retrieved mailgun settings successfully", {
         fromEmail: mailgunSettings.from_email,
-        fromName: mailgunSettings.from_name
+        fromName: mailgunSettings.from_name,
+        domain: mailgunSettings.domain
       });
     } catch (error) {
       if (error.message.includes('Mailgun settings')) {
@@ -185,21 +252,22 @@ async function handleEmailRequest(req: Request) {
     }
 
     // Parse the request body with detailed error handling
-    let requestBody, to, subject, body;
+    let requestBody, to, subject, body, useDirectMailgun;
     try {
       requestBody = await req.json();
-      log('info', "Request body parsed successfully");
+      log('info', "Request body parsed successfully", { body: !!requestBody });
       
       to = requestBody.to;
       subject = requestBody.subject;
       body = requestBody.body;
+      useDirectMailgun = !!requestBody.useDirectMailgun;
       
-      if (!to || !subject) {
+      if (!useDirectMailgun && (!to || !subject)) {
         log('error', "Missing required fields", { to: !!to, subject: !!subject });
         throw new Error('Missing required fields: to and subject are required');
       }
 
-      log('info', `Sending test email to: ${to}, subject: ${subject}`);
+      log('info', `Sending test email to: ${to}, subject: ${subject}, direct mode: ${useDirectMailgun}`);
     } catch (error) {
       if (error instanceof SyntaxError) {
         log('error', "Failed to parse request body as JSON", error);
@@ -211,18 +279,9 @@ async function handleEmailRequest(req: Request) {
       log('error', "Error processing request body", error);
       throw new Error(`Request processing error: ${error.message}`);
     }
-
-    // Check Resend API key
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendApiKey) {
-      log('error', "Missing RESEND_API_KEY environment variable");
-      throw new Error('Missing RESEND_API_KEY environment variable');
-    }
-    
-    log('info', "Resend API key available");
     
     // Create HTML email content
-    const emailHtml = `
+    const emailHtml = useDirectMailgun ? "Direct Mailgun test message" : `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h2 style="color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 10px;">
           ${subject}
@@ -237,38 +296,29 @@ async function handleEmailRequest(req: Request) {
       </div>
     `;
 
-    // Send email using Resend with detailed error handling
+    // Send email using Mailgun with detailed error handling
     try {
-      log('info', "Initializing Resend with API key");
-      const resend = new Resend(resendApiKey);
+      log('info', "Sending email with Mailgun");
       
-      log('info', "Sending email with Resend");
-      const fromAddress = `${mailgunSettings.from_name} <${mailgunSettings.from_email}>`;
-      log('info', `Email will be sent from: ${fromAddress}`);
-      
-      const sendResult = await resend.emails.send({
-        from: fromAddress,
-        to: [to],
-        subject: subject || 'Test Email',
-        html: emailHtml
-      });
+      const sendResult = await sendEmailWithMailgun(
+        to, 
+        subject || 'Test Email', 
+        emailHtml, 
+        mailgunSettings,
+        useDirectMailgun
+      );
       
       log('info', "Email send complete, result:", sendResult);
-      
-      if (sendResult.error) {
-        log('error', "Resend API returned error", sendResult.error);
-        throw new Error(`Failed to send email: ${sendResult.error.message}`);
-      }
       
       return new Response(JSON.stringify({ 
         success: true,
         message: 'Test email sent successfully',
-        data: sendResult.data
+        data: sendResult
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     } catch (error) {
-      log('error', "Error during Resend API call", error);
+      log('error', "Error during Mailgun API call", error);
       throw new Error(`Email sending error: ${error.message}`);
     }
 

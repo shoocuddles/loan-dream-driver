@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +30,7 @@ const MailgunSettings = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
   const [showDebugger, setShowDebugger] = useState(false);
+  const [sendingDirectTest, setSendingDirectTest] = useState(false);
   const { profile } = useAuth();
   
   const form = useForm<TestEmailFormData>({
@@ -190,6 +190,56 @@ const MailgunSettings = () => {
     }
   };
 
+  const handleSendDirectMailgunTest = async () => {
+    setSendingDirectTest(true);
+    setShowDebugger(true); // Automatically show debugger when sending a test
+    
+    try {
+      logEmailDebug('Sending direct Mailgun test email');
+      
+      const response = await supabase.functions.invoke('send-test-email', {
+        body: {
+          useDirectMailgun: true
+        }
+      });
+
+      logEmailDebug('Direct Mailgun test response: ' + JSON.stringify(response));
+      
+      // Dispatch a custom event with the response data for the debugger to capture
+      const responseEvent = new CustomEvent('email-response-received', {
+        detail: { response: response.data || response.error }
+      });
+      window.dispatchEvent(responseEvent);
+      
+      if (response.error) {
+        logEmailDebug('Direct Mailgun test error details: ' + JSON.stringify(response.error));
+        throw new Error(response.error.message || 'Unknown error occurred');
+      }
+      
+      if (response.data?.success) {
+        toast.success('Direct Mailgun test email sent successfully! Check inbox for 6352910@gmail.com.');
+        logEmailDebug('Direct Mailgun test email sent successfully');
+      } else {
+        const errorMessage = response.data?.error || 'Unknown error';
+        logEmailDebug('Direct Mailgun test error: ' + errorMessage);
+        toast.error(`Failed to send direct Mailgun test: ${errorMessage}`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error sending direct Mailgun test:', error);
+      logEmailDebug('Direct Mailgun test error: ' + errorMessage);
+      
+      // Show a more detailed error message
+      if (errorMessage.includes('non-2xx status code')) {
+        toast.error('Mailgun API returned an error. Check the debug logs for details.');
+      } else {
+        toast.error(`Failed to send direct Mailgun test: ${errorMessage}`);
+      }
+    } finally {
+      setSendingDirectTest(false);
+    }
+  };
+
   const toggleDebugger = () => {
     setShowDebugger(!showDebugger);
   };
@@ -337,6 +387,32 @@ const MailgunSettings = () => {
                   ) : (
                     <>
                       <Send className="mr-2 h-4 w-4" /> Send Test Email
+                    </>
+                  )}
+                </Button>
+                
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-gray-300" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-gray-500">or</span>
+                  </div>
+                </div>
+                
+                <Button 
+                  type="button"
+                  onClick={handleSendDirectMailgunTest}
+                  disabled={sendingDirectTest}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {sendingDirectTest ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending Direct...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" /> Send Test from Mailgun
                     </>
                   )}
                 </Button>

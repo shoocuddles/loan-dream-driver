@@ -689,6 +689,10 @@ export type Database = {
         Args: { user_id: string }
         Returns: boolean
       }
+      check_csv_export_function: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       create_application: {
         Args: { p_application_data: Json }
         Returns: Json

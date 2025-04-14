@@ -14,14 +14,75 @@ interface TestEmailRequest {
   body: string;
 }
 
+interface LogRequest {
+  minutes?: number;
+}
+
 serve(async (req) => {
-  console.log("Received request to send-test-email");
+  console.log("Received request to send-test-email function");
   
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Get the URL to check if it's a logs request
+  const url = new URL(req.url);
+  if (url.pathname.endsWith('/logs')) {
+    return handleLogsRequest(req, url);
+  }
+
+  // Regular email sending request
+  return handleEmailRequest(req);
+});
+
+async function handleLogsRequest(req: Request, url: URL) {
+  console.log("Handling logs request");
+  
+  try {
+    const minutes = parseInt(url.searchParams.get('minutes') || '5');
+    
+    // This is where you'd typically fetch logs from a logging system
+    // For this example, we'll just return a placeholder
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: [
+          {
+            function_id: '6fc74bdd-22d9-4cc0-8751-9400bf63c307',
+            timestamp: Date.now() * 1000, // Convert to microseconds
+            event_message: "Sample log entry for test-email function",
+          },
+          {
+            function_id: '6fc74bdd-22d9-4cc0-8751-9400bf63c307',
+            timestamp: (Date.now() - 60000) * 1000, // 1 minute ago
+            event_message: "Sample log entry from 1 minute ago",
+          }
+        ]
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  } catch (error) {
+    console.error('Error handling logs request:', error);
+    return new Response(
+      JSON.stringify({ 
+        success: false,
+        error: error.message 
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
+    );
+  }
+}
+
+async function handleEmailRequest(req: Request) {
+  console.log("Handling email sending request");
+  
   try {
     // Initialize Supabase client with service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -129,4 +190,4 @@ serve(async (req) => {
       }
     );
   }
-});
+}

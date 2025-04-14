@@ -26,6 +26,7 @@ import { isValid, parseISO, format } from 'date-fns';
 import DownloadOptions from "@/components/application-table/DownloadOptions";
 import CsvUploader from "@/components/CsvUploader";
 import { AgeDiscountSettings } from "@/components/application-table/priceUtils";
+import { setupEmailLogCapture } from "@/lib/emailLogger";
 
 interface ApplicationItem {
   applicationId: string;
@@ -78,6 +79,7 @@ const AdminDashboard = () => {
     
     loadApplications();
     loadSettings();
+    setupEmailLogCapture();
   }, [navigate]);
 
   const loadSettings = async () => {

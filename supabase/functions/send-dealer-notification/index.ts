@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.2";
 
@@ -32,6 +31,21 @@ function log(level: 'info' | 'error' | 'warn', message: string, data?: any) {
   } else {
     console.log(message, data);
   }
+}
+
+// New utility function to format name
+function formatNameForEmail(fullName: string): string {
+  // Split the full name into parts
+  const nameParts = fullName.trim().split(' ');
+  
+  // If only one name part exists, return it as-is
+  if (nameParts.length <= 1) return fullName;
+  
+  // Get first name and last initial
+  const firstName = nameParts[0];
+  const lastInitial = nameParts[nameParts.length - 1].charAt(0);
+  
+  return `${firstName} ${lastInitial}.`;
 }
 
 async function sendEmailWithMailgun(to: string, subject: string, html: string, mailgunSettings: any) {
@@ -234,12 +248,13 @@ serve(async (req) => {
       for (const app of applications || []) {
         log('info', `Sending notification for application ${app.id} to dealer ${dealer.id}`);
         
-        // Format application date
+        // Format application date and name
         const appDate = new Date(app.created_at).toLocaleDateString();
+        const formattedName = formatNameForEmail(app.fullname || 'Not Specified');
         
         // Replace placeholders in the email template
         let personalizedHtml = emailBody
-          .replace(/{{fullname}}/g, app.fullname || 'Not Specified')
+          .replace(/{{fullname}}/g, formattedName)
           .replace(/{{city}}/g, app.city || 'Not Specified')
           .replace(/{{vehicletype}}/g, app.vehicletype || 'Not Specified')
           .replace(/{{application_date}}/g, appDate);

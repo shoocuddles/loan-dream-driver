@@ -68,7 +68,8 @@ serve(async (req) => {
       JSON.stringify({ 
         success: false,
         error: error.message,
-        stackTrace: error.stack
+        stackTrace: error.stack,
+        detailedLogs: recentLogs.slice(-10) // Include last 10 logs in the response
       }),
       { 
         status: 500, 
@@ -275,6 +276,7 @@ async function handleEmailRequest(req: Request) {
     log('error', 'Test email error:', error.message);
     log('error', 'Error stack:', error.stack);
     
+    // Return a more detailed error response
     return new Response(
       JSON.stringify({ 
         success: false,
@@ -282,8 +284,9 @@ async function handleEmailRequest(req: Request) {
         stackTrace: error.stack,
         logMessages: recentLogs
           .filter(entry => entry.level === 'error')
-          .slice(-5)
-          .map(entry => entry.message)
+          .slice(-10)
+          .map(entry => entry.message),
+        fullLogs: recentLogs.slice(-20) // Include last 20 logs
       }),
       { 
         status: 500, 

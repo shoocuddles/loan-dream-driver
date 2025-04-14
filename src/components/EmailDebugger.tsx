@@ -22,6 +22,7 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [detailedErrorInfo, setDetailedErrorInfo] = useState<string | null>(null);
+  const [responseData, setResponseData] = useState<any>(null);
 
   useEffect(() => {
     if (visible) {
@@ -29,11 +30,41 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
     }
   }, [visible]);
 
+  // Initialize listener for email response data
+  useEffect(() => {
+    if (!visible) return;
+
+    // Create a custom event listener for email response data
+    const handleEmailResponse = (event: CustomEvent) => {
+      if (event.detail && event.detail.response) {
+        setResponseData(event.detail.response);
+        
+        // Extract any error information from the response
+        if (event.detail.response.error || event.detail.response.fullLogs) {
+          const errorDetails = [
+            event.detail.response.error,
+            event.detail.response.stackTrace,
+            ...(event.detail.response.logMessages || [])
+          ].filter(Boolean).join('\n\n');
+          
+          setDetailedErrorInfo(errorDetails || null);
+        }
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('email-response-received' as any, handleEmailResponse as EventListener);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('email-response-received' as any, handleEmailResponse as EventListener);
+    };
+  }, [visible]);
+
   const fetchLogs = async () => {
     if (!visible) return;
     
     setIsLoading(true);
-    setDetailedErrorInfo(null);
     
     try {
       // Get auth token
@@ -126,16 +157,26 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
     }
   };
 
-  const handleCopyLogs = (type: 'client' | 'server') => {
-    const logs = type === 'client' ? clientLogs : serverLogs;
-    const logText = logs.map(log => {
-      const date = new Date(log.timestamp);
-      return `[${date.toLocaleString()}] ${log.message}`;
-    }).join('\n');
+  const handleCopyLogs = (type: 'client' | 'server' | 'response') => {
+    let logText = '';
+    
+    if (type === 'client') {
+      logText = clientLogs.map(log => {
+        const date = new Date(log.timestamp);
+        return `[${date.toLocaleString()}] ${log.message}`;
+      }).join('\n');
+    } else if (type === 'server') {
+      logText = serverLogs.map(log => {
+        const date = new Date(log.timestamp);
+        return `[${date.toLocaleString()}] ${log.message}`;
+      }).join('\n');
+    } else if (type === 'response') {
+      logText = JSON.stringify(responseData, null, 2);
+    }
     
     navigator.clipboard.writeText(logText)
       .then(() => {
-        toast.success(`${type === 'client' ? 'Client' : 'Server'} logs copied to clipboard`);
+        toast.success(`${type === 'client' ? 'Client' : type === 'server' ? 'Server' : 'Response'} data copied to clipboard`);
       })
       .catch(err => {
         console.error('Failed to copy logs:', err);
@@ -144,6 +185,8 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
   };
 
   const handleRefreshLogs = () => {
+    setResponseData(null);
+    setDetailedErrorInfo(null);
     fetchLogs();
   };
 
@@ -251,6 +294,28 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
           </div>
         </CardContent>
       </Card>
+
+      {responseData && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-md font-medium">Function Response Data</CardTitle>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => handleCopyLogs('response')}
+            >
+              <Copy className="h-4 w-4 mr-1" /> Copy
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-gray-50 p-3 rounded-md max-h-96 overflow-y-auto font-mono text-xs">
+              <pre className="whitespace-pre-wrap break-words">
+                {JSON.stringify(responseData, null, 2)}
+              </pre>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

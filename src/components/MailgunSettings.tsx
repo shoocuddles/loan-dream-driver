@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -153,6 +154,12 @@ const MailgunSettings = () => {
       });
 
       logEmailDebug('Test email response: ' + JSON.stringify(response));
+      
+      // Dispatch a custom event with the response data for the debugger to capture
+      const responseEvent = new CustomEvent('email-response-received', {
+        detail: { response: response.data || response.error }
+      });
+      window.dispatchEvent(responseEvent);
       
       if (response.error) {
         logEmailDebug('Test email error details: ' + JSON.stringify(response.error));

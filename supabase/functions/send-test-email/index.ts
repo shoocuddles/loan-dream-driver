@@ -15,6 +15,8 @@ interface TestEmailRequest {
 }
 
 serve(async (req) => {
+  console.log("Received request to send-test-email");
+  
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -22,29 +24,56 @@ serve(async (req) => {
 
   try {
     // Initialize Supabase client with service role
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase configuration: URL or service role key');
+    }
+    
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+    console.log("Supabase client initialized");
 
     // Get the email settings
     const { data: mailgunSettings, error: settingsError } = await supabaseClient
       .from('mailgun_settings')
       .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
 
-    if (settingsError || !mailgunSettings) {
-      throw new Error('Mailgun settings not configured');
+    if (settingsError) {
+      console.error("Error fetching mailgun settings:", settingsError);
+      throw new Error(`Mailgun settings error: ${settingsError.message}`);
     }
 
+    if (!mailgunSettings) {
+      throw new Error('Mailgun settings not configured');
+    }
+    
+    console.log("Retrieved mailgun settings successfully");
+
     // Parse the request body
-    const { to, subject, body }: TestEmailRequest = await req.json();
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (error) {
+      throw new Error(`Invalid request body: ${error.message}`);
+    }
+    
+    const { to, subject, body }: TestEmailRequest = requestBody;
     
     if (!to || !subject) {
       throw new Error('Missing required fields: to and subject are required');
     }
 
     console.log(`Sending test email to: ${to}, subject: ${subject}`);
+    
+    // Check Resend API key
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) {
+      throw new Error('Missing RESEND_API_KEY environment variable');
+    }
     
     // Create HTML email content
     const emailHtml = `
@@ -63,7 +92,10 @@ serve(async (req) => {
     `;
 
     // Send email using Resend (would be replaced with Mailgun in production)
-    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+    console.log("Initializing Resend with API key");
+    const resend = new Resend(resendApiKey);
+    
+    console.log("Attempting to send email with Resend");
     const result = await resend.emails.send({
       from: `${mailgunSettings.from_name} <${mailgunSettings.from_email}>`,
       to: [to],
@@ -71,7 +103,7 @@ serve(async (req) => {
       html: emailHtml
     });
     
-    console.log("Email send result:", result);
+    console.log("Email send result:", JSON.stringify(result));
 
     if (result.error) {
       throw new Error(`Failed to send email: ${result.error.message}`);
@@ -85,7 +117,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Test email error:', error);
+    console.error('Test email error:', error.message, error.stack);
     return new Response(
       JSON.stringify({ 
         success: false,

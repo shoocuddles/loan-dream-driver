@@ -132,6 +132,12 @@ const MailgunSettings = () => {
     setSendingTest(true);
     
     try {
+      console.log('Sending test email with data:', {
+        to: formData.to,
+        subject: formData.subject,
+        // Omitting body for privacy
+      });
+      
       const response = await supabase.functions.invoke('send-test-email', {
         body: {
           to: formData.to,
@@ -140,11 +146,11 @@ const MailgunSettings = () => {
         }
       });
 
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
+      console.log('Test email response:', response);
       
-      console.log('Test email response:', response.data);
+      if (response.error) {
+        throw new Error(response.error.message || 'Unknown error occurred');
+      }
       
       if (response.data?.success) {
         toast.success('Test email sent successfully! Check your inbox.');
@@ -153,7 +159,8 @@ const MailgunSettings = () => {
       }
     } catch (error) {
       console.error('Error sending test email:', error);
-      toast.error(`Failed to send test email: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to send test email: ${errorMessage}`);
     } finally {
       setSendingTest(false);
     }

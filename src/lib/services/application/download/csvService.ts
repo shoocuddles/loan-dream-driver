@@ -14,7 +14,7 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
       return;
     }
     
-    // Call the get_applications_csv function - using EXACTLY the parameter name that's defined in SQL
+    // Call the get_applications_csv function
     const { data: csvData, error } = await supabase.rpc('get_applications_csv', { 
       ids: applicationIds 
     });

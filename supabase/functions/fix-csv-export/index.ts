@@ -55,18 +55,23 @@ Deno.serve(async (req) => {
       console.error('Error from get_applications_csv:', error);
       
       // Check if the function exists
-      const { data: functionCheck } = await supabase
-        .from('pg_catalog.pg_proc')
+      const { data: functionCheck, error: functionError } = await supabase
+        .from('pg_proc')
         .select('proname')
         .eq('proname', 'get_applications_csv')
         .limit(1);
+        
+      if (functionError) {
+        console.error('Error checking function existence:', functionError);
+      }
 
       return new Response(
         JSON.stringify({
           error: error.message,
           context: {
             applicationIds,
-            functionExists: functionCheck && functionCheck.length > 0
+            functionExists: functionCheck && functionCheck.length > 0,
+            functionError: functionError?.message
           }
         }),
         { 

@@ -52,12 +52,15 @@ export const downloadFullCsv = async (applicationIds: string[]): Promise<void> =
     }
     
     // Fallback to direct REST API call if the RPC method fails
-    const response = await fetch(`${supabase.supabaseUrl}/rest/v1/applications?id=in.(${applicationIds.join(',')})&select=*`, {
+    const supabaseUrl = "https://kgtfpuvksmqyaraijoal.supabase.co";
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtndGZwdXZrc21xeWFyYWlqb2FsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MjAxMjksImV4cCI6MjA1OTM5NjEyOX0._fj5EqjZBmS_fHB5Z2p2lDJdXilePMUrbf3If_wGBz0";
+    
+    const response = await fetch(`${supabaseUrl}/rest/v1/applications?id=in.(${applicationIds.join(',')})&select=*`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': supabase.supabaseKey,
-        'Authorization': `Bearer ${supabase.supabaseKey}`,
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
         'Accept': 'application/json'
       }
     });

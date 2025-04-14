@@ -697,10 +697,6 @@ export type Database = {
         Args: { p_application_data: Json }
         Returns: Json
       }
-      export_applications_as_csv: {
-        Args: { app_ids: string[] }
-        Returns: string
-      }
       get_all_applications: {
         Args: Record<PropertyKey, never>
         Returns: Json
@@ -712,6 +708,10 @@ export type Database = {
       get_applications_columns: {
         Args: Record<PropertyKey, never>
         Returns: unknown[]
+      }
+      get_applications_csv: {
+        Args: { ids: string[] }
+        Returns: string
       }
       get_applications_for_dealer: {
         Args: { p_dealer_id: string }

@@ -1,3 +1,4 @@
+
 interface EmailDebugLog {
   timestamp: number;
   message: string;
@@ -36,6 +37,20 @@ const formatLogValue = (value: any): string => {
   }
 };
 
+// Function to determine if a log is email-related
+const isEmailRelated = (message: string): boolean => {
+  const emailKeywords = [
+    'email', 'Email', 'EMAIL',
+    'resend', 'Resend', 'RESEND',
+    'mailgun', 'Mailgun', 'MAILGUN',
+    'send-test-email',
+    'smtp',
+    'mailer'
+  ];
+  
+  return emailKeywords.some(keyword => message.includes(keyword));
+};
+
 // Function to capture console logs related to emails
 export const setupEmailLogCapture = () => {
   if (typeof window === 'undefined') return;
@@ -46,12 +61,7 @@ export const setupEmailLogCapture = () => {
     const message = args.map(formatLogValue).join(' ');
     
     // Check if the log is related to email functionality
-    if (
-      message.includes('email') || 
-      message.includes('Resend') || 
-      message.includes('Mailgun') || 
-      message.includes('send-test-email')
-    ) {
+    if (isEmailRelated(message)) {
       window._emailDebugLogs.push({
         timestamp: Date.now(),
         message,
@@ -70,6 +80,7 @@ export const setupEmailLogCapture = () => {
     
     const message = args.map(formatLogValue).join(' ');
     
+    // Always capture errors - they might be relevant
     window._emailDebugLogs.push({
       timestamp: Date.now(),
       message: `ERROR: ${message}`,
@@ -88,12 +99,7 @@ export const setupEmailLogCapture = () => {
     const message = args.map(formatLogValue).join(' ');
     
     // Always capture warnings related to emails
-    if (
-      message.includes('email') || 
-      message.includes('Resend') || 
-      message.includes('Mailgun') || 
-      message.includes('send-test-email')
-    ) {
+    if (isEmailRelated(message)) {
       window._emailDebugLogs.push({
         timestamp: Date.now(),
         message: `WARNING: ${message}`,

@@ -18,8 +18,35 @@ interface LogRequest {
   minutes?: number;
 }
 
+// Store recent logs in memory for debugging
+const recentLogs: Array<{timestamp: number, level: string, message: string}> = [];
+
+// Enhanced logging function
+function log(level: 'info' | 'error' | 'warn', message: string, data?: any) {
+  const logEntry = {
+    timestamp: Date.now(),
+    level,
+    message: data ? `${message}: ${JSON.stringify(data)}` : message
+  };
+  
+  recentLogs.push(logEntry);
+  // Limit log size
+  if (recentLogs.length > 100) {
+    recentLogs.shift();
+  }
+  
+  // Also log to console
+  if (level === 'error') {
+    console.error(message, data);
+  } else if (level === 'warn') {
+    console.warn(message, data);
+  } else {
+    console.log(message, data);
+  }
+}
+
 serve(async (req) => {
-  console.log("Received request to send-test-email function");
+  log('info', "Received request to send-test-email function");
   
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -33,42 +60,53 @@ serve(async (req) => {
   }
 
   // Regular email sending request
-  return handleEmailRequest(req);
+  try {
+    return await handleEmailRequest(req);
+  } catch (error) {
+    log('error', 'Uncaught exception in request handler', error);
+    return new Response(
+      JSON.stringify({ 
+        success: false,
+        error: error.message,
+        stackTrace: error.stack
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
+    );
+  }
 });
 
 async function handleLogsRequest(req: Request, url: URL) {
-  console.log("Handling logs request");
+  log('info', "Handling logs request");
   
   try {
     const minutes = parseInt(url.searchParams.get('minutes') || '5');
     
-    // This is a simplified implementation since we don't have direct access to Deno logs
-    // In a real production environment, you'd retrieve actual logs from a logging system
-    
-    // Get logs from the last 5 minutes (most recent first)
+    // Get logs from the last X minutes (from memory)
     const currentTime = Date.now();
-    const fiveMinutesAgo = currentTime - (minutes * 60 * 1000);
+    const cutoffTime = currentTime - (minutes * 60 * 1000);
     
-    // Format timestamp in microseconds as Supabase logs use
-    const logs = [
-      {
+    const filteredLogs = recentLogs
+      .filter(entry => entry.timestamp >= cutoffTime)
+      .map(entry => ({
         function_id: '6fc74bdd-22d9-4cc0-8751-9400bf63c307',
-        timestamp: currentTime * 1000, // Convert to microseconds
-        event_message: "Log retrieval successful",
-      }
-    ];
+        timestamp: entry.timestamp * 1000, // Convert to microseconds for compatibility
+        event_message: `[${entry.level.toUpperCase()}] ${entry.message}`,
+      }));
     
     return new Response(
       JSON.stringify({
         success: true,
-        data: logs
+        data: filteredLogs
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   } catch (error) {
-    console.error('Error handling logs request:', error);
+    log('error', 'Error handling logs request:', error);
     return new Response(
       JSON.stringify({ 
         success: false,
@@ -83,7 +121,7 @@ async function handleLogsRequest(req: Request, url: URL) {
 }
 
 async function handleEmailRequest(req: Request) {
-  console.log("Handling email sending request");
+  log('info', "Handling email sending request");
   
   try {
     // Initialize Supabase client with service role
@@ -95,67 +133,92 @@ async function handleEmailRequest(req: Request) {
       if (!supabaseUrl) missingVars.push('SUPABASE_URL');
       if (!supabaseServiceKey) missingVars.push('SUPABASE_SERVICE_ROLE_KEY');
       
-      console.error(`Missing environment variables: ${missingVars.join(', ')}`);
+      log('error', `Missing environment variables: ${missingVars.join(', ')}`);
       throw new Error(`Missing Supabase configuration: ${missingVars.join(', ')}`);
     }
     
-    console.log("Supabase URL available:", !!supabaseUrl);
-    console.log("Supabase service key available:", !!supabaseServiceKey);
+    log('info', "Supabase URL and key available");
     
-    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
-    console.log("Supabase client initialized");
-
-    // Get the email settings
-    console.log("Fetching mailgun settings from database");
-    const { data: mailgunSettings, error: settingsError } = await supabaseClient
-      .from('mailgun_settings')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (settingsError) {
-      console.error("Error fetching mailgun settings:", settingsError);
-      throw new Error(`Mailgun settings error: ${settingsError.message}`);
+    // Create Supabase client with detailed error handling
+    let supabaseClient;
+    try {
+      supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+      log('info', "Supabase client initialized");
+    } catch (error) {
+      log('error', "Failed to initialize Supabase client", error);
+      throw new Error(`Supabase client initialization error: ${error.message}`);
     }
 
-    if (!mailgunSettings) {
-      console.error("No mailgun settings found in database");
-      throw new Error('Mailgun settings not configured');
-    }
-    
-    console.log("Retrieved mailgun settings successfully:", {
-      fromEmail: mailgunSettings.from_email,
-      fromName: mailgunSettings.from_name
-    });
+    // Get the email settings with detailed error handling
+    log('info', "Fetching mailgun settings from database");
+    let mailgunSettings;
+    try {
+      const { data, error } = await supabaseClient
+        .from('mailgun_settings')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
 
-    // Parse the request body
-    let requestBody;
+      if (error) {
+        log('error', "Error fetching mailgun settings:", error);
+        throw new Error(`Mailgun settings error: ${error.message}`);
+      }
+
+      if (!data) {
+        log('error', "No mailgun settings found in database");
+        throw new Error('Mailgun settings not configured');
+      }
+      
+      mailgunSettings = data;
+      log('info', "Retrieved mailgun settings successfully", {
+        fromEmail: mailgunSettings.from_email,
+        fromName: mailgunSettings.from_name
+      });
+    } catch (error) {
+      if (error.message.includes('Mailgun settings')) {
+        throw error; // Re-throw our custom error
+      }
+      log('error', "Failed to fetch mailgun settings", error);
+      throw new Error(`Database query error: ${error.message}`);
+    }
+
+    // Parse the request body with detailed error handling
+    let requestBody, to, subject, body;
     try {
       requestBody = await req.json();
-      console.log("Request body parsed successfully");
+      log('info', "Request body parsed successfully");
+      
+      to = requestBody.to;
+      subject = requestBody.subject;
+      body = requestBody.body;
+      
+      if (!to || !subject) {
+        log('error', "Missing required fields", { to: !!to, subject: !!subject });
+        throw new Error('Missing required fields: to and subject are required');
+      }
+
+      log('info', `Sending test email to: ${to}, subject: ${subject}`);
     } catch (error) {
-      console.error("Failed to parse request body:", error);
-      throw new Error(`Invalid request body: ${error.message}`);
-    }
-    
-    const { to, subject, body }: TestEmailRequest = requestBody;
-    
-    if (!to || !subject) {
-      console.error("Missing required fields:", { to: !!to, subject: !!subject });
-      throw new Error('Missing required fields: to and subject are required');
+      if (error instanceof SyntaxError) {
+        log('error', "Failed to parse request body as JSON", error);
+        throw new Error(`Invalid request body: JSON parsing error - ${error.message}`);
+      }
+      if (error.message.includes('Missing required fields')) {
+        throw error; // Re-throw our custom error
+      }
+      log('error', "Error processing request body", error);
+      throw new Error(`Request processing error: ${error.message}`);
     }
 
-    console.log(`Sending test email to: ${to}, subject: ${subject}`);
-    
     // Check Resend API key
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
-      console.error("Missing RESEND_API_KEY environment variable");
+      log('error', "Missing RESEND_API_KEY environment variable");
       throw new Error('Missing RESEND_API_KEY environment variable');
     }
     
-    console.log("Resend API key available:", !!resendApiKey);
+    log('info', "Resend API key available");
     
     // Create HTML email content
     const emailHtml = `
@@ -164,7 +227,7 @@ async function handleEmailRequest(req: Request) {
           ${subject}
         </h2>
         <div style="line-height: 1.5; color: #333;">
-          ${body.replace(/\n/g, '<br>')}
+          ${body?.replace(/\n/g, '<br>') || 'Test email body'}
         </div>
         <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; font-size: 12px; color: #777;">
           <p>This is a test email sent from the Ontario Loans system.</p>
@@ -173,26 +236,26 @@ async function handleEmailRequest(req: Request) {
       </div>
     `;
 
+    // Send email using Resend with detailed error handling
     try {
-      // Send email using Resend
-      console.log("Initializing Resend with API key");
+      log('info', "Initializing Resend with API key");
       const resend = new Resend(resendApiKey);
       
-      console.log("Sending email with Resend");
+      log('info', "Sending email with Resend");
       const fromAddress = `${mailgunSettings.from_name} <${mailgunSettings.from_email}>`;
-      console.log(`Email will be sent from: ${fromAddress}`);
+      log('info', `Email will be sent from: ${fromAddress}`);
       
       const sendResult = await resend.emails.send({
         from: fromAddress,
         to: [to],
-        subject: subject,
+        subject: subject || 'Test Email',
         html: emailHtml
       });
       
-      console.log("Email send complete, result:", JSON.stringify(sendResult));
+      log('info', "Email send complete, result:", sendResult);
       
       if (sendResult.error) {
-        console.error("Resend API returned error:", sendResult.error);
+        log('error', "Resend API returned error", sendResult.error);
         throw new Error(`Failed to send email: ${sendResult.error.message}`);
       }
       
@@ -203,18 +266,24 @@ async function handleEmailRequest(req: Request) {
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
-    } catch (sendError) {
-      console.error("Error during Resend API call:", sendError);
-      throw new Error(`Resend API error: ${sendError.message}`);
+    } catch (error) {
+      log('error', "Error during Resend API call", error);
+      throw new Error(`Email sending error: ${error.message}`);
     }
 
   } catch (error) {
-    console.error('Test email error:', error.message, error.stack);
+    log('error', 'Test email error:', error.message);
+    log('error', 'Error stack:', error.stack);
+    
     return new Response(
       JSON.stringify({ 
         success: false,
         error: error.message,
-        stackTrace: error.stack
+        stackTrace: error.stack,
+        logMessages: recentLogs
+          .filter(entry => entry.level === 'error')
+          .slice(-5)
+          .map(entry => entry.message)
       }),
       { 
         status: 500, 

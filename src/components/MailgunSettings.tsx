@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -136,6 +135,7 @@ const MailgunSettings = () => {
 
   const handleSendTestEmail = async (formData: TestEmailFormData) => {
     setSendingTest(true);
+    setShowDebugger(true); // Automatically show debugger when sending a test
     
     try {
       logEmailDebug('Sending test email with data: ' + JSON.stringify({
@@ -148,26 +148,36 @@ const MailgunSettings = () => {
         body: {
           to: formData.to,
           subject: formData.subject,
-          body: formData.body,
+          body: formData.body || 'Test email body',
         }
       });
 
       logEmailDebug('Test email response: ' + JSON.stringify(response));
       
       if (response.error) {
+        logEmailDebug('Test email error details: ' + JSON.stringify(response.error));
         throw new Error(response.error.message || 'Unknown error occurred');
       }
       
       if (response.data?.success) {
         toast.success('Test email sent successfully! Check your inbox.');
+        logEmailDebug('Test email sent successfully');
       } else {
-        toast.error(`Failed to send test email: ${response.data?.error || 'Unknown error'}`);
+        const errorMessage = response.data?.error || 'Unknown error';
+        logEmailDebug('Test email error: ' + errorMessage);
+        toast.error(`Failed to send test email: ${errorMessage}`);
       }
     } catch (error) {
-      console.error('Error sending test email:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error sending test email:', error);
       logEmailDebug('Test email error: ' + errorMessage);
-      toast.error(`Failed to send test email: ${errorMessage}`);
+      
+      // Show a more detailed error message
+      if (errorMessage.includes('non-2xx status code')) {
+        toast.error('Email server returned an error. Check the debug logs for details.');
+      } else {
+        toast.error(`Failed to send test email: ${errorMessage}`);
+      }
     } finally {
       setSendingTest(false);
     }

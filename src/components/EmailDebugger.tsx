@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Copy } from 'lucide-react';
+import { Copy, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 interface LogEntry {
   timestamp: number;
@@ -20,6 +21,7 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
   const [serverLogs, setServerLogs] = useState<LogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [detailedErrorInfo, setDetailedErrorInfo] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -31,8 +33,25 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
     if (!visible) return;
     
     setIsLoading(true);
+    setDetailedErrorInfo(null);
     
     try {
+      // Get auth token
+      const supabaseAuthToken = localStorage.getItem('supabase.auth.token');
+      let authHeaderValue = '';
+      
+      if (supabaseAuthToken) {
+        try {
+          const parsedToken = JSON.parse(supabaseAuthToken);
+          const accessToken = parsedToken.currentSession?.access_token;
+          if (accessToken) {
+            authHeaderValue = `Bearer ${accessToken}`;
+          }
+        } catch (err) {
+          console.warn('Could not parse auth token', err);
+        }
+      }
+      
       // Fetch server logs from Supabase Edge Functions
       console.log("Fetching edge function logs");
       const response = await fetch(
@@ -41,8 +60,9 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
-          }
+            'Authorization': authHeaderValue || ''
+          },
+          credentials: 'omit'
         }
       );
       
@@ -63,10 +83,22 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
             return log.function_id === '6fc74bdd-22d9-4cc0-8751-9400bf63c307';
           })
           .map((log: any) => ({
-            timestamp: log.timestamp / 1000,
+            timestamp: log.timestamp / 1000, // Convert from microseconds to milliseconds
             message: log.event_message,
             type: 'server' as const
           }));
+
+        // Check for detailed error information
+        const errorLogs = formattedServerLogs.filter(log => 
+          log.message.includes('ERROR') || 
+          log.message.includes('error') || 
+          log.message.includes('Failed') ||
+          log.message.includes('Exception')
+        );
+        
+        if (errorLogs.length > 0) {
+          setDetailedErrorInfo(errorLogs.map(log => log.message).join('\n'));
+        }
 
         setServerLogs(formattedServerLogs);
       }
@@ -128,9 +160,21 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
           onClick={handleRefreshLogs}
           disabled={isLoading}
         >
+          <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh Logs
         </Button>
       </div>
+      
+      {detailedErrorInfo && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTitle>Error Details</AlertTitle>
+          <AlertDescription>
+            <pre className="whitespace-pre-wrap break-words text-xs mt-2 max-h-40 overflow-y-auto">
+              {detailedErrorInfo}
+            </pre>
+          </AlertDescription>
+        </Alert>
+      )}
       
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -149,7 +193,7 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
             {clientLogs.length > 0 ? (
               <ul className="space-y-2">
                 {clientLogs.map((log, i) => (
-                  <li key={i} className="border-b border-gray-100 pb-2">
+                  <li key={i} className={`border-b border-gray-100 pb-2 ${log.message.includes('error') || log.message.includes('ERROR') ? 'text-red-600' : ''}`}>
                     <span className="text-gray-500">
                       {new Date(log.timestamp).toLocaleString()}
                     </span>
@@ -183,7 +227,13 @@ const EmailDebugger: React.FC<EmailDebuggerProps> = ({ visible }) => {
             {serverLogs.length > 0 ? (
               <ul className="space-y-2">
                 {serverLogs.map((log, i) => (
-                  <li key={i} className="border-b border-gray-100 pb-2">
+                  <li 
+                    key={i} 
+                    className={`border-b border-gray-100 pb-2 ${
+                      log.message.includes('ERROR') || log.message.includes('error') ? 'text-red-600' : 
+                      log.message.includes('WARN') || log.message.includes('warning') ? 'text-amber-600' : ''
+                    }`}
+                  >
                     <span className="text-gray-500">
                       {new Date(log.timestamp).toLocaleString()}
                     </span>

@@ -49,8 +49,11 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
     console.log('📊 CSV data length:', csvData.length);
     console.log('📊 First 100 characters of CSV:', csvData.substring(0, 100));
     
+    // Create SQL migration to fix the export function on the server side
+    console.log('⚠️ Using client-side CSV formatting as a fallback');
+    
     // Clean up CSV formatting issues
-    csvData = cleanCsvData(csvData);
+    csvData = processCSV(csvData);
     
     // Create blob directly from the CSV text data
     const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
@@ -71,115 +74,223 @@ export const downloadAsCSV = async (applicationIds: string[]): Promise<void> => 
   }
 };
 
-// Improved CSV data cleaning function
-const cleanCsvData = (rawData: string): string => {
+// Process CSV data to fix formatting issues
+const processCSV = (rawData: string): string => {
   if (!rawData) return '';
   
-  console.log('🔄 Starting CSV cleaning process');
+  console.log('🔄 Starting CSV repair process');
   
-  // Replace literal '\n' with actual line breaks
-  rawData = rawData.replace(/\\n/g, '\n');
-  
-  // Get the header row and data content separately
-  const lines = rawData.split('\n');
-  if (lines.length < 2) {
-    console.log('⚠️ CSV data didn\'t contain multiple lines, returning as is');
-    return removeAllQuotes(rawData);
+  // Split into lines
+  const lines = rawData.trim().split('\n');
+  if (lines.length < 1) {
+    return 'No data';
   }
   
+  // Extract the header row - this is the correct column order
   const header = lines[0];
-  console.log('📋 Header row:', header);
+  const headerColumns = header.split(',');
   
-  // Process the data rows (everything after the header)
-  let dataContent = lines.slice(1).join('\n');
+  console.log('📋 Header columns:', headerColumns);
   
-  // Remove all quotes, parentheses, and backslashes
-  return processMultipleApplications(header, dataContent);
+  // Process data rows
+  let processedLines = [header]; // Start with the header
+  
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue; // Skip empty lines
+    
+    // For data rows, we need to reorder the values to match the header
+    let values: string[] = [];
+    
+    // Check if the line contains a UUID (application ID)
+    if (line.match(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/)) {
+      // Try to parse this as a complete row with data in wrong order
+      const rowData = parseApplicationRow(line, headerColumns);
+      if (rowData) {
+        // Create correctly ordered CSV row
+        const orderedValues = headerColumns.map(column => {
+          const value = rowData[column] || '';
+          return escapeCsvValue(value);
+        });
+        processedLines.push(orderedValues.join(','));
+      } else {
+        console.log('⚠️ Could not parse row:', line);
+        // If parsing fails, include the row as-is
+        processedLines.push(line);
+      }
+    } else {
+      // This might be a continuation of the previous line
+      // For now, just include it as-is
+      processedLines.push(line);
+    }
+  }
+  
+  // Join all lines back together
+  const result = processedLines.join('\n');
+  console.log('🔄 CSV data processed successfully');
+  return result;
 };
 
-// Process multiple applications with proper line breaks
-const processMultipleApplications = (header: string, dataContent: string): string => {
-  // Clean the header (remove quotes) but preserve the structure
-  const cleanHeader = removeAllQuotes(header);
-  
-  // First remove surrounding parentheses
-  dataContent = dataContent.replace(/^\(|\)$/g, '');
-  
-  // Look for UUID patterns that indicate the start of a new application record
-  // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-  const uuidPattern = /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/g;
-  
-  // First split by any existing line breaks
-  let rows = dataContent.split('\n');
-  
-  // Process each row
-  const processedRows = rows.map(row => {
-    // Skip empty rows
-    if (!row.trim()) return '';
+// Parse an application row into a key-value object
+const parseApplicationRow = (line: string, headers: string[]): Record<string, string> | null => {
+  try {
+    // Split the line into values
+    const values = splitCsvLine(line);
     
-    // Remove any remaining parentheses
-    row = row.replace(/[\(\)]/g, '');
+    // Check if this line contains an application ID (UUID)
+    const uuidPattern = /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/;
+    const uuidMatch = line.match(uuidPattern);
     
-    // Remove all quotes
-    row = removeAllQuotes(row);
+    if (!uuidMatch) {
+      return null; // No UUID found, cannot reliably parse
+    }
     
-    // Remove all backslashes
-    row = row.replace(/\\/g, '');
+    // Extract the application ID
+    const applicationId = uuidMatch[0];
     
-    return row;
-  }).filter(row => row.trim().length > 0);
-
-  // Further processing for multiple applications - look for ID patterns
-  let result = '';
-  
-  // Join all rows into a single string to check for IDs
-  let combinedContent = processedRows.join('\n');
-  
-  // Find all UUIDs in the content
-  const uuids = combinedContent.match(uuidPattern);
-  
-  if (uuids && uuids.length > 1) {
-    console.log('🔍 Found multiple application IDs:', uuids.length);
+    // Basic parsing based on expected structure
+    // The example shows the ID first, then other fields
+    const result: Record<string, string> = {};
     
-    // For each UUID except the first one (which should be at the start of a row)
-    for (let i = 1; i < uuids.length; i++) {
-      // Insert a line break before each UUID that's in the middle of a row
-      const uuid = uuids[i];
-      const uuidPos = combinedContent.indexOf(uuid);
+    // Map known fields based on their relative positions or patterns
+    result['id'] = applicationId;
+    
+    // Try to identify fields based on patterns
+    for (let i = 0; i < values.length; i++) {
+      const value = values[i];
       
-      // Check if UUID is at the start of a line
-      const isAtStart = uuidPos === 0 || 
-                        combinedContent[uuidPos - 1] === '\n' ||
-                        combinedContent.substring(uuidPos - 10, uuidPos).includes('\n');
+      // Look for phone number pattern
+      if (value.match(/^\+?[0-9\-\(\)\s]{10,15}$/)) {
+        result['phonenumber'] = value;
+        continue;
+      }
       
-      if (!isAtStart) {
-        // Replace the UUID with a line break + the UUID
-        combinedContent = combinedContent.substring(0, uuidPos) + 
-                          '\n' + 
-                          combinedContent.substring(uuidPos);
+      // Look for email pattern
+      if (value.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+        result['email'] = value;
+        continue;
+      }
+      
+      // Look for name (two or more words)
+      if (value.split(' ').length >= 2 && !result['fullname']) {
+        result['fullname'] = value;
+        continue;
+      }
+      
+      // Look for province (Canadian provinces)
+      if (['Ontario', 'Quebec', 'Alberta', 'Manitoba', 'Saskatchewan', 'British Columbia', 'Nova Scotia', 'New Brunswick', 'PEI', 'Newfoundland', 'Yukon', 'Northwest Territories', 'Nunavut'].includes(value)) {
+        result['province'] = value;
+        continue;
+      }
+      
+      // Look for vehicle type
+      if (['Car', 'Truck', 'SUV', 'Van', 'Motorcycle'].includes(value)) {
+        result['vehicletype'] = value;
+        continue;
+      }
+      
+      // Look for status
+      if (['submitted', 'draft', 'completed', 'pending'].includes(value)) {
+        result['status'] = value;
+        continue;
+      }
+      
+      // Look for boolean values
+      if (value === 't' || value === 'true' || value === 'f' || value === 'false') {
+        // This could be hasexistingloan or iscomplete, assign it to hasexistingloan as a guess
+        if (!result['hasexistingloan']) {
+          result['hasexistingloan'] = value;
+        } else if (!result['iscomplete']) {
+          result['iscomplete'] = value;
+        }
+        continue;
+      }
+      
+      // Look for dates (ISO format)
+      if (value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/) || value.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/)) {
+        // This could be created_at or updated_at
+        if (!result['created_at']) {
+          result['created_at'] = value;
+        } else if (!result['updated_at']) {
+          result['updated_at'] = value;
+        }
+        continue;
+      }
+      
+      // Look for currency values ($ format)
+      if (value.startsWith('$')) {
+        if (!result['monthlyincome']) {
+          result['monthlyincome'] = value;
+        } else if (!result['currentpayment']) {
+          result['currentpayment'] = value;
+        } else if (!result['amountowed']) {
+          result['amountowed'] = value;
+        }
+        continue;
+      }
+    }
+    
+    // For columns we haven't identified yet, use the remaining unassigned values
+    let valueIndex = 0;
+    for (const header of headers) {
+      if (!result[header] && valueIndex < values.length) {
+        // Skip values we've already assigned
+        while (valueIndex < values.length && Object.values(result).includes(values[valueIndex])) {
+          valueIndex++;
+        }
         
-        // Since we added a character, adjust positions of remaining UUIDs
-        for (let j = i + 1; j < uuids.length; j++) {
-          const nextPos = combinedContent.indexOf(uuids[j]);
-          if (nextPos > uuidPos) {
-            // This UUID comes after the one we just modified
-            // No need to do anything as indexOf will find the new position
-          }
+        if (valueIndex < values.length) {
+          result[header] = values[valueIndex];
+          valueIndex++;
         }
       }
     }
     
-    result = combinedContent;
-  } else {
-    // If no multiple UUIDs found, just join the processed rows
-    result = processedRows.join('\n');
+    return result;
+  } catch (error) {
+    console.error('Error parsing application row:', error);
+    return null;
   }
-  
-  console.log('🔄 CSV data cleaned successfully with proper application line breaks');
-  return cleanHeader + '\n' + result.trim();
 };
 
-// Remove all quotation marks from the text
-const removeAllQuotes = (text: string): string => {
-  return text.replace(/"/g, '');
+// Properly split a CSV line handling quoted values
+const splitCsvLine = (line: string): string[] => {
+  const values: string[] = [];
+  let currentValue = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      // Toggle quote state
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      // End of value
+      values.push(currentValue);
+      currentValue = '';
+    } else {
+      // Part of the current value
+      currentValue += char;
+    }
+  }
+  
+  // Add the last value
+  values.push(currentValue);
+  
+  return values;
+};
+
+// Escape CSV values (wrap in quotes if needed)
+const escapeCsvValue = (value: string): string => {
+  if (!value) return '';
+  
+  // If the value contains a comma, newline, or quote, wrap it in quotes
+  if (value.includes(',') || value.includes('\n') || value.includes('"')) {
+    // Replace any quotes in the value with double quotes
+    value = value.replace(/"/g, '""');
+    return `"${value}"`;
+  }
+  
+  return value;
 };

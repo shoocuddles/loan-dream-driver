@@ -587,9 +587,10 @@ const DealerDashboard = () => {
         if (response.error) {
           console.error('Error response from checkout session:', response.error);
           
-          if (response.error.message && response.error.message.includes('already purchased')) {
+          if (response.error.code === 'already_purchased') {
             toast.success("All selected applications have already been purchased");
             await loadData();
+            await loadPurchasedApplicationIds();
             setShowPaymentDialog(false);
             setPendingAction(null);
             return;

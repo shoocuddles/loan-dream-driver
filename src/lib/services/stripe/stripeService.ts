@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { StripePrice, StripeCoupon, CreateCouponParams, StripeCheckoutParams, CheckoutSessionResponse, StripeError, PurchaseResult } from '@/lib/types/stripe';
 import { recordPurchase } from '@/lib/dealerDashboardService';
@@ -47,6 +46,18 @@ const callStripeFunction = async <T>(
           message: `No data returned from ${functionName}`,
           code: 'no_data',
           details: 'The function returned successfully but no data was provided'
+        }
+      };
+    }
+
+    // Special handling for "already_purchased" errors which are returned with 200 status
+    if (data.error && data.error.code === 'already_purchased') {
+      console.log(`✅ ${functionName} returned already_purchased message:`, data.error.message);
+      return { 
+        error: {
+          message: data.error.message,
+          code: 'already_purchased',
+          details: data.error.details || 'These applications have already been purchased'
         }
       };
     }
@@ -162,18 +173,22 @@ export const createCheckoutSession = async (
     }
     
     // Call create-checkout-session edge function
-    const functionName = 'create-checkout-session';
-    const { data, error } = await supabase.functions.invoke(functionName, { body: params });
+    const { data, error } = await callStripeFunction<CheckoutSessionResponse>('create-checkout-session', params);
     
     if (error) {
-      console.error('❌ Error from Supabase functions:', error);
-      return {
-        error: {
-          message: error.message || `Error calling ${functionName}`,
-          code: error.code || 'function_error',
-          details: error.message
-        }
-      };
+      // Special handling for "already purchased" messages
+      if (error.code === 'already_purchased') {
+        console.log('Applications already purchased:', params.applicationIds);
+        // This isn't really an error, so we handle it differently
+        return {
+          data: {
+            alreadyPurchased: true,
+            message: error.message
+          } as CheckoutSessionResponse
+        };
+      }
+      
+      return { error };
     }
     
     if (!data) {
@@ -182,17 +197,6 @@ export const createCheckoutSession = async (
           message: 'No data returned from checkout session creation',
           code: 'no_data',
           details: 'The function returned successfully but no data was provided'
-        }
-      };
-    }
-    
-    // Handle case where function returns an error object
-    if (data.error) {
-      return {
-        error: {
-          message: data.error.message || 'Unknown error in checkout session creation',
-          code: data.error.code || 'function_returned_error',
-          details: data.error.details || data.error.message
         }
       };
     }

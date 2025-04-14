@@ -115,16 +115,49 @@ serve(async (req) => {
     // Check if any of the applications have been purchased before to apply discounted price
     const applicationIdsArray = Array.isArray(applicationIds) ? applicationIds : [applicationIds];
     
-    // Fix for the group function issue
-    // Instead of using .count() which requires a group function, get all records and count them in JS
+    // Check if all applications have already been purchased by this dealer
     const { data: purchaseData, error: purchaseError } = await supabase
       .from('dealer_purchases')
       .select('application_id')
       .in('application_id', applicationIdsArray)
+      .eq('dealer_id', dealer.id)
       .eq('is_active', true);
     
     if (purchaseError) {
       console.error("Error checking purchase history:", purchaseError);
+    }
+    
+    // If all applications have been purchased already, return a specific response
+    if (purchaseData && purchaseData.length === applicationIdsArray.length) {
+      console.log("All applications already purchased by this dealer");
+      return new Response(
+        JSON.stringify({ 
+          error: { 
+            message: "All selected applications have already been purchased", 
+            code: "already_purchased",
+            details: "You can access these applications in your Purchased Applications tab"
+          }
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    }
+    
+    // Filter out any applications that have already been purchased
+    const alreadyPurchasedIds = purchaseData ? purchaseData.map(item => item.application_id) : [];
+    const applicationIdsToProcess = applicationIdsArray.filter(id => !alreadyPurchasedIds.includes(id));
+    
+    if (applicationIdsToProcess.length === 0) {
+      console.log("All applications already purchased by this dealer");
+      return new Response(
+        JSON.stringify({ 
+          error: { 
+            message: "All selected applications have already been purchased", 
+            code: "already_purchased",
+            details: "You can access these applications in your Purchased Applications tab"
+          }
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
     }
     
     // Create a map of application IDs to purchase counts
@@ -157,8 +190,8 @@ serve(async (req) => {
       });
     }
     
-    // Calculate the price for each application
-    applicationIdsArray.forEach(appId => {
+    // Calculate the price for each application to be processed
+    applicationIdsToProcess.forEach(appId => {
       const isPreviouslyPurchased = purchaseCounts[appId] && purchaseCounts[appId] > 0;
       const hasAgeDiscount = ageDiscountMap[appId] === true;
       let appPrice = settings.standard_price;
@@ -189,8 +222,14 @@ serve(async (req) => {
       totalAmount += appPrice;
     });
     
-    console.log(`Total price calculated: ${totalAmount} for ${applicationIdsArray.length} applications`);
+    console.log(`Total price calculated: ${totalAmount} for ${applicationIdsToProcess.length} applications`);
     console.log(`Age discounts: ${ageDiscountCount}, Previous purchases: ${previousPurchaseCount}, Standard: ${standardPriceCount}`);
+    
+    // Ensure we have a minimum amount to satisfy Stripe's minimum charge requirement
+    if (totalAmount < 0.50) {
+      console.log(`Amount too small (${totalAmount}), setting minimum amount to $0.50`);
+      totalAmount = 0.50;
+    }
     
     // Initialize Stripe
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
@@ -236,18 +275,18 @@ serve(async (req) => {
     const metadata = {
       dealer_id: dealer.id,
       price_type: priceType,
-      unit_price: (totalAmount / applicationIdsArray.length).toString(),
+      unit_price: (totalAmount / applicationIdsToProcess.length).toString(),
       has_discount: hasDiscounted ? 'true' : 'false',
       discount_type: hasDiscounted ? 'mixed' : null,
-      application_count: applicationIdsArray.length.toString(),
+      application_count: applicationIdsToProcess.length.toString(),
       age_discount_count: ageDiscountCount.toString(),
       previous_purchase_count: previousPurchaseCount.toString()
     };
     
     // Store application IDs in chunks to avoid exceeding metadata size limit
     // Stripe has a limit of 500 characters per metadata value
-    if (applicationIdsArray.length === 1) {
-      metadata.application_ids = applicationIdsArray[0];
+    if (applicationIdsToProcess.length === 1) {
+      metadata.application_ids = applicationIdsToProcess[0];
     } else {
       // For multiple applications, store only the count in metadata
       // and save full list to a database record that we can retrieve later
@@ -257,7 +296,7 @@ serve(async (req) => {
         .from('application_batch_purchases')
         .insert({
           dealer_id: dealer.id,
-          application_ids: applicationIdsArray,
+          application_ids: applicationIdsToProcess,
           price_type: priceType,
           created_at: new Date().toISOString()
         })
@@ -289,14 +328,14 @@ serve(async (req) => {
             currency: 'cad',
             product_data: {
               name: `Application Purchase`,
-              description: applicationIdsArray.length > 1 ? 
-                `${applicationIdsArray.length} Applications` : 
+              description: applicationIdsToProcess.length > 1 ? 
+                `${applicationIdsToProcess.length} Applications` : 
                 `Single Application Purchase`
             },
-            unit_amount: Math.round(totalAmount * 100 / applicationIdsArray.length), // Convert to cents
+            unit_amount: Math.round(totalAmount * 100 / applicationIdsToProcess.length), // Convert to cents
             tax_behavior: 'exclusive',
           },
-          quantity: applicationIdsArray.length,
+          quantity: applicationIdsToProcess.length,
         },
       ],
       mode: 'payment',
@@ -315,21 +354,42 @@ serve(async (req) => {
     }
     
     console.log("Creating Stripe checkout session with params:", JSON.stringify(sessionParams));
-    const session = await stripe.checkout.sessions.create(sessionParams);
-    console.log("Checkout session created:", session.id);
     
-    return new Response(
-      JSON.stringify({ 
-        sessionId: session.id,
-        url: session.url,
-        isLiveMode: session.livemode
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    try {
+      const session = await stripe.checkout.sessions.create(sessionParams);
+      console.log("Checkout session created:", session.id);
+      
+      return new Response(
+        JSON.stringify({ 
+          sessionId: session.id,
+          url: session.url,
+          isLiveMode: session.livemode
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (stripeError) {
+      console.error("Error creating checkout session in Stripe:", stripeError);
+      return new Response(
+        JSON.stringify({ 
+          error: { 
+            message: stripeError.message || "Error creating checkout session", 
+            code: stripeError.code || "stripe_error",
+            details: stripeError.raw ? JSON.stringify(stripeError.raw) : stripeError.message
+          }
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
   } catch (error) {
     console.error("Error creating checkout session:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: { 
+          message: error.message || "Unknown error creating checkout session",
+          code: error.code || "unknown_error",
+          details: error.stack || error.message || "Unknown error"
+        }
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }

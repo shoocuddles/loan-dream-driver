@@ -61,9 +61,7 @@ const LoadingPage = ({ onLoadComplete }: LoadingPageProps) => {
           </div>
         </div>
         
-        <div className="absolute bottom-8 left-0 right-0 flex justify-center">
-          <div className="text-white/50 text-sm animate-pulse">Please wait while we prepare your experience</div>
-        </div>
+
       </div>
     </div>
   );

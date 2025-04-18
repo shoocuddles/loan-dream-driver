@@ -48,8 +48,8 @@ const Index = () => {
           <div className="relative z-10 text-left px-4 md:px-20 w-full max-w-7xl mx-auto">
             <div className="max-w-2xl">
               <h1 className="text-5xl md:text-6xl font-bold mb-6 drop-shadow-lg animate-fade-in">
-                Car Loans <br />
-                <span className="text-ontario-gold">Simplified</span>
+                Great Deals. <br />
+                <span className="text-ontario-gold">Fast Approvals.</span>
               </h1>
               <p className="text-xl md:text-2xl mb-8 max-w-2xl drop-shadow-md font-light animate-fade-in" style={{ animationDelay: "0.2s" }}>
                 Auto loans made easy across Ontario and Quebec – <br />get approved in <span className="font-semibold">minutes</span>.

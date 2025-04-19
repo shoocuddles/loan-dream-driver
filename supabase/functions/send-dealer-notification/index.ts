@@ -10,7 +10,6 @@ const corsHeaders = {
 // Store recent logs in memory for debugging
 const recentLogs: Array<{timestamp: number, level: string, message: string}> = [];
 
-// Enhanced logging function
 function log(level: 'info' | 'error' | 'warn', message: string, data?: any) {
   const logEntry = {
     timestamp: Date.now(),
@@ -19,70 +18,32 @@ function log(level: 'info' | 'error' | 'warn', message: string, data?: any) {
   };
   
   recentLogs.push(logEntry);
-  // Limit log size
-  if (recentLogs.length > 100) {
-    recentLogs.shift();
-  }
+  if (recentLogs.length > 100) recentLogs.shift();
   
-  // Also log to console
-  if (level === 'error') {
-    console.error(message, data);
-  } else if (level === 'warn') {
-    console.warn(message, data);
-  } else {
-    console.log(message, data);
-  }
-}
-
-// Utility function to format name
-function formatNameForEmail(fullName: string): string {
-  // Split the full name into parts
-  const nameParts = fullName.trim().split(' ');
-  
-  // If only one name part exists, return it as-is
-  if (nameParts.length <= 1) return fullName;
-  
-  // Get first name and last initial
-  const firstName = nameParts[0];
-  const lastInitial = nameParts[nameParts.length - 1].charAt(0);
-  
-  return `${firstName} ${lastInitial}.`;
+  console.log(`[${level.toUpperCase()}] ${message}`, data || '');
 }
 
 async function sendEmailWithMailgun(to: string, subject: string, html: string, mailgunSettings: any) {
-  log('info', `Sending email with Mailgun to: ${to}`);
-
-  // Validate Mailgun settings
-  if (!mailgunSettings.api_key || !mailgunSettings.domain) {
-    throw new Error('Missing required Mailgun settings: API key or domain');
-  }
-
-  const fromAddress = `${mailgunSettings.from_name} <${mailgunSettings.from_email}>`;
-  log('info', `Email will be sent from: ${fromAddress}`);
-  
-  // Construct the URL for the Mailgun API request
-  const domain = mailgunSettings.domain;
-  const url = `https://api.mailgun.net/v3/${domain}/messages`;
-  
-  // Create form data
-  const formData = new FormData();
-  formData.append('from', fromAddress);
-  formData.append('to', to);
-  formData.append('subject', subject);
-  formData.append('html', html);
-
-  // Set up authorization headers for Mailgun
-  const apiKey = mailgunSettings.api_key;
-  const authHeader = `Basic ${btoa(`api:${apiKey}`)}`;
-
   try {
-    log('info', `Making request to Mailgun API at ${url}`);
+    log('info', `Preparing to send email to ${to}`);
     
-    // Make the request to Mailgun
+    if (!mailgunSettings.api_key || !mailgunSettings.domain) {
+      throw new Error('Missing required Mailgun settings');
+    }
+
+    const fromAddress = `${mailgunSettings.from_name} <${mailgunSettings.from_email}>`;
+    const url = `https://api.mailgun.net/v3/${mailgunSettings.domain}/messages`;
+    const formData = new FormData();
+    
+    formData.append('from', fromAddress);
+    formData.append('to', to);
+    formData.append('subject', subject);
+    formData.append('html', html);
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': authHeader,
+        'Authorization': `Basic ${btoa(`api:${mailgunSettings.api_key}`)}`
       },
       body: formData
     });
@@ -94,51 +55,61 @@ async function sendEmailWithMailgun(to: string, subject: string, html: string, m
       throw new Error(`Mailgun API error: ${responseData.message || 'Unknown error'}`);
     }
     
-    log('info', "Email sent successfully via Mailgun", responseData);
+    log('info', "Email sent successfully", responseData);
     return responseData;
   } catch (error) {
-    log('error', "Error sending email with Mailgun", error);
+    log('error', "Failed to send email", error);
     throw error;
   }
 }
 
+function formatDate(date: string): string {
+  return new Date(date).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     log('info', "Starting dealer notification function");
-    log('info', `Request source: ${req.headers.get('origin') || 'unknown'}`);
     
-    // Parse request body if present
+    // Parse request body
     let requestBody = {};
     try {
       const bodyText = await req.text();
       if (bodyText) {
-        try {
-          requestBody = JSON.parse(bodyText);
-          log('info', "Request body:", requestBody);
-        } catch (parseError) {
-          log('warn', "Failed to parse request body as JSON:", bodyText);
-          requestBody = {};
-        }
+        requestBody = JSON.parse(bodyText);
+        log('info', "Request body:", requestBody);
       }
     } catch (e) {
-      log('warn', "Could not read request body, continuing anyway");
+      log('warn', "Could not parse request body", e);
     }
     
-    // Initialize Supabase client with service role
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    
-    if (!supabaseUrl || !supabaseKey) {
-      log('error', "Missing Supabase configuration");
-      throw new Error('Missing Supabase configuration');
+    // Initialize Supabase client
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') || '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    );
+
+    // Fetch email template
+    const { data: template, error: templateError } = await supabaseClient
+      .from('email_templates')
+      .select('html_content')
+      .eq('type', 'dealer_notification')
+      .single();
+
+    if (templateError) {
+      log('error', "Error fetching email template", templateError);
+      throw new Error('Failed to fetch email template');
     }
-    
-    const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
     // Fetch Mailgun settings
     const { data: mailgunSettings, error: settingsError } = await supabaseClient
@@ -153,130 +124,55 @@ serve(async (req) => {
       throw new Error('Mailgun settings not configured');
     }
 
-    // Get email template
-    const { data: emailTemplate, error: templateError } = await supabaseClient
-      .from('email_templates')
-      .select('*')
-      .eq('type', 'dealer_notification')
-      .single();
+    // Get new applications that need notifications
+    const { data: applications, error: appsError } = await supabaseClient
+      .rpc('get_new_applications_for_notification');
 
-    if (templateError && templateError.code !== 'PGRST116') {
-      // PGRST116 is "no rows returned", which we can handle with the default template
-      log('error', "Error fetching email template", templateError);
+    if (appsError) {
+      log('error', "Error fetching applications", appsError);
+      throw appsError;
     }
 
-    const emailBody = emailTemplate?.html_content || `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4;">
-        <div style="background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-          <h1 style="color: #2c3e50; text-align: center;">New Vehicle Loan Application</h1>
-          <p style="color: #34495e;">A new vehicle loan application has been received:</p>
-          <div style="background-color: #ecf0f1; padding: 15px; border-radius: 5px;">
-            <p><strong>Name:</strong> {{fullname}}</p>
-            <p><strong>City:</strong> {{city}}</p>
-            <p><strong>Vehicle Type:</strong> {{vehicletype}}</p>
-            <p><strong>Application Date:</strong> {{application_date}}</p>
-          </div>
-          <div style="text-align: center; margin-top: 20px;">
-            <a href="https://ontario-loans.com/dealers" style="
-              display: inline-block; 
-              background-color: #3498db; 
-              color: white; 
-              padding: 12px 24px; 
-              text-decoration: none; 
-              border-radius: 5px; 
-              font-weight: bold;
-              transition: background-color 0.3s ease;
-            ">View Application in Dashboard</a>
-          </div>
-        </div>
-        <p style="text-align: center; color: #7f8c8d; margin-top: 20px;">
-          You can manage email notifications in your dealer profile.
-        </p>
-      </div>
-    `;
+    log('info', `Found ${applications?.length || 0} applications needing notifications`);
 
-    log('info', "Fetching new applications that need notifications");
-    
-    // Check if a specific application ID was provided
-    const specificAppId = requestBody?.application_id;
-    
-    // Modify the query based on whether we have a specific application ID
-    let applications;
-    let applicationsError;
-    
-    if (specificAppId) {
-      log('info', `Fetching specific application: ${specificAppId}`);
-      const result = await supabaseClient
-        .from('applications')
-        .select('id, fullname, city, vehicletype, created_at')
-        .eq('id', specificAppId)
-        .eq('status', 'submitted');
-      
-      applications = result.data;
-      applicationsError = result.error;
-    } else {
-      log('info', "Fetching all applications that need notifications");
-      const result = await supabaseClient
-        .rpc('get_new_applications_for_notification');
-      
-      applications = result.data;
-      applicationsError = result.error;
-    }
-
-    if (applicationsError) {
-      log('error', "Error fetching applications", applicationsError);
-      throw new Error('Error fetching applications');
-    }
-
-    log('info', `Found ${applications?.length || 0} applications that need notifications`);
-
-    // Fetch dealers who want email notifications - EXPLICITLY CHECK email_notifications = true
+    // Get dealers who want notifications
     const { data: dealers, error: dealersError } = await supabaseClient
       .from('user_profiles')
-      .select('id, email')
-      .eq('email_notifications', true)  // Make sure this is exactly true, not null or undefined
+      .select('id, email, full_name')
+      .eq('email_notifications', true)
       .eq('role', 'dealer');
 
     if (dealersError) {
       log('error', "Error fetching dealers", dealersError);
-      throw new Error('Error fetching dealers');
+      throw dealersError;
     }
 
-    log('info', `Found ${dealers?.length || 0} dealers with notifications enabled`);
+    log('info', `Found ${dealers?.length || 0} dealers to notify`);
 
     const results = [];
-    let notificationsSuccessCount = 0;
-    let notificationsErrorCount = 0;
+    const emailTemplate = template?.html_content || '';
 
-    // Send emails to each dealer for new applications
-    for (const dealer of dealers || []) {
-      log('info', `Processing notifications for dealer: ${dealer.id}`);
-      
-      for (const app of applications || []) {
-        log('info', `Sending notification for application ${app.id} to dealer ${dealer.id}`);
-        
-        // Format application date and name
-        const appDate = new Date(app.created_at).toLocaleDateString();
-        const formattedName = formatNameForEmail(app.fullname || 'Not Specified');
-        
-        // Replace placeholders in the email template
-        let personalizedHtml = emailBody
-          .replace(/{{fullname}}/g, formattedName)
-          .replace(/{{city}}/g, app.city || 'Not Specified')
-          .replace(/{{vehicletype}}/g, app.vehicletype || 'Not Specified')
-          .replace(/{{application_date}}/g, appDate);
-
+    // Send notifications for each application to each dealer
+    for (const app of applications || []) {
+      for (const dealer of dealers || []) {
         try {
-          // Send email using Mailgun
+          // Personalize email content
+          let personalizedHtml = emailTemplate
+            .replace(/{{fullname}}/g, app.fullname || 'Not specified')
+            .replace(/{{city}}/g, app.city || 'Not specified')
+            .replace(/{{vehicletype}}/g, app.vehicletype || 'Not specified')
+            .replace(/{{application_date}}/g, formatDate(app.created_at));
+
+          // Send email
           await sendEmailWithMailgun(
             dealer.email,
-            'New Vehicle Loan Application Received',
+            'New Vehicle Loan Application',
             personalizedHtml,
             mailgunSettings
           );
 
           // Record notification
-          const { data: notification, error: notificationError } = await supabaseClient
+          const { error: notificationError } = await supabaseClient
             .from('application_notifications')
             .insert({
               application_id: app.id,
@@ -285,68 +181,54 @@ serve(async (req) => {
 
           if (notificationError) {
             log('error', `Error recording notification for application ${app.id}`, notificationError);
-            notificationsErrorCount++;
+            results.push({
+              success: false,
+              dealer: dealer.email,
+              application: app.id,
+              error: notificationError.message
+            });
           } else {
-            notificationsSuccessCount++;
+            results.push({
+              success: true,
+              dealer: dealer.email,
+              application: app.id
+            });
           }
-
-          results.push({
-            dealer: dealer.email,
-            application: app.id,
-            success: true
-          });
         } catch (error) {
-          notificationsErrorCount++;
-          log('error', `Failed to send notification to ${dealer.email} for application ${app.id}`, error);
-          
-          // Still record the attempt, but mark as not sent successfully
-          try {
-            await supabaseClient
-              .from('application_notifications')
-              .insert({
-                application_id: app.id,
-                email_sent: false
-              });
-          } catch (recordError) {
-            log('error', `Error recording failed notification for application ${app.id}`, recordError);
-          }
-          
+          log('error', `Error processing notification for dealer ${dealer.email}`, error);
           results.push({
+            success: false,
             dealer: dealer.email,
             application: app.id,
-            success: false,
             error: error.message
           });
         }
       }
     }
-    
-    log('info', `Notification process complete. Success: ${notificationsSuccessCount}, Errors: ${notificationsErrorCount}`);
 
-    return new Response(JSON.stringify({ 
-      success: true,
-      results,
-      applicationsProcessed: applications?.length || 0,
-      dealersNotified: dealers?.length || 0,
-      notificationsSuccessCount,
-      notificationsErrorCount,
-      triggerSource: requestBody?.trigger_source || 'unknown',
-      logs: recentLogs.slice(-10) // Include recent logs in the response
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        results,
+        applicationsProcessed: applications?.length || 0,
+        dealersNotified: dealers?.length || 0
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      }
+    );
 
   } catch (error) {
-    log('error', 'Notification error:', error);
+    log('error', "Notification function error:", error);
     return new Response(
       JSON.stringify({ 
         success: false, 
         error: error.message,
-        logs: recentLogs.slice(-20)
+        logs: recentLogs
       }),
       { 
         status: 500, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
   }

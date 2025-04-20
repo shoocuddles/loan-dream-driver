@@ -1,3 +1,4 @@
+
 import { ApplicationForm } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -236,8 +237,6 @@ export const submitApplicationToSupabase = async (application: ApplicationForm, 
             created_at: new Date().toISOString(),
             user_id: null
           };
-          
-          console.log('Sending data to Supabase:', insertData);
           
           const { data, error } = await supabase
             .from('applications')

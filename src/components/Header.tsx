@@ -41,7 +41,8 @@ const Header = () => {
         )}
       </div>
     </header>
-          <!-- Meta Pixel Code -->
+  );
+            <!-- Meta Pixel Code -->
 <script>
 !function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -58,7 +59,6 @@ fbq('track', 'PageView');
 src="https://www.facebook.com/tr?id=1785916508807201&ev=PageView&noscript=1"
 /></noscript>
 <!-- End Meta Pixel Code -->
-  );
 };
 
 export default Header;

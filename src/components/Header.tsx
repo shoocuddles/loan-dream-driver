@@ -11,23 +11,6 @@ const Header = () => {
   
   return (
     <header className="bg-ontario-blue text-white py-4 shadow-md fixed top-0 left-0 right-0 z-50">
-      <!-- Meta Pixel Code -->
-<script>
-!function(f,b,e,v,n,t,s)
-{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-n.queue=[];t=b.createElement(e);t.async=!0;
-t.src=v;s=b.getElementsByTagName(e)[0];
-s.parentNode.insertBefore(t,s)}(window, document,'script',
-'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '1785916508807201');
-fbq('track', 'PageView');
-</script>
-<noscript><img height="1" width="1" style="display:none"
-src="https://www.facebook.com/tr?id=1785916508807201&ev=PageView&noscript=1"
-/></noscript>
-<!-- End Meta Pixel Code -->
       <div className="container mx-auto flex justify-between items-center px-4 md:px-0">
         <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity pl-[75px]">
           <img 
@@ -58,6 +41,23 @@ src="https://www.facebook.com/tr?id=1785916508807201&ev=PageView&noscript=1"
         )}
       </div>
     </header>
+          <!-- Meta Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '1785916508807201');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=1785916508807201&ev=PageView&noscript=1"
+/></noscript>
+<!-- End Meta Pixel Code -->
   );
 };
 

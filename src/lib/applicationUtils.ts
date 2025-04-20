@@ -29,7 +29,7 @@ export const mapFormToDbSchema = (application: ApplicationForm, isDraft = true):
     employment_duration: application.employmentDuration,
     additionalnotes: application.additionalNotes,
     status: application.status,
-    iscomplete: !isDraft
+    iscomplete: application.iscomplete
   };
 };
 

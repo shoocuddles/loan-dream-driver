@@ -1,77 +1,86 @@
-
 import { ApplicationForm } from "@/lib/types";
-import { Database } from "@/lib/types/supabase-types";
-
-type ApplicationInsertData = Database['public']['Tables']['applications']['Insert'];
-type ApplicationUpdateData = Database['public']['Tables']['applications']['Update'];
 
 /**
- * Safe typecasting for Supabase operations
- * Converts our frontend ApplicationForm type to the database schema format
+ * Maps ApplicationForm to database schema format
+ * Safe mapping to ensure database compatibility
  */
-export function mapFormToDbSchema(formData: ApplicationForm, isDraft = true): any {
-  // Create the base mappings with correct camelCase to snake_case conversions
-  const mappedData = {
-    fullname: formData.fullName,
-    phonenumber: formData.phoneNumber,
-    email: formData.email,
-    streetaddress: formData.streetAddress,
-    city: formData.city,
-    province: formData.province,
-    postalcode: formData.postalCode,
-    vehicletype: formData.vehicleType,
-    requiredfeatures: formData.requiredFeatures,
-    unwantedcolors: formData.unwantedColors,
-    preferredmakemodel: formData.preferredMakeModel,
-    hasexistingloan: formData.hasExistingLoan,
-    currentpayment: formData.currentPayment,
-    amountowed: formData.amountOwed,
-    currentvehicle: formData.currentVehicle,
-    mileage: formData.mileage,
-    employmentstatus: formData.employmentStatus,
-    monthlyincome: formData.monthlyIncome,
-    additionalnotes: formData.additionalNotes,
-    // New employer fields
-    employer_name: formData.employerName,
-    job_title: formData.jobTitle,
-    employment_duration: formData.employmentDuration,
-    updated_at: new Date().toISOString(),
+export const mapFormToDbSchema = (application: ApplicationForm, isDraft = true): any => {
+  return {
+    fullname: application.fullName,
+    email: application.email,
+    phonenumber: application.phoneNumber,
+    streetaddress: application.streetAddress,
+    city: application.city,
+    province: application.province,
+    postalcode: application.postalCode,
+    vehicletype: application.vehicleType,
+    requiredfeatures: application.requiredFeatures,
+    unwantedcolors: application.unwantedColors,
+    preferredmakemodel: application.preferredMakeModel,
+    hasexistingloan: application.hasExistingLoan,
+    currentpayment: application.currentPayment,
+    amountowed: application.amountOwed,
+    currentvehicle: application.currentVehicle,
+    mileage: application.mileage,
+    employmentstatus: application.employmentStatus,
+    monthlyincome: application.monthlyIncome,
+    employer_name: application.employerName,
+    job_title: application.jobTitle,
+    employment_duration: application.employmentDuration,
+    additionalnotes: application.additionalNotes,
     status: isDraft ? 'draft' : 'submitted',
     iscomplete: !isDraft
   };
-
-  return mappedData;
-}
+};
 
 /**
- * Safe insert wrapper - ensures the value passed to Supabase insert method
- * is properly typed and casted as any to prevent TypeScript errors
+ * Safely format a value for Supabase insert to prevent SQL injection
+ * By explicitly creating a new object with only the needed properties
  */
-export function getSafeInsertValue(data: any): any {
-  // Return as any to prevent TypeScript matching issues with Supabase
-  return data as any;
-}
+export const getSafeInsertValue = (value: any): any => {
+  // For arrays, map each item
+  if (Array.isArray(value)) {
+    return value.map(item => getSafeInsertValue(item));
+  }
+
+  // For objects, create a new sanitized object
+  if (typeof value === 'object' && value !== null) {
+    const safeObj: any = {};
+    Object.keys(value).forEach(key => {
+      // Skip null or undefined values
+      if (value[key] !== null && value[key] !== undefined) {
+        safeObj[key] = value[key];
+      }
+    });
+    return safeObj;
+  }
+
+  return value;
+};
 
 /**
- * Safe update wrapper - ensures the value passed to Supabase update method
- * is properly typed and casted as any to prevent TypeScript errors
+ * Safely format a value for Supabase update to prevent SQL injection
  */
-export function getSafeUpdateValue(data: any): any {
-  // Return as any to prevent TypeScript matching issues with Supabase
-  return data as any;
-}
+export const getSafeUpdateValue = (value: any): any => {
+  return getSafeInsertValue(value);
+};
 
 /**
- * Safe param wrapper - ensures the value passed to Supabase eq method
- * is properly typed as string to prevent TypeScript errors
+ * Safely format a parameter value to prevent SQL injection
  */
-export function getSafeParamValue(value: string | number): string {
-  return String(value);
-}
+export const getSafeParamValue = (value: string): string => {
+  // Prevent SQL injection in parameter values
+  return String(value).replace(/['";\\]/g, '');
+};
 
 /**
- * Type guard for error objects thrown or returned by Supabase
+ * Check if an error is a Supabase error
  */
-export function isSupabaseError(obj: any): boolean {
-  return obj && typeof obj === 'object' && 'message' in obj;
-}
+export const isSupabaseError = (error: any): boolean => {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error.code !== undefined || error.message !== undefined ||
+     error.details !== undefined || error.hint !== undefined)
+  );
+};

@@ -48,13 +48,13 @@ async function sendEmailWithMailgun(to: string, subject: string, html: string, m
       body: formData
     });
 
-    const responseData = await response.json();
-    
     if (!response.ok) {
+      const responseData = await response.json();
       log('error', "Mailgun API error", { status: response.status, response: responseData });
       throw new Error(`Mailgun API error: ${responseData.message || 'Unknown error'}`);
     }
-    
+
+    const responseData = await response.json();
     log('info', "Email sent successfully", responseData);
     return responseData;
   } catch (error) {
@@ -81,6 +81,12 @@ serve(async (req) => {
   try {
     log('info', "Starting dealer notification function");
     
+    // Initialize Supabase client
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') || '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    );
+
     // Parse request body
     let requestBody = {};
     try {
@@ -92,14 +98,22 @@ serve(async (req) => {
     } catch (e) {
       log('warn', "Could not parse request body", e);
     }
-    
-    // Initialize Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    );
 
-    // Fetch email template
+    // Get all dealers with email notifications enabled
+    const { data: dealers, error: dealersError } = await supabaseClient
+      .from('user_profiles')
+      .select('email, full_name')
+      .eq('role', 'dealer')
+      .eq('email_notifications', true);
+
+    if (dealersError) {
+      log('error', "Error fetching dealers", dealersError);
+      throw dealersError;
+    }
+
+    log('info', `Found ${dealers?.length || 0} dealers to notify`);
+
+    // Get email template
     const { data: template, error: templateError } = await supabaseClient
       .from('email_templates')
       .select('html_content')
@@ -111,7 +125,7 @@ serve(async (req) => {
       throw new Error('Failed to fetch email template');
     }
 
-    // Fetch Mailgun settings
+    // Get Mailgun settings
     const { data: mailgunSettings, error: settingsError } = await supabaseClient
       .from('mailgun_settings')
       .select('*')
@@ -134,20 +148,6 @@ serve(async (req) => {
     }
 
     log('info', `Found ${applications?.length || 0} applications needing notifications`);
-
-    // Get dealers who want notifications
-    const { data: dealers, error: dealersError } = await supabaseClient
-      .from('user_profiles')
-      .select('id, email, full_name')
-      .eq('email_notifications', true)
-      .eq('role', 'dealer');
-
-    if (dealersError) {
-      log('error', "Error fetching dealers", dealersError);
-      throw dealersError;
-    }
-
-    log('info', `Found ${dealers?.length || 0} dealers to notify`);
 
     const results = [];
     const emailTemplate = template?.html_content || '';
@@ -211,7 +211,8 @@ serve(async (req) => {
         success: true,
         results,
         applicationsProcessed: applications?.length || 0,
-        dealersNotified: dealers?.length || 0
+        dealersNotified: dealers?.length || 0,
+        logs: recentLogs
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" }

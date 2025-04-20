@@ -28,7 +28,7 @@ export const mapFormToDbSchema = (application: ApplicationForm, isDraft = true):
     job_title: application.jobTitle,
     employment_duration: application.employmentDuration,
     additionalnotes: application.additionalNotes,
-    status: isDraft ? 'draft' : 'submitted',
+    status: application.status,
     iscomplete: !isDraft
   };
 };
